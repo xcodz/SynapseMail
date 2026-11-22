@@ -1,0 +1,39 @@
+<roundcube:include file="includes/layout.html" />
+<roundcube:object name="mailboxlist" folder_filter="mail" type="js" />
+<roundcube:if condition="env:framed && !env:extwin" />
+	<roundcube:include file="includes/reader-body.html" />
+<roundcube:else />
+<div class="app-shell" id="appShell">
+	<roundcube:include file="includes/header.html" />
+	<aside class="mail-sidebar" aria-label="<roundcube:label name="synapse_core.mailfolders" />">
+		<roundcube:button command="compose" type="link" class="compose-btn" data-icon="square-pen" data-label="synapse_core.composemail_caps" data-wrap="span" />
+		<nav class="folder-nav" aria-label="<roundcube:label name="mail" />">
+			<roundcube:button command="list" type="link" class="folder-link active" data-icon="arrow-left" data-label="synapse_core.backtolist" data-wrap="span" />
+		</nav>
+	</aside>
+	<main class="mail-stage reader-active reader-full" id="mailStage">
+		<section class="status-strip" aria-label="<roundcube:label name="synapse_core.systemstatus" />">
+			<div><span class="live-tag"><roundcube:label name="synapse_core.live" /></span><strong><roundcube:exp expression="strtoupper(config:product_name)" /> <roundcube:label name="synapse_core.securecloud" /></strong><em>//</em><span><roundcube:label name="synapse_core.messageview_caps" /></span></div>
+			<div><span id="localClock">00:00:00</span></div>
+		</section>
+		<section class="reader-pane" id="readerDrawer" aria-label="<roundcube:label name="synapse_core.messagereader" />">
+			<div class="reader-header">
+				<roundcube:button command="list" type="link" title="back" data-icon="panel-right-close" />
+				<span id="readerClass"><roundcube:label name="synapse_core.encryptedverified" /></span>
+				<div>
+					<roundcube:button command="previousmessage" type="link" title="previousmessage" data-icon="chevron-left" />
+					<roundcube:button command="nextmessage" type="link" title="nextmessage" data-icon="chevron-right" />
+					<roundcube:if condition="env:archive_folder" />
+					<roundcube:button command="plugin.archive" type="link" title="archive.buttontitle" data-icon="archive" />
+					<roundcube:endif />
+					<roundcube:button command="delete" type="link" title="deletemessage" data-icon="trash-2" />
+					<roundcube:button command="print" type="link" title="print" data-icon="printer" />
+				</div>
+			</div>
+			<roundcube:include file="includes/reader-body.html" />
+		</section>
+	</main>
+</div>
+<roundcube:include file="includes/compose-drawer.html" />
+<roundcube:endif />
+<roundcube:include file="includes/footer.html" />

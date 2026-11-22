@@ -1,0 +1,16 @@
+# per-install and local files: never commit
+config/synapse.inc.php
+config/installed.lock
+config/config.local.inc.php
+config/*.tmp
+setup.key
+db/*.db
+db/*.db-*
+db/*.tmp
+db/install-probe.txt
+logs/*
+!logs/.htaccess
+temp/*
+!temp/.htaccess
+.DS_Store
+config/ADMIN-URL.txt

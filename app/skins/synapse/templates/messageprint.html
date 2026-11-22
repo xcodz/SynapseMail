@@ -1,0 +1,9 @@
+<roundcube:include file="includes/layout.html" />
+<div class="print-sheet">
+	<div class="print-brand">SYNAPSEMAIL // <roundcube:object name="productname" /></div>
+	<h1><roundcube:object name="messageHeaders" valueOf="subject" /></h1>
+	<roundcube:object name="messageHeaders" class="headers-table" exclude="subject" max="10" />
+	<roundcube:object name="messageAttachments" id="attachment-list" class="reader-attachments" />
+	<roundcube:object name="messageBody" id="messagebody" headertableclass="headers-table" />
+</div>
+<roundcube:include file="includes/footer.html" />

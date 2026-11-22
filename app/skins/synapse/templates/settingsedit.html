@@ -1,0 +1,12 @@
+<roundcube:include file="includes/layout.html" />
+<div class="reader-body settings-body">
+	<div class="reader-kicker"><roundcube:label name="synapse_core.settings_caps" /> // <roundcube:exp expression="str_replace('PREFS', 'PREFERENCES', strtoupper(preg_replace('/^(edit|add)-/', '', env:action)))" /></div>
+	<h1><roundcube:object name="sectionname" /></h1>
+	<div class="settings-form">
+		<roundcube:object name="userprefs" form="form" class="propform" />
+	</div>
+	<div class="reader-actions settings-actions">
+		<roundcube:button command="save" type="link" class="solid-btn" data-icon="save" data-label="synapse_core.save_caps" />
+	</div>
+</div>
+<roundcube:include file="includes/footer.html" />

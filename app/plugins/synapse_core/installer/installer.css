@@ -1,0 +1,86 @@
+/*!
+ * SynapseMail
+ * Copyright (c) 2026 SynapseCyber.io. All rights reserved.
+ * Developed by Milad Ahmadipour (https://milad.io).
+ *
+ * Licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+ * International License (CC BY-NC-ND 4.0). You may use and share it free of charge
+ * with attribution. You may not modify it, distribute modified versions, or sell it.
+ * https://creativecommons.org/licenses/by-nc-nd/4.0/
+ */
+
+/* Installer glue: built only from the template's login.css tokens and shapes. */
+.setup-page .auth-shell { opacity: 1; transform: none; padding-bottom: 0; }
+.setup-page .boot-log div { opacity: 1; transform: none; }
+.setup-page .mission-brief > * { opacity: 1; transform: none; }
+.setup-steps { max-width: 420px; margin-top: 26px; }
+.setup-steps div.ok b { color: var(--accent); }
+.setup-steps div.active span { color: var(--text); }
+.setup-steps div.wait { opacity: .55; }
+
+.setup-body { display: grid; gap: 14px; padding-bottom: 22px; }
+.setup-form { display: grid; gap: 14px; }
+.setup-lead { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.setup-hint { margin: 0; color: var(--dim); font: 400 10px/1.7 IBM Plex Mono, monospace; }
+.setup-lead code, .setup-hint code, .setup-note code { color: var(--accent); font: 500 11px IBM Plex Mono, monospace; }
+.setup-code { padding: 14px 16px; border: 1px dashed var(--line-strong); background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--accent); font: 600 20px IBM Plex Mono, monospace; letter-spacing: .12em; text-align: center; user-select: all; }
+.setup-note { padding: 16px; border: 1px solid var(--line); border-left: 3px solid var(--amber); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font-size: 13px; line-height: 1.65; }
+.setup-note.ok { border-left-color: var(--accent); }
+.setup-note b { color: var(--text); display: block; margin-bottom: 6px; font: 600 15px Barlow Condensed, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.setup-note p { margin: 0 0 8px; }
+.setup-link { text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.setup-error.visible { grid-template-columns: 1fr; } /* no icon: text takes the full width */
+
+.checks { display: grid; max-height: 330px; overflow-y: auto; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 70%, transparent); scrollbar-width: thin; }
+.check { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "label state" "detail state"; gap: 2px 12px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.check:last-child { border-bottom: 0; }
+.check span { grid-area: label; color: var(--text); font-size: 12px; }
+.check small { grid-area: detail; color: var(--dim); font: 400 9px/1.5 IBM Plex Mono, monospace; }
+.check b { grid-area: state; align-self: center; font: 600 9px IBM Plex Mono, monospace; letter-spacing: .1em; }
+.check.pass b { color: var(--accent); }
+.check.warn b { color: var(--amber); }
+.check.fail b { color: var(--red); }
+.check.fail span { color: var(--red); }
+.check.pending b { color: var(--dim); }
+
+.setup-custom { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 8px; }
+.setup-custom input, .setup-select, .setup-input input { height: 40px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--text); padding: 0 12px; outline: 0; font: 13px Inter, system-ui, sans-serif; width: 100%; }
+.setup-custom button, .setup-text-btn { height: 40px; padding: 0 14px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); font: 600 9px IBM Plex Mono, monospace; letter-spacing: .1em; cursor: pointer; }
+.setup-custom button:hover, .setup-text-btn:hover { color: var(--accent); border-color: var(--accent); }
+.setup-text-btn { justify-self: start; height: auto; padding: 6px 10px; border-color: transparent; }
+.setup-select option { background: var(--bg-soft); }
+.setup-input { grid-template-columns: 1fr; padding: 0; }
+.setup-input input { border: 0; height: 50px; background: transparent; }
+
+.setup-qr { justify-self: center; padding: 10px; background: #fff; line-height: 0; }
+.setup-qr img { width: 200px; height: 200px; image-rendering: pixelated; }
+.setup-secret { word-break: break-all; }
+.setup-codes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.setup-codes code { padding: 9px; border: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 5%, transparent); color: var(--text); font: 600 13px IBM Plex Mono, monospace; letter-spacing: .12em; text-align: center; }
+.setup-check { display: flex; align-items: center; gap: 10px; color: var(--muted); font: 600 9px IBM Plex Mono, monospace; letter-spacing: .1em; cursor: pointer; }
+
+@media (max-width: 900px) { .setup-page .login-stage { grid-template-columns: 1fr; } .setup-steps { display: none; } }
+
+/* secure-transit background (skins/synapse/hud.js) instead of the template's CSS layers */
+.secure-field { position: absolute; inset: 0; pointer-events: none; }
+.atmosphere.field-on .grid-plane, .atmosphere.field-on .topo-map, .atmosphere.field-on .scanline { display: none; }
+
+/* finished install: admin address + links that unlock once it is saved */
+.setup-url { font-size: 13px; letter-spacing: .02em; word-break: break-all; text-transform: none; }
+.setup-link.is-locked { opacity: .35; pointer-events: auto; cursor: not-allowed; filter: grayscale(.6); }
+
+/* SynapseMail dropdown (installer.js uiSelect): replaces the OS menu, the native select stays for the form */
+.ui-select { position: relative; }
+.ui-select-native { position: absolute; left: 50%; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.ui-select-btn { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--text); font: 500 12px IBM Plex Mono, monospace; text-align: left; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.ui-select-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-select-btn i { flex: none; width: 7px; height: 7px; margin-top: -4px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
+.ui-select-btn:hover, .ui-select.open .ui-select-btn, .ui-select-btn:focus-visible { border-color: var(--accent); outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent); }
+.ui-select.open .ui-select-btn i { transform: rotate(-135deg); margin-top: 3px; border-color: var(--accent); }
+.ui-select-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ui-select-menu { position: fixed; z-index: 1000; max-height: 300px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--line-strong); background: var(--bg-soft); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); scrollbar-width: thin; }
+.ui-select-menu li { padding: 10px 12px 10px 28px; position: relative; color: var(--muted); font: 500 12px IBM Plex Mono, monospace; cursor: pointer; outline: 0; }
+.ui-select-menu li:hover, .ui-select-menu li:focus { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+.ui-select-menu li[aria-selected="true"] { color: var(--accent); }
+.ui-select-menu li[aria-selected="true"]::before { content: ""; position: absolute; left: 11px; top: 50%; width: 4px; height: 8px; margin-top: -6px; border-right: 1.5px solid var(--accent); border-bottom: 1.5px solid var(--accent); transform: rotate(45deg); }
+.ui-select-menu li[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }

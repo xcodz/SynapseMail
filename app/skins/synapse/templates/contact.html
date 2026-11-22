@@ -1,0 +1,16 @@
+<roundcube:include file="includes/layout.html" />
+<div class="reader-body settings-body contact-body">
+	<div class="reader-kicker"><roundcube:label name="synapse_core.contactprofile_kicker" /></div>
+	<div class="reader-meta contact-meta">
+		<div class="contact-photo"><roundcube:object name="contactphoto" id="contactpic" placeholder="/images/contactpic.svg" placeholderGroup="/images/contactgroup.svg" /></div>
+		<roundcube:object name="contacthead" id="contacthead" class="contact-head" with-source="true" />
+	</div>
+	<div class="settings-form contact-details">
+		<roundcube:object name="contactdetails" fieldset-class="propform" short-legend-labels="true" />
+	</div>
+	<div class="reader-actions settings-actions">
+		<roundcube:button command="edit" type="link" class="solid-btn" data-icon="pencil" data-label="synapse_core.edit_caps" condition="!ENV:readonly" />
+		<roundcube:button command="compose" type="link" data-icon="square-pen" data-label="synapse_core.writeemail_caps" />
+	</div>
+</div>
+<roundcube:include file="includes/footer.html" />

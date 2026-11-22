@@ -1,0 +1,56 @@
+<roundcube:if condition="!env:framed || env:extwin" />
+<section class="theme-popover" id="themePopover" aria-label="<roundcube:label name="synapse_core.interfacethemes" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.colortheme_caps" /></span><small><roundcube:label name="synapse_core.chooseappearance" /></small></div>
+	<button class="theme-choice active" data-theme="warfare"><i class="theme-swatch warfare"></i><span><b><roundcube:label name="synapse_core.theme_warfare" /></b><small><roundcube:label name="synapse_core.theme_warfare_desc" /></small></span><em>01</em></button>
+	<button class="theme-choice" data-theme="blackops"><i class="theme-swatch blackops"></i><span><b><roundcube:label name="synapse_core.theme_blackops" /></b><small><roundcube:label name="synapse_core.theme_blackops_desc" /></small></span><em>02</em></button>
+	<button class="theme-choice" data-theme="night"><i class="theme-swatch night"></i><span><b><roundcube:label name="synapse_core.theme_night" /></b><small><roundcube:label name="synapse_core.theme_night_desc" /></small></span><em>03</em></button>
+	<button class="theme-choice" data-theme="agency"><i class="theme-swatch agency"></i><span><b><roundcube:label name="synapse_core.theme_agency" /></b><small><roundcube:label name="synapse_core.theme_agency_desc" /></small></span><em>04</em></button>
+</section>
+
+<section class="theme-popover account-popover" id="accountPopover" aria-label="<roundcube:label name="synapse_core.account" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.account_caps" /></span><small><roundcube:object name="username" /></small></div>
+	<roundcube:button command="settings" type="link" class="theme-choice" data-icon="settings" data-label="synapse_core.settings_caps" data-detail="synapse_core.settings_desc" data-key="01" />
+	<roundcube:button command="addressbook" type="link" class="theme-choice" data-icon="contact-round" data-label="synapse_core.contacts_caps" data-detail="synapse_core.contacts_desc" data-key="02" />
+	<a class="theme-choice" href="#about" onclick="return UI.about()"><i data-lucide="info"></i><span><b><roundcube:label name="synapse_core.about_caps" /></b><small><roundcube:object name="productname" /></small></span><em>03</em></a>
+	<roundcube:button command="logout" type="link" class="theme-choice" data-icon="log-out" data-label="synapse_core.signout_caps" data-detail="synapse_core.signout_desc" data-key="04" />
+</section>
+
+<section class="command-palette" id="commandPalette" aria-label="<roundcube:label name="synapse_core.quickactions" />" aria-hidden="true">
+	<div class="command-shell">
+		<div class="command-input-wrap"><i data-lucide="square-terminal"></i><input id="commandInput" type="text" autocomplete="off" placeholder="<roundcube:label name="synapse_core.palette_placeholder" />"><kbd>ESC</kbd></div>
+		<div class="command-hint"><span><roundcube:label name="synapse_core.quickactions_caps" /></span><small><roundcube:label name="synapse_core.palette_hint" /></small></div>
+		<div class="command-list" id="commandList" role="listbox"></div>
+		<div class="command-footer"><span><kbd>⌘</kbd><kbd>K</kbd> <roundcube:label name="synapse_core.toggle_caps" /></span><span><roundcube:object name="productname" /> // <roundcube:object name="username" /></span></div>
+	</div>
+</section>
+
+<div class="scrim" id="scrim"></div>
+<a class="template-credit" href="https://synapsecyber.io" target="_blank" rel="noopener noreferrer"><roundcube:label name="synapse_core.poweredby" /> · v<roundcube:var name="env:synapse_version" /></a>
+
+<section class="compose-drawer synapse-dialog about-dialog" id="aboutDialog" aria-label="<roundcube:label name="synapse_core.aboutsynapsemail" />" aria-hidden="true">
+	<div class="drawer-header">
+		<div><span><roundcube:label name="synapse_core.sysinfo" /></span><h2><roundcube:label name="synapse_core.about_caps" /></h2></div>
+		<div><button type="button" onclick="return UI.about(false)" aria-label="<roundcube:label name="close" />"><i data-lucide="x"></i></button></div>
+	</div>
+	<div class="about-scroll"><roundcube:include file="includes/about-content.html" /></div>
+</section>
+<roundcube:endif />
+<div class="toast" id="toast" role="status" aria-live="polite"><i data-lucide="circle-check"></i><span></span></div>
+<roundcube:object name="message" id="messagestack" />
+<roundcube:add_label name="close" />
+<roundcube:add_label name="restore" />
+<roundcube:add_label name="back" />
+<roundcube:add_label name="email" />
+<roundcube:add_label name="inbox" />
+<roundcube:add_label name="contacts" />
+<roundcube:add_label name="settings" />
+<roundcube:add_label name="identities" />
+<roundcube:add_label name="managefolders" />
+<roundcube:add_label name="currentfolder" />
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/vendor/qrcode.js"></script>
+<script src="/ui.js"></script>
+<script src="/hud.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "lexical-src",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "esbuild src/index.js --bundle --minify --format=iife --target=es2019 --define:process.env.NODE_ENV='\"production\"' --legal-comments=eof --banner:js='/*! SynapseMail editor bundle. Copyright (c) 2026 SynapseCyber.io, developed by Milad Ahmadipour. CC BY-NC-ND 4.0. Includes Lexical (c) Meta Platforms, Inc. and affiliates, MIT License. */' --outfile=../app/plugins/synapse_editor/lexical.bundle.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@lexical/history": "^0.52.0",
+    "@lexical/html": "^0.52.0",
+    "@lexical/link": "^0.52.0",
+    "@lexical/list": "^0.52.0",
+    "@lexical/rich-text": "^0.52.0",
+    "@lexical/selection": "^0.52.0",
+    "@lexical/utils": "^0.52.0",
+    "esbuild": "^0.28.2",
+    "lexical": "^0.52.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

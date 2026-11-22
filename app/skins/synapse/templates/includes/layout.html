@@ -1,0 +1,32 @@
+<roundcube:object name="doctype" value="html5" />
+<!--
+  SynapseMail
+  Copyright (c) 2026 SynapseCyber.io. All rights reserved.
+  Developed by Milad Ahmadipour (https://milad.io).
+
+  Licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+  International License (CC BY-NC-ND 4.0). You may use and share it free of charge
+  with attribution. You may not modify it, distribute modified versions, or sell it.
+  https://creativecommons.org/licenses/by-nc-nd/4.0/
+-->
+<roundcube:if condition="!env:framed || env:extwin" />
+<html lang="en" data-theme="agency">
+<roundcube:else />
+<html lang="en" data-theme="agency" class="iframe">
+<roundcube:endif />
+<head>
+	<roundcube:object name="meta" />
+	<roundcube:object name="links" />
+	<script>try { var m = /(?:^|;\s*)synapsemail_theme2=([a-z]+)/.exec(document.cookie); document.documentElement.dataset.theme = (m && m[1]) || localStorage.getItem('synapsemail-theme2') || 'agency'; } catch (e) { }
+	// core compose redirects to ?_id=… and drops _framed: restore it when running inside the compose drawer
+	try { if (window.parent !== window && parent.UI && /[?&]_action=compose\b/.test(location.search) && !/[?&]_framed=1/.test(location.search)) location.replace(location.href + '&_framed=1'); } catch (e) { }</script>
+	<link rel="icon" type="image/svg+xml" href="/assets/synapse-cyber-logo.svg">
+	<link rel="stylesheet" href="/vendor/fonts.css">
+	<roundcube:if condition="template:name == 'login' || template:name == 'logout'" />
+		<link rel="stylesheet" href="/login.css">
+	<roundcube:else />
+		<link rel="stylesheet" href="/styles.css">
+	<roundcube:endif />
+	<link rel="stylesheet" href="/synapse.css">
+</head>
+<body class="task-<roundcube:exp expression="env:error_task ?: env:task ?: 'error'"> action-<roundcube:exp expression="asciiwords(env:action, true, '-') ?: 'none'"><roundcube:exp expression="env:framed && !env:extwin ? ' framed' : ''"><roundcube:exp expression="env:task == 'login' ? ' booting' : ''">">

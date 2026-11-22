@@ -1,0 +1,14 @@
+<section class="compose-drawer" id="composeDrawer" aria-label="<roundcube:label name="synapse_core.newemail" />" aria-hidden="true">
+	<div class="drawer-header">
+		<div><span id="composeKicker"><roundcube:label name="synapse_core.kicker_new" /></span><h2 id="composeTitle"><roundcube:label name="synapse_core.composemail_caps" /></h2></div>
+		<div><button id="minimizeCompose" aria-label="<roundcube:label name="synapse_core.minimize" />" title="<roundcube:label name="synapse_core.minimize" />"><i data-lucide="minus"></i></button><button id="expandCompose" aria-label="<roundcube:label name="synapse_core.expand" />" title="<roundcube:label name="synapse_core.expand" />"><i data-lucide="maximize-2"></i></button><button id="closeCompose" aria-label="<roundcube:label name="close" />" title="<roundcube:label name="close" />"><i data-lucide="x"></i></button></div>
+	</div>
+	<div class="compose-loader" aria-hidden="true">
+		<div class="scan-emblem"><div></div><span><i data-lucide="mail-plus"></i></span></div>
+		<span class="processing-kicker"><roundcube:label name="synapse_core.securechannel" /></span>
+		<strong><roundcube:label name="synapse_core.preparingcomposer" /></strong>
+		<div class="progress-track"><i></i></div>
+		<small><roundcube:label name="synapse_core.loadingeditor" /></small>
+	</div>
+	<iframe id="composeFrame" name="composeFrame" title="<roundcube:label name="synapse_core.composemail" />" src="about:blank"></iframe>
+</section>

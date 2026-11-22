@@ -1,0 +1,47 @@
+<div class="tactical-atmosphere" aria-hidden="true">
+	<div class="topo-field"></div>
+	<div class="radar-field"><i></i><i></i><i></i><span></span></div>
+</div>
+<div class="noise" aria-hidden="true"></div>
+<header class="topbar">
+	<div class="brand-zone">
+		<button class="icon-btn menu-toggle" id="menuToggle" aria-label="<roundcube:label name="synapse_core.togglenav" />" title="<roundcube:label name="synapse_core.togglenav" />">
+			<i data-lucide="menu"></i>
+		</button>
+		<a class="brand" href="./?_task=mail&amp;_mbox=INBOX" aria-label="<roundcube:label name="synapse_core.homelink" />">
+			<span class="brand-mark" aria-hidden="true"></span>
+			<span class="brand-copy"><strong>SynapseMail</strong><small><roundcube:label name="synapse_core.tagline" /></small></span>
+		</a>
+	</div>
+
+	<form class="search-command" id="searchForm" role="search" onsubmit="return UI.search()">
+		<i data-lucide="search" aria-hidden="true"></i>
+		<roundcube:if condition="env:task == 'mail'" />
+			<roundcube:object name="searchform" id="searchInput" form="searchForm" autocomplete="off" placeholder="Search secure mail" aria-label="Search messages" />
+		<roundcube:elseif condition="env:task == 'addressbook'" />
+			<roundcube:object name="searchform" id="searchInput" form="searchForm" autocomplete="off" placeholder="Search contacts" aria-label="Search contacts" />
+		<roundcube:else />
+			<input id="searchInput" type="search" autocomplete="off" placeholder="<roundcube:label name="synapse_core.searchsettings" />" aria-label="<roundcube:label name="synapse_core.searchsettings" />">
+		<roundcube:endif />
+		<kbd>/</kbd>
+		<roundcube:if condition="env:task == 'mail'" />
+			<button class="search-filter" id="searchOptionsButton" type="button" aria-label="<roundcube:label name="synapse_core.searchoptions" />" title="<roundcube:label name="synapse_core.searchoptions" />"><i data-lucide="sliders-horizontal"></i></button>
+		<roundcube:endif />
+	</form>
+
+	<div class="header-actions">
+		<div class="network-state"><span class="pulse-dot"></span><span><roundcube:label name="synapse_core.netmail" /></span><strong><roundcube:label name="synapse_core.secure" /></strong></div>
+		<button class="icon-btn" id="themeMenuButton" aria-label="<roundcube:label name="synapse_core.choosetheme" />" title="<roundcube:label name="synapse_core.interfacetheme" />"><i data-lucide="scan-eye"></i></button>
+		<button class="icon-btn" id="settingsButton" aria-label="<roundcube:label name="synapse_core.quickactions" />" title="<roundcube:label name="synapse_core.quickactions" />"><i data-lucide="settings"></i></button>
+		<button class="avatar" id="avatarButton" aria-label="<roundcube:label name="synapse_core.accountmenu" />" title="<roundcube:object name="username" />"><span id="avatarInitials"></span><b></b></button>
+	</div>
+</header>
+
+<aside class="app-rail" aria-label="<roundcube:label name="synapse_core.workspaceapps" />">
+	<roundcube:button command="mail" type="link" class="rail-item" classSel="rail-item active" title="mail" data-icon="mail" data-badge="railUnread" />
+	<roundcube:button command="addressbook" type="link" class="rail-item" classSel="rail-item active" title="contacts" data-icon="contact-round" />
+	<roundcube:button command="settings" type="link" class="rail-item" classSel="rail-item active" title="settings" data-icon="settings" />
+	<roundcube:container name="taskbar" id="taskbar" />
+	<div class="rail-spacer"></div>
+	<div class="rail-code" id="railIp" title="<roundcube:label name="synapse_core.youripaddress" />">SM</div>
+</aside>

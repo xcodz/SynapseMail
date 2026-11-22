@@ -1,0 +1,32 @@
+<roundcube:include file="includes/layout.html" />
+<div class="app-shell" id="appShell">
+	<roundcube:include file="includes/header.html" />
+	<roundcube:include file="includes/settings-nav.html" />
+	<main class="mail-stage reader-active settings-stage" id="mailStage">
+		<section class="status-strip" aria-label="<roundcube:label name="synapse_core.systemstatus" />">
+			<div><span class="live-tag"><roundcube:label name="synapse_core.live" /></span><strong><roundcube:label name="settings" /></strong><em>//</em><span><roundcube:label name="identities" /></span></div>
+			<div><span id="localClock">00:00:00</span></div>
+		</section>
+		<section class="inbox-panel settings-list-panel" aria-label="<roundcube:label name="synapse_core.aria_identities" />">
+			<div class="mail-toolbar">
+				<div class="toolbar-left"><span class="panel-title"><roundcube:label name="identities" /></span></div>
+				<div class="toolbar-right">
+					<roundcube:button command="add" type="link" class="tool-btn" title="newidentity" data-icon="plus" condition="config:identities_level:0<2" />
+					<roundcube:button command="delete" type="link" class="tool-btn" title="delete" data-icon="trash-2" condition="config:identities_level:0<2" />
+				</div>
+			</div>
+			<div class="message-list settings-list">
+				<roundcube:object name="identitieslist" id="identities-table" class="rc-list" noheader="true" />
+			</div>
+		</section>
+		<section class="reader-pane" aria-label="<roundcube:label name="details" />">
+			<div class="reader-header">
+				<span id="settingsTitle"><roundcube:label name="synapse_core.edit_caps" /> // <roundcube:label name="identities" /></span>
+				<div><button type="button" title="<roundcube:label name="save" />" onclick="return UI.frameCommand('save')"><i data-lucide="save"></i></button></div>
+			</div>
+			<roundcube:object name="contentframe" id="preferences-frame" name="preferences-frame" class="reader-frame" src="env:blankpage" />
+		</section>
+	</main>
+	<roundcube:include file="includes/utility-rail.html" />
+</div>
+<roundcube:include file="includes/footer.html" />

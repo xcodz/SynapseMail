@@ -1,0 +1,19 @@
+<roundcube:include file="includes/layout.html" />
+<roundcube:if condition="env:framed && !env:extwin" />
+<div class="reader-body settings-body">
+	<div class="reader-kicker"><roundcube:label name="synapse_core.settings_caps" /> // <roundcube:exp expression="strtoupper(env:action)" /></div>
+	<h1><roundcube:object name="plugin.pagetitle" /></h1>
+	<div class="settings-form"><roundcube:object name="plugin.body" /></div>
+</div>
+<roundcube:else />
+<div class="app-shell" id="appShell">
+	<roundcube:include file="includes/header.html" />
+	<roundcube:include file="includes/settings-nav.html" />
+	<main class="mail-stage reader-active reader-full settings-stage" id="mailStage">
+		<section class="status-strip" aria-label="<roundcube:label name="synapse_core.systemstatus" />"><div><span class="live-tag"><roundcube:label name="synapse_core.live" /></span><strong><roundcube:label name="settings" /></strong></div><div><span id="localClock">00:00:00</span></div></section>
+		<section class="reader-pane"><div class="reader-body settings-body"><h1><roundcube:object name="plugin.pagetitle" /></h1><div class="settings-form"><roundcube:object name="plugin.body" /></div></div></section>
+	</main>
+	<roundcube:include file="includes/utility-rail.html" />
+</div>
+<roundcube:endif />
+<roundcube:include file="includes/footer.html" />

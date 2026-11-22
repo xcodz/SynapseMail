@@ -1,0 +1,59 @@
+<roundcube:object name="composeFormHead" class="compose-form-head" />
+<div class="compose-scroll" id="composeScroll">
+	<roundcube:object name="composeObjects" id="compose-objects" />
+	<label id="compose_from"><span><roundcube:label name="from" /></span><roundcube:object name="composeHeaders" part="from" id="_from" form="form" tabindex="1" class="compose-select" /></label>
+	<label id="compose_to"><span><roundcube:label name="to" /></span>
+		<span class="compose-field"><roundcube:object name="composeHeaders" part="to" id="_to" form="form" tabindex="1" aria-required="true" placeholder="name@example.com" />
+			<span class="compose-addons">
+				<button type="button" data-header="cc" onclick="return SynapseCompose.toggle('cc')"><roundcube:label name="synapse_core.cc_caps" /></button><button type="button" data-header="bcc" onclick="return SynapseCompose.toggle('bcc')"><roundcube:label name="synapse_core.bcc_caps" /></button><button type="button" data-header="replyto" onclick="return SynapseCompose.toggle('replyto')"><roundcube:label name="synapse_core.replyto_caps" /></button>
+			</span>
+		</span>
+	</label>
+	<label id="compose_cc" class="hidden"><span><roundcube:label name="cc" /></span><roundcube:object name="composeHeaders" part="cc" id="_cc" form="form" tabindex="1" /></label>
+	<label id="compose_bcc" class="hidden"><span><roundcube:label name="bcc" /></span><roundcube:object name="composeHeaders" part="bcc" id="_bcc" form="form" tabindex="1" /></label>
+	<label id="compose_replyto" class="hidden"><span><roundcube:label name="replyto" /></span><roundcube:object name="composeHeaders" part="replyto" id="_replyto" form="form" tabindex="1" /></label>
+	<label id="compose_followupto" class="hidden"><span><roundcube:label name="followupto" /></span><roundcube:object name="composeHeaders" part="followupto" id="_followupto" form="form" tabindex="1" /></label>
+	<label id="compose_subject"><span><roundcube:label name="subject" /></span><roundcube:object name="composeSubject" id="compose-subject" form="form" tabindex="1" placeholder="Email subject" /></label>
+
+	<div class="compose-body" id="composebodycontainer">
+		<roundcube:object name="composeBody" id="composebody" form="form" cols="70" rows="12" tabindex="1" placeholder="Write your message…" />
+	</div>
+
+	<div class="compose-attachments" id="compose-attachments">
+		<roundcube:object name="composeAttachmentList" id="attachment-list" class="reader-attachments compose-attachment-list" />
+		<roundcube:object name="fileDropArea" id="compose-attachments" />
+	</div>
+
+	<div class="compose-options" id="composeOptions" hidden>
+		<label><span><roundcube:label name="priority" /></span><roundcube:object name="prioritySelector" id="compose-priority" noform="true" class="compose-select" /></label>
+		<label><span><roundcube:label name="savesentmessagein" /></span><roundcube:object name="storetarget" id="compose-store-target" noform="true" class="compose-select" /></label>
+		<label class="compose-check"><span><roundcube:label name="returnreceipt" /></span><span class="secure-option"><roundcube:object name="mdnCheckBox" id="compose-mdn" noform="true" /><span class="tactical-check"><span></span></span><roundcube:label name="synapse_core.request_caps" /></span></label>
+		<label class="compose-check"><span><roundcube:label name="dsn" /></span><span class="secure-option"><roundcube:object name="dsnCheckBox" id="compose-dsn" noform="true" /><span class="tactical-check"><span></span></span><roundcube:label name="synapse_core.notify_caps" /></span></label>
+		<roundcube:container name="composeoptions" id="compose-options" />
+	</div>
+</div>
+<div class="compose-footer">
+	<div class="compose-footer-left">
+		<button class="attach-btn" type="button" onclick="return rcmail.upload_input('uploadform')"><i data-lucide="paperclip"></i> <roundcube:label name="synapse_core.attach_caps" /></button>
+		<roundcube:button command="savedraft" type="link" class="attach-btn" title="savemessage" data-icon="save" data-label="synapse_core.draft_caps" />
+		<roundcube:button command="insert-sig" type="link" class="attach-btn icon-only" title="insertsignature" data-icon="signature" />
+		<button class="attach-btn icon-only" type="button" title="<roundcube:label name="responses" />" onclick="return SynapseCompose.responses(this)"><i data-lucide="message-square-text"></i></button>
+		<button class="attach-btn icon-only" type="button" title="<roundcube:label name="options" />" onclick="return SynapseCompose.options()"><i data-lucide="sliders-horizontal"></i></button>
+	</div>
+	<roundcube:button command="send" type="link" class="transmit-btn" data-icon="send" data-label="synapse_core.sendmail_caps" />
+</div>
+</form>
+<roundcube:object name="composeAttachmentForm" id="uploadform" mode="smart" />
+
+<section class="theme-popover menu-popover" id="responses-menu" aria-label="<roundcube:label name="responses" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.responses_caps" /></span><small><roundcube:label name="synapse_core.inserttemplate" /></small></div>
+	<roundcube:object name="responseslist" id="responseslist" tagname="div" class="response-list" itemclass="theme-choice" list-placeholder="noresponsesavailable" />
+	<a class="theme-choice" href="#" onclick="return rcmail.command('switch-task', 'settings/responses')"><i data-lucide="pencil"></i><span><b><roundcube:label name="synapse_core.editresponses" /></b><small><roundcube:label name="synapse_core.managetemplates" /></small></span><em></em></a>
+</section>
+
+<section class="theme-popover menu-popover" id="attachmentmenu" aria-label="<roundcube:label name="attachment" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.attachment_caps" /></span><small><roundcube:label name="synapse_core.file_caps" /></small></div>
+	<roundcube:button command="open-attachment" id="attachmenuopen" type="link" class="theme-choice" data-icon="external-link" data-label="synapse_core.open_caps" data-detail="synapse_core.open_desc" data-key="" />
+	<roundcube:button command="download-attachment" id="attachmenudownload" type="link" class="theme-choice" data-icon="download" data-label="synapse_core.download_caps" data-detail="synapse_core.download_desc" data-key="" />
+	<roundcube:button command="rename-attachment" id="attachmenurename" type="link" class="theme-choice" data-icon="pencil" data-label="synapse_core.rename_caps" data-detail="synapse_core.rename_desc" data-key="" />
+</section>

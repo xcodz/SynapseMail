@@ -1,0 +1,133 @@
+<roundcube:include file="includes/layout.html" />
+<roundcube:add_label name="loginfailed" />
+<div class="atmosphere" aria-hidden="true">
+	<div class="grid-plane"></div>
+	<div class="topo-map"></div>
+	<div class="radar"><i></i><i></i><i></i><span></span><b></b><b></b><b></b></div>
+	<div class="scanline"></div>
+</div>
+<div class="noise" aria-hidden="true"></div>
+<div class="glitch-flash" aria-hidden="true"></div>
+
+<header class="access-header">
+	<a class="brand" href="./" aria-label="<roundcube:label name="synapse_core.loginhome" />">
+		<span class="brand-mark" aria-hidden="true"></span>
+		<span><strong>SynapseMail</strong><small><roundcube:label name="synapse_core.tagline" /></small></span>
+	</a>
+	<div class="gateway-state"><span class="pulse"></span><span><roundcube:label name="synapse_core.mailgateway" /></span><strong><roundcube:label name="synapse_core.secure" /></strong></div>
+	<time id="localClock">00:00:00</time>
+</header>
+
+<main class="login-stage">
+	<section class="mission-brief" aria-label="<roundcube:label name="synapse_core.securityoverview" />">
+		<div class="eyebrow"><span><roundcube:label name="synapse_core.mailnode" /> 07</span><i></i><span><roundcube:label name="synapse_core.identitygateway" /></span></div>
+		<h1 class="glitch-title" data-text="<roundcube:label name="synapse_core.secureinbox" />"><roundcube:label name="synapse_core.secureinbox" /></h1>
+		<p><roundcube:label name="synapse_core.login_lead" /></p>
+
+		<div class="system-readout">
+			<div><span><roundcube:label name="synapse_core.mailservice" /></span><strong><roundcube:object name="synapseservicename" /></strong></div>
+			<div><span><roundcube:label name="synapse_core.encryption" /></span><strong>TLS / SSL</strong></div>
+			<div><span><roundcube:label name="synapse_core.security_caps" /></span><strong class="elevated"><roundcube:label name="synapse_core.protected_caps" /></strong></div>
+			<div><span><roundcube:label name="synapse_core.latency" /></span><strong id="latencyValue">-- MS</strong></div>
+		</div>
+
+		<div class="boot-log" aria-label="<roundcube:label name="synapse_core.bootlog" />">
+			<div><time>00.014</time><span><roundcube:label name="synapse_core.boot1" /></span><b>OK</b></div>
+			<div><time>00.082</time><span><roundcube:label name="synapse_core.boot2" /></span><b>OK</b></div>
+			<div><time>00.136</time><span><roundcube:label name="synapse_core.boot3" /></span><b>OK</b></div>
+			<div><time>00.204</time><span><roundcube:label name="synapse_core.boot4" /></span><b class="standby"><roundcube:label name="synapse_core.ready" /></b></div>
+		</div>
+	</section>
+
+	<section class="auth-shell" id="authShell" aria-labelledby="loginTitle">
+		<div class="corner corner-tl"></div><div class="corner corner-tr"></div><div class="corner corner-bl"></div><div class="corner corner-br"></div>
+		<div class="auth-heading">
+			<div class="clearance-icon"><i data-lucide="fingerprint"></i><span></span></div>
+			<div><span><roundcube:label name="synapse_core.securelogin" /> // <roundcube:label name="synapse_core.mailnode" /> 07</span><h2 id="loginTitle"><roundcube:label name="synapse_core.accountlogin" /></h2></div>
+			<b>04</b>
+		</div>
+
+		<roundcube:form id="loginForm" name="login-form" method="post" novalidate="novalidate">
+			<input type="hidden" name="_task" value="login">
+			<input type="hidden" name="_action" value="login">
+			<input type="hidden" name="_timezone" id="rcmlogintz" value="_default_">
+			<input type="hidden" name="_url" id="rcmloginurl" value="">
+
+			<label class="field" for="rcmloginuser">
+				<span class="field-label"><roundcube:label name="synapse_core.emailaddress_caps" /></span>
+				<span class="field-control"><i data-lucide="contact"></i><input id="rcmloginuser" name="_user" type="text" autocomplete="username" autocapitalize="off" placeholder="<roundcube:label name="synapse_core.enteremail" />" spellcheck="false" required><em>01</em></span>
+			</label>
+
+			<label class="field" for="rcmloginpwd">
+				<span class="field-label"><roundcube:label name="synapse_core.password_caps" /></span>
+				<span class="field-control"><i data-lucide="key-round"></i><input id="rcmloginpwd" name="_pass" type="password" autocomplete="current-password" placeholder="<roundcube:label name="synapse_core.enterpassword" />" required><button type="button" id="togglePassword" aria-label="<roundcube:label name="synapse_core.showpassword" />" title="<roundcube:label name="synapse_core.showpassword" />"><i data-lucide="eye"></i></button><em>02</em></span>
+			</label>
+
+			<div class="form-options">
+				<label class="secure-check"><input id="rememberStation" name="_remember" value="1" type="checkbox"><span></span><roundcube:label name="synapse_core.rememberdevice" /></label>
+				<button class="recovery-link" type="button" id="recoveryButton"><roundcube:label name="synapse_core.forgotpassword" /></button>
+			</div>
+
+			<div class="auth-error" id="authError" role="alert" aria-live="assertive">
+				<i data-lucide="triangle-alert"></i><span><b><roundcube:label name="synapse_core.loginfailed_caps" /></b><small><roundcube:label name="synapse_core.credentialsrejected" /></small></span><em id="errorCode">ERR-AUTH-401</em>
+			</div>
+
+			<button class="access-button" id="accessButton" type="submit">
+				<span><roundcube:label name="synapse_core.signin_caps" /></span><i data-lucide="arrow-right"></i><b aria-hidden="true"></b>
+			</button>
+		</form>
+
+		<footer class="auth-footer"><span><i data-lucide="shield-check"></i> <roundcube:label name="synapse_core.e2e" /></span><span><roundcube:label name="synapse_core.session_caps" /> <span id="sessionTag">--:--:--</span></span></footer>
+	</section>
+</main>
+
+<aside class="theme-dock" aria-label="<roundcube:label name="synapse_core.interfacetheme" />">
+	<span><roundcube:label name="synapse_core.colortheme_caps" /></span>
+	<button class="theme-dot warfare active" data-theme="warfare" aria-label="<roundcube:label name="synapse_core.themearia_warfare" />" title="<roundcube:label name="synapse_core.themename_warfare" />"></button>
+	<button class="theme-dot blackops" data-theme="blackops" aria-label="<roundcube:label name="synapse_core.themearia_blackops" />" title="<roundcube:label name="synapse_core.themename_blackops" />"></button>
+	<button class="theme-dot night" data-theme="night" aria-label="<roundcube:label name="synapse_core.themearia_night" />" title="<roundcube:label name="synapse_core.themename_night" />"></button>
+	<button class="theme-dot agency" data-theme="agency" aria-label="<roundcube:label name="synapse_core.themearia_agency" />" title="<roundcube:label name="synapse_core.themename_agency" />"></button>
+</aside>
+
+<footer class="security-footer">
+	<span><i data-lucide="lock-keyhole"></i> <roundcube:label name="synapse_core.secureaccess" /></span>
+	<span><roundcube:label name="synapse_core.loginmonitored" /></span>
+	<span>SYNAPSEMAIL v<roundcube:var name="env:synapse_version" /></span>
+	<a class="credit-link" href="https://synapsecyber.io" target="_blank" rel="noopener noreferrer"><roundcube:label name="synapse_core.poweredby" /></a>
+</footer>
+
+<section class="processing-screen" id="processingScreen" aria-label="<roundcube:label name="synapse_core.authprocessing" />" aria-hidden="true">
+	<div class="processing-core">
+		<div class="scan-emblem"><div></div><span><i data-lucide="fingerprint"></i></span></div>
+		<span class="processing-kicker"><roundcube:label name="synapse_core.verifyingcredentials" /></span>
+		<h2 id="processingTitle"><roundcube:label name="synapse_core.establishingsession" /></h2>
+		<p id="processingDetail"><roundcube:label name="synapse_core.handshake" /></p>
+		<div class="progress-track"><i id="progressBar"></i><b id="progressGlint"></b></div>
+		<div class="progress-meta"><span id="progressStage"><roundcube:label name="synapse_core.stage_verifying" /></span><strong id="progressValue">000%</strong></div>
+		<div class="verification-grid"><span><roundcube:label name="synapse_core.account_caps" /> <b id="verifyIdentity"><roundcube:label name="synapse_core.pending" /></b></span><span><roundcube:label name="synapse_core.security_caps" /> <b id="verifyClearance"><roundcube:label name="synapse_core.pending" /></b></span><span><roundcube:label name="synapse_core.inbox_caps" /> <b id="verifyUplink"><roundcube:label name="synapse_core.pending" /></b></span></div>
+		<div class="pin-stage" id="pinStage" hidden>
+			<div class="pin-stage-head"><span><roundcube:label name="synapse_core.stagehead_pin" /></span><b id="pinTries"></b></div>
+			<div id="pinPadHost"></div>
+			<p class="pin-message" id="pinMessage" role="alert"></p>
+			<div class="pin-hint" id="pinHint" hidden></div>
+			<div class="pin-links">
+				<button type="button" id="pinForgot"><roundcube:label name="synapse_core.forgotpasscode" /></button>
+				<button type="button" id="pinErase" class="danger" hidden><roundcube:label name="synapse_core.erasepasscode" /></button>
+				<button type="button" id="pinSignOut"><roundcube:label name="synapse_core.signout_caps" /></button>
+			</div>
+		</div>
+	</div>
+</section>
+
+<noscript><p class="noscriptwarning"><roundcube:label name="noscriptwarning" /></p></noscript>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><i data-lucide="shield-check"></i><span><roundcube:label name="synapse_core.recoveryunavailable" /></span></div>
+<roundcube:object name="message" id="messagestack" />
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/vendor/anime.min.js"></script>
+<script src="/vendor/qrcode.js"></script>
+<script src="/ui.js"></script>
+<script src="/login-field.js"></script>
+</body>
+</html>

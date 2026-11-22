@@ -1,0 +1,17 @@
+<roundcube:include file="includes/layout.html" />
+<section class="compose-drawer compose-page open" id="composePane" aria-label="<roundcube:label name="synapse_core.bouncemessage" />">
+	<roundcube:object name="bounceObjects" id="bounce-objects" />
+	<roundcube:object name="composeFormHead" />
+	<div class="compose-scroll">
+		<label><span><roundcube:label name="synapse_core.from_caps" /></span><roundcube:object name="composeHeaders" part="from" id="_from" form="form" tabindex="1" class="compose-select" /></label>
+		<label><span><roundcube:label name="synapse_core.recipient_caps" /></span><roundcube:object name="composeHeaders" part="to" id="_to" form="form" tabindex="1" aria-required="true" /></label>
+		<label><span><roundcube:label name="synapse_core.cc_caps" /></span><roundcube:object name="composeHeaders" part="cc" id="_cc" form="form" tabindex="1" /></label>
+		<label><span><roundcube:label name="synapse_core.bcc_caps" /></span><roundcube:object name="composeHeaders" part="bcc" id="_bcc" form="form" tabindex="1" /></label>
+		<roundcube:if condition="!config:no_save_sent_messages" />
+		<label><span><roundcube:label name="synapse_core.savesentin" /></span><roundcube:object name="storetarget" id="compose-store-target" noform="true" tabindex="2" class="compose-select" /></label>
+		<roundcube:endif />
+	</div>
+	<div class="compose-footer"><span></span><roundcube:button command="send" type="link" class="transmit-btn" data-icon="send" data-label="synapse_core.bounce_caps" /></div>
+	</form>
+</section>
+<roundcube:include file="includes/footer.html" />

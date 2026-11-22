@@ -1,0 +1,20 @@
+{
+	"name": "SynapseMail",
+	"author": "Milad Ahmadipour for SynapseCyber.io",
+	"license": "CC BY-NC-ND 4.0 (Copyright (c) 2026 SynapseCyber.io)",
+	"config": {
+		"supported_layouts": [
+			"widescreen"
+		],
+		"jquery_ui_colors_theme": "bootstrap",
+		"embed_css_location": "/embed.css",
+		"editor_css_location": "/embed.css",
+		"dark_mode_support": false,
+		"media_browser_css_location": "none"
+	},
+	"meta": {
+		"viewport": "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+		"theme-color": "#0a0d0b"
+	},
+	"license-url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+}

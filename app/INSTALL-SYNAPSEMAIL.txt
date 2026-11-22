@@ -1,0 +1,129 @@
+SynapseMail v2.19: cPanel install
+=================================
+
+New install
+1. In cPanel > File Manager, create the folder public_html/mail
+   (any folder name works, e.g. public_html/webmail).
+2. Upload this zip into that folder and choose "Extract".
+   Enable "Show Hidden Files" to see the .htaccess files; they are required.
+3. Open https://your-domain/mail/ : the installer starts automatically.
+   - Ownership: it shows a code. In File Manager, open setup.key in the folder from step 1
+     (next to config, db and public_html; it ships with the example code SM-XXXX-XXXX-XXXX),
+     replace the example code with the code shown, save, then click "I SAVED SETUP.KEY".
+   - Environment: PHP version, extensions, folder permissions, HTTPS, and a test that the
+     db/ folder cannot be downloaded from the web.
+   - Mail server: tests IMAP (993/143) and SMTP (465/587) on this server and picks the best
+     working connection, preferring one whose certificate matches the host name.
+   - Admin & 2FA: create the SynapseMail administrator (separate from mailboxes), scan the QR
+     code with Google Authenticator or a compatible app, and save the 8 recovery codes.
+   - Install: writes config/synapse.inc.php (with a unique encryption key), creates the
+     database and locks the installer permanently. setup.key is deleted automatically.
+4. Sign in with a full email address of this cPanel account and its password.
+   "Remember this device" keeps the session for 15 days and renews on every visit;
+   otherwise it ends when the browser closes or after 30 minutes idle.
+
+Upgrading from v2.16 or older
+  Extract this zip over the existing folder. The zip no longer contains a database, so your
+  data is kept. Open the site: the installer runs in upgrade mode (it keeps db/synapsemail.db)
+  and asks for setup.key, mail server and admin account as above. A new encryption key is
+  created, so users have to sign in again once.
+
+Run the installer again
+  It is locked after a successful install. Delete config/installed.lock and
+  config/synapse.inc.php in File Manager to run it again (mailbox data on the mail server is
+  never touched; SynapseMail settings in db/ are kept).
+
+Requirements: PHP 8.1+ with pdo_sqlite, intl, mbstring, openssl (standard on cPanel).
+No database server is needed (SQLite file in db/, protected from the web).
+
+Security (Settings > Security > Passcode & sign-in)
+  Users can add a 4/6-digit passcode asked after the password (every sign-in or every
+  3/7/30 days per device). 5 wrong tries end the session; 10 wrong tries in a row lock
+  the account for 1 hour. "Forgot passcode" shows the hint, or erases it and locks the
+  account for 24 hours.
+
+Two-factor authentication (Settings > Security)
+  Users can turn on 2FA with an authenticator app (Google Authenticator, Microsoft Authenticator,
+  1Password, ...): scan the QR code, confirm a code, save 8 one-time recovery codes. After the password,
+  sign-in asks for the 6-digit code (or a recovery code), then the passcode if one is set.
+  5 wrong codes end the sign-in; 10 in a row lock the account for 1 hour; 20 per IP are refused.
+  Codes cannot be reused. The app key is stored encrypted, recovery codes only as hashes.
+  2FA protects the SynapseMail sign-in only; mail apps using IMAP/SMTP are not affected.
+  Server policy in config/config.inc.php:
+    $config['synapse_2fa_policy'] = 'optional';   // 'off', 'optional' (default) or 'required'
+  With 'required', users without 2FA must set it up right after signing in (and cannot turn it off).
+
+Change password (Settings > Security > Change password)
+  Users change their own mailbox password. SynapseMail sends the change to cPanel webmail on port
+  2096 over HTTPS with certificate checks (UAPI Email::passwd_pop, signed in as the mailbox itself).
+  The installer looks for a host with a valid certificate on 2096 and saves it in
+  config/synapse.inc.php as $config['password_cpanel_host']; if none was found, set it there by hand
+  (e.g. your server's hostname). Without it the server's own hostname is used.
+  Rules: the current password is required; the new one needs 12+ characters with a digit and a symbol
+  (password_minimum_length / password_minimum_score in config/config.inc.php).
+  Limit: 5 attempts per account per 15 minutes. After a successful change the session id is renewed.
+  Every attempt, refusal and change is written to logs/synapse_security.log (and logs/password.log).
+  To turn the feature off, remove 'password' from the plugins list in config/config.inc.php.
+
+Admin panel (private address: https://your-domain/mail/admin/xxxx-xxxx-xxxx-xxxx)
+  The panel answers only at its private address; anything else (admin.php, wrong keys) gets
+  "404 Not Found". The installer shows the address once at the end (tick "I saved the admin
+  address" to continue). It is also stored in config/ADMIN-URL.txt (File Manager) together with the
+  form for servers that ignore .htaccess (nginx): https://your-domain/mail/admin.php?k=<key>.
+  Upgrading from 2.27 or older: open https://your-domain/mail/admin.php once, sign in, and the
+  panel shows its new private address; after you confirm, admin.php answers 404.
+  Admin > Security > "Generate a new address" replaces the address at any time.
+  Sign in with the admin account created by the installer: username, password and an authenticator
+  code (or a one-time recovery code). It is separate from every mailbox.
+  - Overview: version, PHP extensions, HTTPS, writable folders, installer lock, IMAP/SMTP reachability,
+    password-change host, storage, users and active sessions.
+  - Users: everyone who has signed in, with 2FA/passcode state; end their sessions, reset passcode,
+    reset 2FA or unlock (a reset also ends that user's sessions; mail and passwords are not touched).
+  - Security: the mail service name shown on the login page (set first in the installer), the 2FA policy for mailbox users (stored in the database; overrides synapse_2fa_policy in
+    config/config.inc.php) and clearing sign-in blocks.
+  - Deliverability (read-only): for each mail domain of your users, a 0-100 score from MX, reverse DNS,
+    SPF (one record, sending IP allowed, at most 10 lookups), DKIM (default selector, 2048-bit key),
+    DMARC (policy and rua), TLS certificates on IMAP/SMTP and public blacklists, plus MTA-STS / TLS-RPT /
+    BIMI badges. Failing checks show a ready-to-paste DNS record. Nothing is changed for you: add records
+    in cPanel > Zone Editor (or at your DNS provider). Results are cached for 1 hour; "Check again" works
+    every 5 minutes. Checks that cannot run here (e.g. Spamhaus refusing shared resolvers) show N/A and do
+    not lower the score.
+  - Backup: an encrypted file (.smbk, AES-256-GCM) with users, settings, contacts, identities, passcodes,
+    2FA, the admin account and the encryption key. Mail stays on the mail server and is not included.
+    Each backup has its own key, shown once: keep it in a password manager, apart from the file.
+    Restore (file + key + your authenticator code) replaces all app data and signs everyone out; the
+    data it replaces is saved first as db/before-restore-<date>.db. This install's mail server settings
+    are kept. Uploads are limited by PHP's upload_max_filesize.
+  - Logs: security events, errors, password changes and sign-ins (newest first).
+  - Admin account: change the admin password, create new recovery codes.
+  - Updates (on the Overview): checks a release manifest signed with SynapseMail's Ed25519 key once a day
+    and shows a newer version with its SHA-256 checksum only when the signature is valid. Set the manifest
+    address in config/synapse.inc.php (kept on updates): $config['synapse_update_url'] = 'https://…/release.json';
+    To update, extract the new zip over this folder. config/synapse.inc.php, the database and logs are not
+    in the zip; config/config.inc.php is replaced, so keep your own settings in config/synapse.inc.php.
+  Protection: 15-minute idle timeout (8 hours maximum), CSRF tokens, 5 failed sign-ins per admin name or
+  10 per IP block for 15 minutes; every admin action is written to logs/synapse_security.log.
+  Lost the admin password AND both the authenticator and recovery codes: delete config/installed.lock and
+  config/synapse.inc.php and run the installer again. This creates a new encryption key: everyone must
+  sign in again, and users with 2FA need it reset in Admin > Users before they can sign in.
+
+Sign-in protection
+  Besides the core limit (3 failures per minute per known account), SynapseMail blocks sign-in for
+  15 minutes after 5 failed attempts for one account from one IP, 20 from one IP for any accounts,
+  or 20 for one account from any IPs (15-minute window). Wrong passcodes are also limited to 20 per IP.
+  Counters are stored hashed in the database (table synapse_ratelimit).
+
+Privacy and security headers
+  No external requests: icons, animation and fonts are bundled (skins/synapse/vendor).
+  Every page is sent with a Content-Security-Policy that only allows this site's own scripts,
+  connections, frames and forms, plus nosniff, same-origin referrer and a restrictive permissions policy.
+  HSTS is not set by SynapseMail (it would apply to your whole website); enable it in your hosting
+  panel if your entire domain is HTTPS-only.
+
+License: SynapseMail is licensed under CC BY-NC-ND 4.0 (see LICENSE-SYNAPSEMAIL.txt).
+Free to use and share with attribution; no modification or resale.
+
+Copyright (c) 2026 SynapseCyber.io. Developed by Milad Ahmadipour (milad.io).
+Core: Roundcube Webmail 1.7.5 (GPL-3.0).
+Bundled: Lucide icons 0.468.0 (ISC), anime.js 3.2.1 (MIT), qrcode-generator 1.4.4 (MIT), Inter / IBM Plex Mono / Barlow Condensed
+fonts via Fontsource 5.3.0 (SIL OFL 1.1). Licenses: skins/synapse/vendor/licenses/.

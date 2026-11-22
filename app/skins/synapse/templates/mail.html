@@ -1,0 +1,155 @@
+<roundcube:include file="includes/layout.html" />
+<roundcube:add_label name="listempty" />
+<roundcube:add_label name="nomessages" />
+<div class="app-shell" id="appShell">
+	<roundcube:include file="includes/header.html" />
+	<roundcube:include file="includes/mail-sidebar.html" />
+
+	<main class="mail-stage" id="mailStage">
+		<section class="status-strip" aria-label="<roundcube:label name="synapse_core.systemstatus" />">
+			<div><span class="live-tag"><roundcube:label name="synapse_core.live" /></span><strong><roundcube:exp expression="strtoupper(config:product_name)" /> <roundcube:label name="synapse_core.securecloud" /></strong><em>//</em><span><roundcube:label name="synapse_core.mailnode" />: <span id="mailNode"></span></span></div>
+			<div><span id="localClock">00:00:00</span><i></i><span><roundcube:label name="synapse_core.unread_caps" />: <b id="statusUnread">0</b></span></div>
+		</section>
+
+		<section class="inbox-panel" aria-label="<roundcube:label name="synapse_core.messages" />">
+			<div class="mail-toolbar">
+				<div class="toolbar-left">
+					<label class="tactical-check master-check" title="<roundcube:label name="synapse_core.selectallvisible" />">
+						<input type="checkbox" id="selectAll"><span></span>
+					</label>
+					<roundcube:button command="checkmail" type="link" class="tool-btn" id="refreshButton" title="checkmail" data-icon="refresh-cw" />
+					<button class="tool-btn" id="moreButton" aria-label="<roundcube:label name="synapse_core.moreactions" />" title="<roundcube:label name="synapse_core.moreactions" />"><i data-lucide="ellipsis-vertical"></i></button>
+					<div class="bulk-actions" id="bulkActions" aria-live="polite">
+						<span id="selectedCount"><roundcube:label name="synapse_core.selectedcount" n="0" /></span>
+						<roundcube:if condition="env:archive_folder" />
+						<roundcube:button command="plugin.archive" type="link" title="archive.buttontitle" data-icon="archive" />
+						<roundcube:endif />
+						<roundcube:button command="read" type="link" title="markread" data-icon="mail-check" />
+						<roundcube:button command="unread" type="link" title="markunread" data-icon="mail" />
+						<roundcube:button command="move" type="link" title="moveto" data-icon="folder-input" />
+						<roundcube:button command="delete" type="link" title="deletemessage" data-icon="trash-2" />
+					</div>
+				</div>
+				<div class="toolbar-right">
+					<span id="rangeLabel"><roundcube:label name="synapse_core.rangeof" a="00" b="0" /></span>
+					<span hidden><roundcube:object name="messageCountDisplay" id="countDisplay" /></span>
+					<roundcube:button command="previouspage" type="link" class="tool-btn" id="prevPage" title="previouspage" data-icon="chevron-left" />
+					<roundcube:button command="nextpage" type="link" class="tool-btn" id="nextPage" title="nextpage" data-icon="chevron-right" />
+					<button class="tool-btn density-btn" id="densityButton" aria-label="<roundcube:label name="synapse_core.toggledensity" />" title="<roundcube:label name="synapse_core.toggledensity" />"><i data-lucide="rows-3"></i></button>
+				</div>
+			</div>
+
+			<div class="category-tabs" role="tablist" aria-label="<roundcube:label name="synapse_core.messagefilters" />">
+				<button class="category-tab active" role="tab" data-filter="ALL"><i data-lucide="inbox"></i><span><b><roundcube:label name="synapse_core.primary_caps" /></b><small id="tabAllInfo"><roundcube:label name="synapse_core.allmessages" /></small></span></button>
+				<button class="category-tab" role="tab" data-filter="UNSEEN"><i data-lucide="mail"></i><span><b><roundcube:label name="synapse_core.unread_caps" /></b><small id="tabUnreadInfo"><roundcube:label name="synapse_core.unreadmessages" /></small></span></button>
+				<button class="category-tab" role="tab" data-filter="FLAGGED"><i data-lucide="star"></i><span><b><roundcube:label name="synapse_core.flagged_caps" /></b><small><roundcube:label name="synapse_core.prioritymessages" /></small></span></button>
+			</div>
+
+			<div class="column-guide" aria-hidden="true"><span><roundcube:label name="synapse_core.col_actions" /></span><span><roundcube:label name="synapse_core.col_sender" /></span><span><roundcube:label name="synapse_core.col_subject" /></span><span><roundcube:label name="synapse_core.col_received" /></span></div>
+			<div class="message-list" id="messageList">
+				<roundcube:object name="messages" id="messagelist" class="rc-messagelist" aria-label="Messages" />
+			</div>
+			<div class="empty-state" id="emptyState" hidden>
+				<i data-lucide="search-x"></i><h2><roundcube:label name="synapse_core.noemails" /></h2><p><roundcube:label name="synapse_core.noemails_hint" /></p>
+				<button id="clearFilters"><roundcube:label name="synapse_core.resetfilters" /></button>
+			</div>
+		</section>
+
+		<section class="reader-pane" id="readerDrawer" aria-label="<roundcube:label name="synapse_core.messagereader" />" aria-hidden="true">
+			<div class="reader-header">
+				<button id="closeReader" aria-label="<roundcube:label name="synapse_core.backtoinbox" />" title="<roundcube:label name="synapse_core.backtoinbox" />"><i data-lucide="panel-right-close"></i></button>
+				<button id="readerMaximize" class="desktop-only" aria-label="<roundcube:label name="synapse_core.maximizereader" />" title="<roundcube:label name="synapse_core.maximize" />"><i data-lucide="maximize-2"></i></button>
+				<button id="readerPopout" class="desktop-only" aria-label="<roundcube:label name="synapse_core.openwindow" />" title="<roundcube:label name="synapse_core.openwindow" />"><i data-lucide="app-window"></i></button>
+				<span id="readerClass"><roundcube:label name="synapse_core.encryptedverified" /></span>
+				<div>
+					<roundcube:button command="reply-all" type="link" title="replyall" data-icon="reply-all" />
+					<roundcube:if condition="env:archive_folder" />
+					<roundcube:button command="plugin.archive" type="link" title="archive.buttontitle" data-icon="archive" />
+					<roundcube:endif />
+					<roundcube:button command="delete" type="link" title="deletemessage" data-icon="trash-2" />
+					<button id="readerMore" title="<roundcube:label name="more" />"><i data-lucide="ellipsis"></i></button>
+				</div>
+			</div>
+			<roundcube:object name="contentframe" id="messagecontframe" name="messagecontframe" class="reader-frame" src="env:blankpage" title="arialabelmailpreviewframe" />
+		</section>
+	</main>
+
+	<roundcube:include file="includes/utility-rail.html" />
+</div>
+
+<roundcube:include file="includes/compose-drawer.html" />
+
+<section class="theme-popover menu-popover" id="moreMenu" aria-label="<roundcube:label name="synapse_core.messageactions" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.messageactions_caps" /></span><small><roundcube:label name="synapse_core.selection_caps" /></small></div>
+	<roundcube:button command="reply" type="link" class="theme-choice" data-icon="reply" data-label="synapse_core.reply_caps" data-detail="synapse_core.reply_desc" data-key="R" />
+	<roundcube:button command="reply-all" type="link" class="theme-choice" data-icon="reply-all" data-label="synapse_core.replyall_caps" data-detail="synapse_core.replyall_desc" data-key="A" />
+	<roundcube:button command="forward" type="link" class="theme-choice" data-icon="forward" data-label="synapse_core.forward_caps" data-detail="synapse_core.forward_desc" data-key="F" />
+	<roundcube:button command="forward-attachment" type="link" class="theme-choice" data-icon="paperclip" data-label="synapse_core.forwardatt_caps" data-detail="synapse_core.forwardatt_desc" data-key="" />
+	<roundcube:button command="unread" type="link" class="theme-choice" data-icon="mail" data-label="synapse_core.markunread_caps" data-detail="synapse_core.markunread_desc" data-key="" />
+	<roundcube:button command="flag" type="link" class="theme-choice" data-icon="star" data-label="synapse_core.flag_caps" data-detail="synapse_core.flag_desc" data-key="" />
+	<roundcube:button command="unflag" type="link" class="theme-choice" data-icon="star-off" data-label="synapse_core.unflag_caps" data-detail="synapse_core.unflag_desc" data-key="" />
+	<roundcube:button command="copy" type="link" class="theme-choice" data-icon="copy" data-label="synapse_core.copyto_caps" data-detail="synapse_core.copyto_desc" data-key="" />
+	<roundcube:button command="move" type="link" class="theme-choice" data-icon="folder-input" data-label="synapse_core.moveto_caps" data-detail="synapse_core.moveto_desc" data-key="" />
+	<roundcube:button command="print" type="link" class="theme-choice" data-icon="printer" data-label="synapse_core.print_caps" data-detail="synapse_core.print_desc" data-key="" />
+	<roundcube:button command="download" type="link" class="theme-choice" data-icon="download" data-label="synapse_core.downloademl_caps" data-detail="synapse_core.downloademl_desc" data-key="" />
+	<roundcube:button command="viewsource" type="link" class="theme-choice" data-icon="code" data-label="synapse_core.showsource_caps" data-detail="synapse_core.showsource_desc" data-key="" />
+	<roundcube:button command="edit" prop="new" type="link" class="theme-choice" data-icon="file-pen-line" data-label="synapse_core.editasnew_caps" data-detail="synapse_core.editasnew_desc" data-key="" />
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.folder_caps" /></span><small><roundcube:label name="synapse_core.mailbox_caps" /></small></div>
+	<roundcube:button command="mark-all-read" type="link" class="theme-choice" data-icon="mail-check" data-label="synapse_core.markallread_caps" data-detail="synapse_core.markallread_desc" data-key="" />
+	<roundcube:button command="expunge" type="link" class="theme-choice" data-icon="minimize-2" data-label="synapse_core.compact_caps" data-detail="synapse_core.compact_desc" data-key="" />
+	<roundcube:button command="purge" type="link" class="theme-choice" data-icon="trash" data-label="synapse_core.emptyfolder_caps" data-detail="synapse_core.emptyfolder_desc" data-key="" />
+	<button class="theme-choice" type="button" onclick="UI.listOptions()"><i data-lucide="arrow-down-wide-narrow"></i><span><b><roundcube:label name="synapse_core.sortview_caps" /></b><small><roundcube:label name="synapse_core.sortview_desc" /></small></span><em></em></button>
+</section>
+
+<section class="theme-popover menu-popover" id="searchMenu" aria-label="<roundcube:label name="synapse_core.searchoptions" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.searchoptions_caps" /></span><small><roundcube:label name="synapse_core.scopefields" /></small></div>
+	<div class="option-grid" id="searchMods">
+		<label class="secure-option"><input type="checkbox" value="subject"><span class="tactical-check"><span></span></span><roundcube:label name="subject" /></label>
+		<label class="secure-option"><input type="checkbox" value="from"><span class="tactical-check"><span></span></span><roundcube:label name="from" /></label>
+		<label class="secure-option"><input type="checkbox" value="to"><span class="tactical-check"><span></span></span><roundcube:label name="to" /></label>
+		<label class="secure-option"><input type="checkbox" value="cc"><span class="tactical-check"><span></span></span><roundcube:label name="cc" /></label>
+		<label class="secure-option"><input type="checkbox" value="bcc"><span class="tactical-check"><span></span></span><roundcube:label name="bcc" /></label>
+		<label class="secure-option"><input type="checkbox" value="body"><span class="tactical-check"><span></span></span><roundcube:label name="body" /></label>
+		<label class="secure-option"><input type="checkbox" value="text"><span class="tactical-check"><span></span></span><roundcube:label name="msgtext" /></label>
+	</div>
+	<label class="field-row"><span><roundcube:label name="date" /></span><roundcube:object name="searchinterval" id="s_interval" /></label>
+	<label class="field-row"><span><roundcube:label name="searchscope" /></span>
+		<select id="s_scope">
+			<option value="base"><roundcube:label name="currentfolder" /></option>
+			<option value="sub"><roundcube:label name="subfolders" /></option>
+			<option value="all"><roundcube:label name="allfolders" /></option>
+		</select>
+	</label>
+	<div class="popover-actions"><button type="button" class="ghost-btn" onclick="rcmail.command('reset-search'); UI.closeMenus();"><roundcube:label name="resetsearch" /></button><button type="button" class="solid-btn" onclick="rcmail.command('search'); UI.closeMenus();"><roundcube:label name="search" /></button></div>
+</section>
+
+<section class="theme-popover menu-popover" id="listOptionsMenu" aria-label="<roundcube:label name="synapse_core.listoptions" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.sortview_caps" /></span><small><roundcube:label name="synapse_core.messagelist_caps" /></small></div>
+	<label class="field-row"><span><roundcube:label name="listsorting" /></span>
+		<select id="listoptions-sortcol">
+			<option value=""><roundcube:label name="nonesort" /></option>
+			<option value="arrival"><roundcube:label name="arrival" /></option>
+			<option value="date"><roundcube:label name="sentdate" /></option>
+			<option value="subject"><roundcube:label name="subject" /></option>
+			<option value="fromto"><roundcube:label name="fromto" /></option>
+			<option value="size"><roundcube:label name="size" /></option>
+		</select>
+	</label>
+	<label class="field-row"><span><roundcube:label name="listorder" /></span>
+		<select id="listoptions-sortord">
+			<option value="ASC"><roundcube:label name="asc" /></option>
+			<option value="DESC"><roundcube:label name="desc" /></option>
+		</select>
+	</label>
+	<roundcube:if condition="env:threads" />
+	<label class="field-row"><span><roundcube:label name="lmode" /></span>
+		<select id="listoptions-threads">
+			<option value="list"><roundcube:label name="list" /></option>
+			<option value="threads"><roundcube:label name="threads" /></option>
+		</select>
+	</label>
+	<roundcube:endif />
+	<div class="popover-actions"><button type="button" class="ghost-btn" onclick="UI.closeMenus()"><roundcube:label name="cancel" /></button><button type="button" class="solid-btn" onclick="UI.saveListOptions()"><roundcube:label name="save" /></button></div>
+</section>
+
+<roundcube:include file="includes/footer.html" />

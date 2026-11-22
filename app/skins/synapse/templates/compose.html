@@ -1,0 +1,28 @@
+<roundcube:include file="includes/layout.html" />
+<roundcube:if condition="env:framed && !env:extwin" />
+<section class="compose-drawer compose-page open" id="composePane" aria-label="<roundcube:label name="synapse_core.composemail" />">
+	<roundcube:include file="includes/compose-form.html" />
+</section>
+<roundcube:else />
+<div class="app-shell" id="appShell">
+	<roundcube:include file="includes/header.html" />
+	<roundcube:include file="includes/mail-sidebar.html" />
+	<main class="mail-stage" id="mailStage">
+		<section class="status-strip" aria-label="<roundcube:label name="synapse_core.systemstatus" />">
+			<div><span class="live-tag"><roundcube:label name="synapse_core.live" /></span><strong><roundcube:exp expression="strtoupper(config:product_name)" /> <roundcube:label name="synapse_core.securecloud" /></strong><em>//</em><span><roundcube:label name="synapse_core.compose_caps" /></span></div>
+			<div><span id="localClock">00:00:00</span></div>
+		</section>
+		<section class="inbox-panel" aria-hidden="true"></section>
+	</main>
+</div>
+<section class="compose-drawer open expanded compose-standalone" id="composeDrawer" aria-label="<roundcube:label name="synapse_core.newemail" />">
+	<div class="drawer-header">
+		<div><span><roundcube:label name="synapse_core.secureemail" /> // <roundcube:exp expression="strtoupper(env:compose_mode ?: 'new')" /></span><h2><roundcube:label name="synapse_core.composemail_caps" /></h2></div>
+		<div><button id="minimizeCompose" aria-label="<roundcube:label name="synapse_core.minimize" />" title="<roundcube:label name="synapse_core.minimize" />"><i data-lucide="minus"></i></button><button id="expandCompose" aria-label="<roundcube:label name="synapse_core.expand" />" title="<roundcube:label name="synapse_core.expand" />"><i data-lucide="minimize-2"></i></button><roundcube:button command="list" type="link" title="close" data-icon="x" id="closeCompose" /></div>
+	</div>
+	<div class="compose-page">
+		<roundcube:include file="includes/compose-form.html" />
+	</div>
+</section>
+<roundcube:endif />
+<roundcube:include file="includes/footer.html" />

@@ -1,0 +1,15 @@
+<aside class="mail-sidebar" aria-label="<roundcube:label name="synapse_core.mailfolders" />">
+	<roundcube:button command="compose" type="link" class="compose-btn" id="composeButton" data-icon="square-pen" data-label="synapse_core.composemail_caps" data-wrap="span" />
+
+	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.mailfolders" />">
+		<roundcube:object name="mailboxlist" id="mailboxlist" class="treelist" folder_filter="mail" unreadwrap="%s" />
+	</nav>
+
+	<div class="clearance-card" id="quotaCard">
+		<div class="clearance-top"><span><roundcube:label name="synapse_core.storage_caps" /></span><b id="quotaState"><roundcube:label name="synapse_core.protected_caps" /></b></div>
+		<div class="clearance-bars" id="quotaBars" aria-label="<roundcube:label name="synapse_core.storageusage" />"><i></i><i></i><i></i><i></i><i></i></div>
+		<p id="quotaText"><roundcube:label name="synapse_core.accountverified" /></p>
+		<small><roundcube:object name="username" /></small>
+		<roundcube:if condition="env:quota" /><span hidden><roundcube:object name="quotaDisplay" display="text" id="quotadisplay" /></span><roundcube:endif />
+	</div>
+</aside>

@@ -1,0 +1,80 @@
+<roundcube:include file="includes/layout.html" />
+<div class="app-shell" id="appShell">
+	<roundcube:include file="includes/header.html" />
+	<aside class="mail-sidebar contacts-sidebar" aria-label="<roundcube:label name="synapse_core.addressbooks" />">
+		<roundcube:button command="add" type="link" class="compose-btn" data-icon="user-plus" data-label="synapse_core.newcontact_caps" data-wrap="span" />
+		<nav class="folder-nav nav-home" aria-label="<roundcube:label name="mail" />">
+			<a class="folder-link" href="./?_task=mail&amp;_mbox=INBOX"><i data-lucide="inbox"></i><span><roundcube:label name="inbox" /></span><b class="nav-unread"></b></a>
+		</nav>
+		<div class="nav-divider nav-divider-first"><span><roundcube:label name="synapse_core.addressbooks_caps" /></span><button type="button" aria-label="<roundcube:label name="synapse_core.groupactions" />" title="<roundcube:label name="synapse_core.groupactions" />" onclick="event.stopPropagation(); return UI.toggleMenu('groupoptions-menu', this)"><i data-lucide="ellipsis"></i></button></div>
+		<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.addressbooks" />">
+			<roundcube:object name="directorylist" id="directorylist" class="treelist rc-tree" />
+		</nav>
+		<div class="nav-divider"><span><roundcube:label name="savedsearches" /></span></div>
+		<nav class="label-nav" aria-label="<roundcube:label name="savedsearches" />">
+			<roundcube:object name="savedsearchlist" id="savedsearchlist" class="treelist rc-tree" />
+		</nav>
+	</aside>
+
+	<main class="mail-stage reader-active settings-stage contacts-stage" id="mailStage">
+		<section class="status-strip" aria-label="<roundcube:label name="synapse_core.systemstatus" />">
+			<div><span class="live-tag"><roundcube:label name="synapse_core.live" /></span><strong><roundcube:label name="contacts" /></strong><em>//</em><span><roundcube:object name="addresslisttitle" label="contacts" tag="span" /></span></div>
+			<div><span id="localClock">00:00:00</span></div>
+		</section>
+		<section class="inbox-panel settings-list-panel" aria-label="<roundcube:label name="contacts" />">
+			<div class="mail-toolbar">
+				<div class="toolbar-left">
+					<roundcube:button command="delete" type="link" class="tool-btn" title="deletecontact" data-icon="trash-2" />
+					<roundcube:button command="advanced-search" type="link" class="tool-btn" title="advsearch" data-icon="search-code" />
+					<button class="tool-btn" id="contactMore" title="<roundcube:label name="synapse_core.moreactions" />" onclick="event.stopPropagation(); return UI.toggleMenu('contact-menu', this)"><i data-lucide="ellipsis-vertical"></i></button>
+				</div>
+				<div class="toolbar-right">
+					<span><roundcube:object name="recordsCountDisplay" label="fromtoshort" /></span>
+					<roundcube:button command="previouspage" type="link" class="tool-btn" title="previouspage" data-icon="chevron-left" />
+					<roundcube:button command="nextpage" type="link" class="tool-btn" title="nextpage" data-icon="chevron-right" />
+				</div>
+			</div>
+			<div class="message-list settings-list">
+				<roundcube:object name="addresslist" id="contacts-table" class="rc-list contact-list" noheader="true" />
+			</div>
+		</section>
+		<section class="reader-pane" aria-label="<roundcube:label name="synapse_core.contact" />">
+			<div class="reader-header">
+				<span><roundcube:label name="synapse_core.contactdetails_kicker" /></span>
+				<div>
+					<roundcube:button command="edit" type="link" title="editcontact" data-icon="pencil" />
+					<roundcube:button command="print" type="link" title="print" data-icon="printer" />
+					<roundcube:button command="qrcode" type="link" title="qrcode" data-icon="qr-code" />
+				</div>
+			</div>
+			<roundcube:object name="contentframe" id="contact-frame" name="contact-frame" class="reader-frame" src="env:blankpage" title="contactproperties" />
+		</section>
+	</main>
+	<roundcube:include file="includes/utility-rail.html" />
+</div>
+
+<section class="theme-popover menu-popover" id="groupoptions-menu" aria-label="<roundcube:label name="groups" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="groups" /></span><small><roundcube:label name="synapse_core.col_actions" /></small></div>
+	<roundcube:button type="link" command="group-create" class="theme-choice" data-icon="users" data-label="synapse_core.newgroup_caps" data-detail="synapse_core.newgroup_desc" />
+	<roundcube:button type="link" command="group-rename" class="theme-choice" data-icon="pencil" data-label="synapse_core.renamegroup_caps" data-detail="synapse_core.renamegroup_desc" />
+	<roundcube:button type="link" command="group-delete" class="theme-choice" data-icon="trash-2" data-label="synapse_core.deletegroup_caps" data-detail="synapse_core.deletegroup_desc" />
+	<roundcube:button type="link" command="search-create" class="theme-choice" data-icon="bookmark-plus" data-label="synapse_core.savesearch_caps" data-detail="synapse_core.savesearch_desc" />
+	<roundcube:button type="link" command="search-delete" class="theme-choice" data-icon="bookmark-x" data-label="synapse_core.deletesearch_caps" data-detail="synapse_core.deletesearch_desc" />
+	<roundcube:container name="groupoptions" id="groupoptions-menu" />
+</section>
+
+<section class="theme-popover menu-popover" id="contact-menu" aria-label="<roundcube:label name="synapse_core.contactactions" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="contacts" /></span><small><roundcube:label name="synapse_core.col_actions" /></small></div>
+	<roundcube:button type="link" command="import" class="theme-choice" data-icon="upload" data-label="synapse_core.import_caps" data-detail="synapse_core.import_desc" />
+	<roundcube:button type="link" command="export" prop="sub" class="theme-choice" data-icon="download" data-label="synapse_core.exportall_caps" data-detail="synapse_core.exportall_desc" />
+	<roundcube:button type="link" command="export-selected" prop="sub" class="theme-choice" data-icon="file-down" data-label="synapse_core.exportselected_caps" data-detail="synapse_core.exportselected_desc" />
+	<roundcube:button type="link" command="group-assign-selected" class="theme-choice" data-icon="user-round-plus" data-label="synapse_core.addtogroup_caps" data-detail="synapse_core.addtogroup_desc" />
+	<roundcube:button type="link" command="group-remove-selected" class="theme-choice" data-icon="user-round-minus" data-label="synapse_core.removefromgroup_caps" data-detail="synapse_core.removefromgroup_desc" />
+	<roundcube:button type="link" command="move" class="theme-choice" data-icon="folder-input" data-label="synapse_core.moveto_caps" data-detail="synapse_core.anotheraddressbook" />
+	<roundcube:button type="link" command="copy" class="theme-choice" data-icon="copy" data-label="synapse_core.copyto_caps" data-detail="synapse_core.anotheraddressbook" />
+	<roundcube:button type="link" command="select-all" prop="page" class="theme-choice" data-icon="list-checks" data-label="synapse_core.selectall_caps" data-detail="synapse_core.currentpage" />
+	<roundcube:button type="link" command="select-none" class="theme-choice" data-icon="list-x" data-label="synapse_core.selectnone_caps" data-detail="synapse_core.clearselection" />
+	<roundcube:container name="contactmenu" id="contact-menu" />
+	<roundcube:container name="toolbar" id="contact-menu" />
+</section>
+<roundcube:include file="includes/footer.html" />

@@ -1,0 +1,22 @@
+<roundcube:include file="includes/layout.html" />
+<div class="reader-body settings-body contact-body">
+	<div class="reader-kicker"><roundcube:label name="synapse_core.contactedit_kicker" /></div>
+	<h1><roundcube:object name="steptitle" /></h1>
+	<roundcube:form name="editform" method="post" id="contact-details" class="settings-form">
+		<div class="reader-meta contact-meta">
+			<div class="contact-photo" id="contactphoto"><roundcube:object name="contactphoto" id="contactpic" placeholder="/images/contactpic.svg" />
+				<roundcube:if condition="env:photocol" /><roundcube:object name="fileDropArea" id="contactpic" /><roundcube:endif />
+			</div>
+			<roundcube:object name="contactedithead" id="contacthead" form="editform" class="propform contact-head" use-labels="true" with-source="true" />
+		</div>
+		<roundcube:if condition="env:photocol" />
+		<div class="photo-actions"><button type="button" class="ghost-btn" onclick="return rcmail.upload_input('upload-form')"><i data-lucide="image-up"></i> <roundcube:label name="synapse_core.photo_caps" /></button><roundcube:button command="delete" type="link" class="ghost-btn" data-icon="image-off" data-label="synapse_core.remove_caps" /></div>
+		<roundcube:endif />
+		<roundcube:object name="contacteditform" textareacols="60" form="editform" fieldset-class="propform" compact-form="true" short-legend-labels="true" />
+	</form>
+	<div class="reader-actions settings-actions">
+		<roundcube:button command="save" type="link" class="solid-btn" data-icon="save" data-label="synapse_core.save_caps" />
+	</div>
+</div>
+<roundcube:object name="photoUploadForm" id="upload-form" mode="smart" />
+<roundcube:include file="includes/footer.html" />

@@ -1,0 +1,21 @@
+<roundcube:include file="includes/layout.html" />
+<div class="part-shell">
+	<div class="reader-header">
+		<span><roundcube:var name="env:filename" /></span>
+		<div>
+			<roundcube:button command="download" type="link" title="download" data-icon="download" />
+			<roundcube:button command="print" type="link" title="print" data-icon="printer" />
+			<roundcube:if condition="stripos(env:mimetype, 'image/') === 0" />
+				<roundcube:button command="image-scale" type="link" prop="+" title="increaseimage" data-icon="zoom-in" />
+				<roundcube:button command="image-scale" type="link" prop="-" title="decreaseimage" data-icon="zoom-out" />
+				<roundcube:button command="image-rotate" type="link" title="rotateimage" data-icon="rotate-cw" />
+			<roundcube:endif />
+			<roundcube:if condition="env:is_message" />
+				<roundcube:button command="reply" type="link" title="replytomessage" data-icon="reply" />
+				<roundcube:button command="forward" type="link" title="forwardmessage" data-icon="forward" />
+			<roundcube:endif />
+		</div>
+	</div>
+	<roundcube:object name="messagePartFrame" id="messagepartframe" class="reader-frame" title="arialabelattachmentpreview" />
+</div>
+<roundcube:include file="includes/footer.html" />

@@ -1,0 +1,54 @@
+<aside class="mail-sidebar settings-nav" aria-label="<roundcube:label name="settings" />">
+	<roundcube:button command="compose" type="link" class="compose-btn" data-icon="square-pen" data-label="synapse_core.composemail_caps" data-wrap="span" />
+	<nav class="folder-nav nav-home" aria-label="<roundcube:label name="mail" />">
+		<a class="folder-link" href="./?_task=mail&amp;_mbox=INBOX"><i data-lucide="inbox"></i><span><roundcube:label name="inbox" /></span><b class="nav-unread"></b></a>
+	</nav>
+
+	<div class="nav-divider nav-divider-first"><span><roundcube:label name="settings" /> // <roundcube:label name="synapse_core.account_caps" /></span></div>
+	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.accountsettings" />">
+		<a class="folder-link" data-nav="identities" href="./?_task=settings&amp;_action=identities"><i data-lucide="id-card"></i><span><roundcube:label name="identities" /></span><b></b></a>
+		<a class="folder-link" data-nav="responses" href="./?_task=settings&amp;_action=responses"><i data-lucide="message-square-text"></i><span><roundcube:label name="responses" /></span><b></b></a>
+		<a class="folder-link" data-nav="section:server" data-section="server" href="./?_task=settings&amp;_action=preferences&amp;_section=server"><i data-lucide="server-cog"></i><span><roundcube:label name="serversettings" /></span><b></b></a>
+	</nav>
+
+	<div class="nav-divider"><span><roundcube:label name="synapse_core.security_caps" /></span></div>
+	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.securitysettings" />">
+		<a class="folder-link" data-nav="plugin.synapse-security" href="./?_task=settings&amp;_action=plugin.synapse-security"><i data-lucide="shield-check"></i><span><roundcube:label name="synapse_core.passcodesignin" /></span><b id="navPinState"></b></a>
+		<a class="folder-link" data-nav="plugin.password" href="./?_task=settings&amp;_action=plugin.password"><i data-lucide="key-round"></i><span><roundcube:label name="synapse_core.changepassword" /></span><b></b></a>
+	</nav>
+
+	<div class="nav-divider"><span><roundcube:label name="synapse_core.mailbox_caps" /></span></div>
+	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.mailboxsettings" />">
+		<a class="folder-link" data-nav="folders" href="./?_task=settings&amp;_action=folders"><i data-lucide="folder-tree"></i><span><roundcube:label name="folders" /></span><b></b></a>
+		<a class="folder-link" data-nav="section:folders" data-section="folders" href="./?_task=settings&amp;_action=preferences&amp;_section=folders"><i data-lucide="folder-cog"></i><span><roundcube:label name="specialfolders" /></span><b></b></a>
+		<a class="folder-link" data-nav="section:mailbox" data-section="mailbox" href="./?_task=settings&amp;_action=preferences&amp;_section=mailbox"><i data-lucide="inbox"></i><span><roundcube:label name="mailboxview" /></span><b></b></a>
+		<a class="folder-link" data-nav="section:mailview" data-section="mailview" href="./?_task=settings&amp;_action=preferences&amp;_section=mailview"><i data-lucide="mail-open"></i><span><roundcube:label name="messagesdisplaying" /></span><b></b></a>
+	</nav>
+
+	<div class="nav-divider"><span><roundcube:label name="synapse_core.compose_caps" /></span></div>
+	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.composesettings" />">
+		<a class="folder-link" data-nav="section:compose" data-section="compose" href="./?_task=settings&amp;_action=preferences&amp;_section=compose"><i data-lucide="square-pen"></i><span><roundcube:label name="messagescomposition" /></span><b></b></a>
+	</nav>
+
+	<div class="nav-divider"><span><roundcube:label name="synapse_core.interface_caps" /></span></div>
+	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.interfacesettings" />">
+		<a class="folder-link" data-nav="section:general" data-section="general" href="./?_task=settings&amp;_action=preferences&amp;_section=general"><i data-lucide="monitor-cog"></i><span><roundcube:label name="uisettings" /></span><b></b></a>
+		<a class="folder-link" data-nav="section:addressbook" data-section="addressbook" href="./?_task=settings&amp;_action=preferences&amp;_section=addressbook"><i data-lucide="contact-round"></i><span><roundcube:label name="contacts" /></span><b></b></a>
+		<button class="folder-link" type="button" onclick="event.stopPropagation(); return UI.toggleMenu('themePopover')"><i data-lucide="scan-eye"></i><span><roundcube:label name="synapse_core.colortheme" /></span><b></b></button>
+	</nav>
+
+	<div class="settings-extensions" id="settingsExtensions" hidden>
+		<div class="nav-divider"><span><roundcube:label name="synapse_core.extensions_caps" /></span></div>
+		<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.extensionsettings" />" id="settingsExtensionList">
+			<roundcube:object name="settingstabs" class="folder-link" tagname="div" />
+			<roundcube:container name="tabs" id="settingsExtensionList" />
+		</nav>
+	</div>
+
+	<div class="clearance-card">
+		<div class="clearance-top"><span><roundcube:label name="synapse_core.security_caps" /></span><b><roundcube:label name="synapse_core.protected_caps" /></b></div>
+		<div class="clearance-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+		<p><roundcube:label name="synapse_core.accountverified" /></p>
+		<small><roundcube:object name="username" /></small>
+	</div>
+</aside>

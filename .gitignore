@@ -1,0 +1,23 @@
+# per-install and local files: never commit
+app/config/synapse.inc.php
+app/config/installed.lock
+app/config/config.local.inc.php
+app/config/ADMIN-URL.txt
+app/config/*.tmp
+app/setup.key
+app/db/*.db
+app/db/*.db-*
+app/db/*.tmp
+app/db/install-probe.txt
+app/logs/*
+!app/logs/.htaccess
+app/temp/*
+!app/temp/.htaccess
+# build output and dependencies
+dist/
+editor/node_modules/
+# editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
