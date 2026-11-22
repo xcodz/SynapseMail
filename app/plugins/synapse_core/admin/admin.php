@@ -37,6 +37,7 @@ const VIEWS = ['overview' => 'Overview', 'users' => 'Users', 'security' => 'Secu
 const LOGS = ['synapse_security' => 'Security events', 'errors' => 'Errors', 'password' => 'Password changes', 'userlogins' => 'Sign-ins'];
 
 define('INSTALL_PATH', realpath(__DIR__ . '/../../..') . '/');
+define('SYNAPSE_ADMIN', true); // lets the public demo build point the admin panel at its showcase database
 require_once INSTALL_PATH . 'program/include/iniset.php';
 $RC = rcube::get_instance(rcube::INIT_WITH_DB);
 require_once INSTALL_PATH . 'plugins/synapse_core/synapse_core.php';
@@ -106,6 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         back();
     }
     $A['seen'] = time();
+    if (demo() && $do !== 'logout') {
+        flash('warn', 'Not available in the demo: the admin panel is read-only here.');
+        back();
+    }
 
     switch ($do) {
         case 'confirm_url':
@@ -303,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------------- pages ---------------- */
 
 if (empty($A['id'])) {
-    signin_page(flash_html('setup') . form('login', '<label class="field"><span class="field-label">ADMIN USERNAME</span><span class="field-control setup-input"><input name="username" type="text" autocomplete="username" required maxlength="32" spellcheck="false" autofocus></span></label>'
+    signin_page(demo_note('setup') . flash_html('setup') . form('login', '<label class="field"><span class="field-label">ADMIN USERNAME</span><span class="field-control setup-input"><input name="username" type="text" autocomplete="username" required maxlength="32" spellcheck="false" autofocus></span></label>'
         . '<label class="field"><span class="field-label">PASSWORD</span><span class="field-control setup-input"><input name="password" type="password" autocomplete="current-password" required></span></label>'
         . '<label class="field"><span class="field-label">AUTHENTICATOR OR RECOVERY CODE</span><span class="field-control setup-input"><input name="code" type="text" autocomplete="one-time-code" required maxlength="12" spellcheck="false"></span></label>'
         . '<button class="access-button" type="submit"><span>SIGN IN</span><b aria-hidden="true"></b></button>')
@@ -346,7 +351,7 @@ function login($db, $admins, $ip)
 {
     global $A, $RC;
     $user = strtolower(trim((string) ($_POST['username'] ?? '')));
-    $keys = ['admip' => $ip, 'admin' => $user];
+    $keys = demo() ? ['admip' => $ip] : ['admip' => $ip, 'admin' => $user]; // demo: one visitor cannot lock the shared account
     if ($wait = synapse_core::rl_blocked($keys)) {
         rcube::write_log('synapse_security', "admin sign-in refused (rate limit) for $user from $ip");
         flash('fail', 'Too many failed attempts. Try again in ' . max(1, (int) ceil($wait / 60)) . ' minutes.');
@@ -358,7 +363,9 @@ function login($db, $admins, $ip)
     $code = strtoupper(trim((string) ($_POST['code'] ?? '')));
     $ok = false;
     if ($row && $pass_ok) {
-        if (preg_match('/^\d{3}\s?\d{3}$/', $code)) {
+        if (demo() && preg_replace('/\s+/', '', $code) === '123456') {
+            $ok = true;
+        } elseif (preg_match('/^\d{3}\s?\d{3}$/', $code)) {
             $secret = synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key'));
             $step = $secret ? synapse_totp::verify($secret, $code) : false;
             if ($step !== false && $step > (int) $row['totp_last_step']) {
@@ -511,6 +518,9 @@ function health($RC, $db)
 
 function probe($host, $label)
 {
+    if (demo()) {
+        return ['pass', "$label server", 'Demo: no mail server is connected', 'INFO'];
+    }
     $host = is_array($host) ? reset($host) : (string) $host;
     $url = parse_url(strpos($host, '://') ? $host : 'tcp://' . $host);
     $name = $url['host'] ?? '';
@@ -674,9 +684,18 @@ function admin_row($db, $admins, $id)
     return $db->fetch_assoc($db->query("SELECT * FROM {$admins} WHERE `id` = ?", $id));
 }
 
+/** Public demo build ($config['synapse_demo']): read-only panel on sample data */
+function demo()
+{
+    return rcube::get_instance()->config->get('synapse_demo') === true;
+}
+
 function audit($what)
 {
     global $A, $ip;
+    if (demo()) {
+        return; // the demo log view shows sample entries, never visitors
+    }
     rcube::write_log('synapse_security', 'admin ' . ($A['user'] ?? '?') . " $what (from $ip)");
 }
 
@@ -704,6 +723,19 @@ function size($b)
 function flash($level, $text)
 {
     $GLOBALS['A']['flash'] = [$level, $text];
+}
+
+/** Public demo: the notice at the top of every admin page */
+function demo_note($style = 'adm')
+{
+    if (!demo()) {
+        return '';
+    }
+    if ($style === 'setup') {
+        return '<div class="setup-note" role="note"><p><b>DEMO</b> Sign in with admin / demo and the 2FA code 123456. The panel is read-only and shows sample data.</p></div>';
+    }
+
+    return '<div class="adm-flash warn" role="note">' . icon('info') . '<p><b>DEMO:</b> read-only admin panel with sample data. Nothing you click here changes anything.</p></div>';
 }
 
 function flash_html($style = 'adm')

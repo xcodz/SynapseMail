@@ -1,5 +1,12 @@
 # SynapseMail changelog
 
+## 3.2
+- **Public demo build** (`tools/build_demo.sh`, see `docs/DEMO.md`): the real interface with a sample mailbox and
+  no mail server. Sign in with demo / demo, 2FA 123456, passcode 1234. Every visitor gets a private temporary
+  user, sending is blocked, and a notice at the top says it is a demo. The admin panel demo is read-only and shows
+  sample data. The demo plugin never ships in the release zip.
+- The admin panel and the 2FA check accept the fixed demo code only when the demo build switches it on.
+
 ## 3.1
 - **Installer: hosting panel detection.** The Environment step detects cPanel, Plesk, DirectAdmin, HestiaCP/VestaCP,
   CloudPanel, aaPanel, ISPConfig or a plain Linux server from the install path, shows the web server, and lets you

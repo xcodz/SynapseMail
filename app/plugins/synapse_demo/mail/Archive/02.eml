@@ -1,0 +1,12 @@
+From: Acme Hosting Billing <billing@acme-hosting.example>
+To: Demo User <demo@synapsemail.test>
+Subject: Welcome to Acme Hosting
+Date: @@100800
+Message-ID: <demo-archive-2@synapsemail.test>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+V2VsY29tZSEgWW91ciBob3N0aW5nIGFjY291bnQgaXMgcmVhZHkuCgpBY21lIEhvc3RpbmcgKHNh
+bXBsZSBjb21wYW55KQ==

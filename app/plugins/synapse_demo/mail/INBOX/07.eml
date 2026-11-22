@@ -1,0 +1,27 @@
+From: Sara Collins <sara@northwind.example>
+To: Demo User <demo@synapsemail.test>
+Subject: =?UTF-8?B?VHJhbnNsYXRpb24gY2hlY2sgLyDYqNix2LHYs9uMINiq2LHYrNmF2Yc=?=
+Date: @@1200
+Message-ID: <demo-inbox-7@synapsemail.test>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt7"
+
+--alt7
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+SGkhIENvdWxkIHlvdSBjaGVjayB0aGUgUGVyc2lhbiBsaW5lIGluIHRoZSBmb290ZXI/CgrYs9mE
+2KfZhSEg2YTYt9mB2KfZiyDYrti3INmB2KfYsdiz24wg2b7Yp9mG2YjbjNizINix2Kcg2KjYsdix
+2LPbjCDaqdmGLgoKVGhlIEVuZ2xpc2ggcGFydCBpcyBmaW5hbC4gVGhhbmtzIQpTYXJh
+--alt7
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+PGRpdiBzdHlsZT0iYmFja2dyb3VuZDojZmZmZmZmO2NvbG9yOiMxZjI5MzM7Zm9udC1mYW1pbHk6
+QXJpYWwsc2Fucy1zZXJpZjtmb250LXNpemU6MTRweDtsaW5lLWhlaWdodDoxLjY7cGFkZGluZzoy
+NHB4Ij48cD5IaSEgQ291bGQgeW91IGNoZWNrIHRoZSBQZXJzaWFuIGxpbmUgaW4gdGhlIGZvb3Rl
+cj88L3A+PHAgZGlyPSJydGwiIHN0eWxlPSJ0ZXh0LWFsaWduOnJpZ2h0O2ZvbnQtZmFtaWx5OlRh
+aG9tYSI+2LPZhNin2YUhINmE2LfZgdin2Ysg2K7YtyDZgdin2LHYs9uMINm+2KfZhtmI24zYsyDY
+sdinINio2LHYsdiz24wg2qnZhi48L3A+PHA+VGhlIEVuZ2xpc2ggcGFydCBpcyBmaW5hbC4gVGhh
+bmtzITxicj5TYXJhPC9wPjwvZGl2Pg==
+--alt7--

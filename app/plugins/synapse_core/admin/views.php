@@ -205,7 +205,7 @@ function shell($view, $title, $subtitle, $content, $actions = '')
         . '<div class="adm-top-right">' . $actions
         . '<span class="adm-chip" title="Signs out after 15 minutes without activity">' . icon('timer') . '<b data-idle="' . IDLE . '">15:00</b></span>'
         . '<span class="adm-chip">' . icon('user-round') . '<b>' . h($A['user'] ?? '') . '</b></span></div></header>'
-        . '<main class="adm-content">' . flash_html() . $content . '</main></div></div>';
+        . '<main class="adm-content">' . demo_note() . flash_html() . $content . '</main></div></div>';
     foot();
 }
 

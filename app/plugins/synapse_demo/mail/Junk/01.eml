@@ -1,0 +1,13 @@
+From: Account Team <support@secure-login.example>
+To: Demo User <demo@synapsemail.test>
+Subject: URGENT: confirm your password now
+Date: @@2880
+Message-ID: <demo-junk-1@synapsemail.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+WW91ciBtYWlsYm94IHdpbGwgYmUgY2xvc2VkIGluIDI0IGhvdXJzLiBDb25maXJtIHlvdXIgcGFz
+c3dvcmQgaGVyZTogaHR0cDovL3NlY3VyZS1sb2dpbi5leGFtcGxlL2NvbmZpcm0KCihTYW1wbGUg
+cGhpc2hpbmcgZW1haWwuIE5ldmVyIGVudGVyIHlvdXIgcGFzc3dvcmQgZnJvbSBhIGxpbmsgaW4g
+YW4gZW1haWwuKQ==

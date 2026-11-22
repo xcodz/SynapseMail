@@ -8,7 +8,7 @@
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.1-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.2-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
@@ -19,6 +19,15 @@
 [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
+
+### 🖥️ [Try the live demo →](https://sm-demo.synapsecyber.io)
+
+| | Address | Sign in |
+|---|---|---|
+| 📬 Webmail | [sm-demo.synapsecyber.io](https://sm-demo.synapsecyber.io) | `demo` / `demo`, 2FA `123456`, passcode `1234` |
+| 🧑‍💼 Admin panel | [sm-demo.synapsecyber.io/admin/synapsemail-demo](https://sm-demo.synapsecyber.io/admin/synapsemail-demo) | `admin` / `demo`, 2FA `123456` (read-only) |
+
+Sample data only. No mail server is connected and nothing is sent.
 
 **⭐ If SynapseMail is useful to you, please give it a star. It helps other people find it.**
 
@@ -70,6 +79,10 @@ installer and a private admin panel.**
 <a id="screenshots"></a>
 
 ## 📸 Screenshots
+
+**🎬 A quick tour:** sign in → 2FA code → passcode → inbox → Persian email → security settings
+
+<img src="docs/screenshots/demo-tour.gif" alt="SynapseMail demo: secure webmail sign-in with two-factor authentication, passcode lock, inbox and RTL email" width="100%">
 
 | 🔐 Sign in | 📱 On a phone |
 |:---:|:---:|
@@ -175,6 +188,10 @@ The admin panel lives at a **private address** (`/admin/<secret-key>`). People w
 <a id="install"></a>
 
 ## 🚀 Install in 5 minutes
+
+> 🖥️ Want to look first? Try the [live webmail demo](https://sm-demo.synapsecyber.io) (`demo` / `demo`, 2FA
+> `123456`, passcode `1234`) and the read-only [admin panel demo](https://sm-demo.synapsecyber.io/admin/synapsemail-demo)
+> (`admin` / `demo`, 2FA `123456`). No mail server is connected.
 
 ### 📦 Upload the zip (any PHP hosting)
 

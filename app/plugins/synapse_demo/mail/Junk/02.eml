@@ -1,0 +1,11 @@
+From: Prize Center <winner@lucky.example>
+To: Demo User <demo@synapsemail.test>
+Subject: You won a new phone!!!
+Date: @@1440
+Message-ID: <demo-junk-2@synapsemail.test>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+Q2xpY2sgdG8gY2xhaW0geW91ciBwcml6ZSB0b2RheS4KCihTYW1wbGUgc3BhbSBlbWFpbC4p

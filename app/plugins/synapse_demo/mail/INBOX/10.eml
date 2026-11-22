@@ -1,0 +1,31 @@
+From: SynapseMail Security <security@synapsemail.test>
+To: Demo User <demo@synapsemail.test>
+Subject: New sign-in to your account
+Date: @@120
+Message-ID: <demo-inbox-10@synapsemail.test>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt10"
+
+--alt10
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+V2Ugbm90aWNlZCBhIG5ldyBzaWduLWluIHRvIHlvdXIgYWNjb3VudC4KCkRldmljZTogQ2hyb21l
+IG9uIG1hY09TCldoZW46IGEgZmV3IG1pbnV0ZXMgYWdvCgpJZiB0aGlzIHdhcyB5b3UsIG5vIGFj
+dGlvbiBpcyBuZWVkZWQuIFRoaXMgaXMgYSBzYW1wbGUgbWVzc2FnZS4=
+--alt10
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+PGRpdiBzdHlsZT0iYmFja2dyb3VuZDojZmZmZmZmO2NvbG9yOiMxZjI5MzM7Zm9udC1mYW1pbHk6
+QXJpYWwsc2Fucy1zZXJpZjtmb250LXNpemU6MTRweDtsaW5lLWhlaWdodDoxLjY7cGFkZGluZzoy
+NHB4Ij48aDIgc3R5bGU9Im1hcmdpbi10b3A6MCI+TmV3IHNpZ24taW4gdG8geW91ciBhY2NvdW50
+PC9oMj48dGFibGUgc3R5bGU9ImJvcmRlci1jb2xsYXBzZTpjb2xsYXBzZSI+PHRyPjx0ZCBzdHls
+ZT0icGFkZGluZzo0cHggMTJweCA0cHggMDtjb2xvcjojNjY3Ij5EZXZpY2U8L3RkPjx0ZD48Yj5D
+aHJvbWUgb24gbWFjT1M8L2I+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9InBhZGRpbmc6NHB4IDEy
+cHggNHB4IDA7Y29sb3I6IzY2NyI+V2hlbjwvdGQ+PHRkPmEgZmV3IG1pbnV0ZXMgYWdvPC90ZD48
+L3RyPjwvdGFibGU+PHA+SWYgdGhpcyB3YXMgeW91LCBubyBhY3Rpb24gaXMgbmVlZGVkLiBJZiBu
+b3QsIGNoYW5nZSB5b3VyIHBhc3N3b3JkIGFuZCBjaGVjayB5b3VyIHBhc3Njb2RlIGFuZCAyRkEg
+c2V0dGluZ3MuPC9wPjxwIHN0eWxlPSJjb2xvcjojODg5O2ZvbnQtc2l6ZToxMnB4Ij5UaGlzIGlz
+IGEgc2FtcGxlIG1lc3NhZ2UgaW4gdGhlIFN5bmFwc2VNYWlsIGRlbW8uPC9wPjwvZGl2Pg==
+--alt10--

@@ -1,0 +1,36 @@
+/*!
+ * SynapseMail
+ * Copyright (c) 2026 SynapseCyber.io. All rights reserved.
+ * Developed by Milad Ahmadipour (https://milad.io).
+ *
+ * Licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+ * International License (CC BY-NC-ND 4.0). You may use and share it free of charge
+ * with attribution. You may not modify it, distribute modified versions, or sell it.
+ * https://creativecommons.org/licenses/by-nc-nd/4.0/
+ */
+
+/* SynapseMail demo banner (demo build only) */
+.synapse-demo-banner { position: fixed; z-index: 100000; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 24px); padding: 6px 12px; border: 1px solid rgba(240, 180, 60, .55); background: rgba(24, 18, 6, .94); color: #f3d79a; font: 500 11px/1.45 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .02em; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
+.synapse-demo-banner.is-login { bottom: auto; top: 64px; }
+.synapse-demo-banner b { flex: none; padding: 2px 6px; background: #f0b43c; color: #1a1205; font-weight: 700; letter-spacing: .12em; }
+.synapse-demo-banner code { color: #fff; background: rgba(255, 255, 255, .1); padding: 0 4px; font: inherit; }
+.synapse-demo-banner a { flex: none; color: #f0b43c; text-decoration: underline; }
+@media (max-width: 760px) {
+  .synapse-demo-banner, .synapse-demo-banner.is-login { top: auto; bottom: 8px; font-size: 10px; flex-wrap: wrap; justify-content: center; text-align: center; }
+  .synapse-demo-banner:not(.is-login) a { display: none; }
+}
+
+/* inside the app: the status strip at the top carries the notice */
+.live-tag.synapse-demo-tag { background: #f0b43c !important; color: #1a1205 !important; border-color: #f0b43c !important; }
+.synapse-demo-text { color: #f3d79a !important; text-transform: none; letter-spacing: .02em; }
+.synapse-demo-text ~ em, .synapse-demo-text ~ span { display: none !important; }
+.synapse-demo-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* password change talks to the hosting panel: not part of the demo */
+a[href*="plugin.password"], li:has(> a[href*="plugin.password"]) { display: none !important; }
+
+/* phones: small tag at the top (the status strip is hidden there) */
+.synapse-demo-chip { display: none; }
+@media (max-width: 760px) {
+  .synapse-demo-chip { display: block; position: fixed; z-index: 100000; top: 0; left: 50%; transform: translateX(-50%); padding: 1px 8px 2px; background: rgba(24, 18, 6, .94); border: 1px solid rgba(240, 180, 60, .55); border-top: 0; color: #f3d79a; font: 500 9px/1.4 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .04em; white-space: nowrap; pointer-events: none; }
+  .synapse-demo-chip b { color: #f0b43c; letter-spacing: .12em; }
+}

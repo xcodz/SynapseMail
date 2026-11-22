@@ -1,0 +1,11 @@
+From: Daniel Park <daniel@northwind.example>
+To: Demo User <demo@synapsemail.test>
+Subject: Domain renewal done
+Date: @@57600
+Message-ID: <demo-archive-1@synapsemail.test>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+SGksCgpUaGUgZG9tYWluIGlzIHJlbmV3ZWQgZm9yIHR3byBtb3JlIHllYXJzLgoKRGFuaWVs

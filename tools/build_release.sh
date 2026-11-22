@@ -39,7 +39,7 @@ rsync -a --exclude '.DS_Store' \
   --exclude 'db/*.db' --exclude 'db/*.db-*' --exclude 'db/*.tmp' --exclude 'db/install-probe.txt' \
   --exclude 'config/synapse.inc.php' --exclude 'config/installed.lock' --exclude 'config/ADMIN-URL.txt' \
   --exclude 'config/*.tmp' --exclude 'config/config.local.inc.php' --exclude 'setup.key' \
-  --exclude 'logs/*' --exclude 'temp/*' \
+  --exclude 'logs/*' --exclude 'temp/*' --exclude 'plugins/synapse_demo' \
   $APP/ "$OUT/"
 cp $APP/logs/.htaccess "$OUT/logs/"
 cp $APP/temp/.htaccess "$OUT/temp/"
@@ -64,6 +64,9 @@ secrets=$( { [[ -f $PATTERNS ]] && grep -rIlE -f "$PATTERNS" "$OUT" || true
   grep -rIlE -e 'BEGIN [A-Z ]*PRIVATE KEY' -e 'AKIA[0-9A-Z]{16}' -e 'gh[pousr]_[A-Za-z0-9]{36}' -e 'xox[baprs]-[A-Za-z0-9-]{10,}' "$OUT" --exclude-dir=vendor --exclude-dir=enigma || true; } )
 [[ -z $secrets ]] || die "secret-looking content in: $secrets"
 grep -rqE "synapse_debug|debug_collect" "$OUT/plugins/synapse_core" "$OUT/config" && die "debug collector code found"
+# the public demo plugin and its switches never ship in the release
+[[ -e $OUT/plugins/synapse_demo ]] && die "demo plugin in the release package"
+grep -q "synapse_demo'\] = true\|\"synapse_demo\"\] = true" "$OUT/config/config.inc.php" && die "demo switch in config.inc.php"
 # every file listed as SynapseMail's own must be in the package (manifest used by the overlay/WHM editions)
 missing=$(awk '/^\[added\]/{a=1;next} /^\[/{a=0} a&&NF' $APP/SYNAPSEMAIL-FILES.txt | while read -r p; do [[ -e "$OUT/$p" ]] || echo "$p"; done)
 [[ -z $missing ]] || die "listed in SYNAPSEMAIL-FILES.txt but missing: $missing"

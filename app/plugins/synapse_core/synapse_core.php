@@ -21,7 +21,7 @@ require_once __DIR__ . '/lib/synapse_secret.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.1';
+    public const VERSION = '3.2';
     public const THEMES = ['warfare', 'blackops', 'night', 'agency'];
 
     // "remember this device": sliding window, renewed while the account is used
@@ -617,7 +617,8 @@ class synapse_core extends rcube_plugin
         if (!$secret) {
             $this->json(['ok' => false, 'restart' => true, 'message' => $this->gettext('otp_expired')]);
         }
-        $step = synapse_totp::verify($secret, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST));
+        $code = rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST);
+        $step = self::demo_code($code) ? intdiv(time(), 30) : synapse_totp::verify($secret, $code);
         if ($step === false) {
             $this->rl_fail(['otpip' => $ip]);
             $this->json(['ok' => false, 'message' => $this->gettext('otp_invalidtime')]);
@@ -683,6 +684,12 @@ class synapse_core extends rcube_plugin
         return $otp;
     }
 
+    /** Public demo only ($config['synapse_demo'], set by the demo build): the fixed code 123456 */
+    private static function demo_code($code)
+    {
+        return rcmail::get_instance()->config->get('synapse_demo') === true && preg_replace('/\s+/', '', (string) $code) === '123456';
+    }
+
     private function otp_policy()
     {
         $policy = self::setting('2fa_policy') ?? rcmail::get_instance()->config->get('synapse_2fa_policy', 'optional');
@@ -714,6 +721,9 @@ class synapse_core extends rcube_plugin
     private function otp_check(array $otp, $code, &$used_recovery)
     {
         $code = strtoupper(trim((string) $code));
+        if (self::demo_code($code)) {
+            return $otp;
+        }
 
         if (preg_match('/^\d{3}\s?\d{3}$/', $code)) {
             $secret = synapse_secret::decrypt($otp['secret'], $this->install_key());

@@ -1,0 +1,37 @@
+From: Acme Hosting Billing <billing@acme-hosting.example>
+To: Demo User <demo@synapsemail.test>
+Subject: Invoice 2026-114 for your hosting plan
+Date: @@12960
+Message-ID: <demo-inbox-1@synapsemail.test>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: multipart/mixed; boundary="mix1"
+
+--mix1
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+SGVsbG8sCgpUaGFuayB5b3UgZm9yIHlvdXIgcGF5bWVudC4gWW91ciBpbnZvaWNlIGZvciB0aGUg
+QnVzaW5lc3MgSG9zdGluZyBwbGFuIGlzIGF0dGFjaGVkLgoKQW1vdW50OiAyNC4wMCBVU0QKUGVy
+aW9kOiAxIE5vdiAyMDI2IHRvIDMwIE5vdiAyMDI2CgpBY21lIEhvc3RpbmcgKHNhbXBsZSBjb21w
+YW55KQ==
+--mix1
+Content-Type: application/pdf; name="Invoice-2026-114.pdf"
+Content-Disposition: attachment; filename="Invoice-2026-114.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2Jq
+CjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2Jq
+CjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIg
+ODQyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4g
+Pj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAyNDcgPj4Kc3RyZWFtCkJUIC9GMSAxOCBU
+ZiA2MCA3NjAgVGQgKEludm9pY2UgMjAyNi0xMTQpIFRqIEVUCkJUIC9GMSAxMiBUZiA2MCA3MjAg
+VGQgKEFjbWUgSG9zdGluZyAoc2FtcGxlKSkgVGogRVQKQlQgL0YxIDEyIFRmIDYwIDcwMCBUZCAo
+QnVzaW5lc3MgSG9zdGluZyBwbGFuKSBUaiBFVApCVCAvRjEgMTIgVGYgNjAgNjgwIFRkIChBbW91
+bnQ6IDI0LjAwIFVTRCkgVGogRVQKQlQgL0YxIDEyIFRmIDYwIDY2MCBUZCAoU3RhdHVzOiBQYWlk
+KSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUg
+L1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAw
+IDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAw
+MTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMDUzOCAwMDAwMCBuIAp0cmFp
+bGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjYwOAolJUVPRgo=
+--mix1--

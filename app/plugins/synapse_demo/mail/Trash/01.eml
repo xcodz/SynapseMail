@@ -1,0 +1,11 @@
+From: Build Server <ci@build.example>
+To: Demo User <demo@synapsemail.test>
+Subject: Build #479 failed on main
+Date: @@4320
+Message-ID: <demo-trash-1@synapsemail.test>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+QnVpbGQgIzQ3OSBmYWlsZWQuIDIgdGVzdHMgZmFpbGVkLgoKU2FtcGxlIG5vdGlmaWNhdGlvbi4=

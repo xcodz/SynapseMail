@@ -1,0 +1,12 @@
+From: Demo User <demo@synapsemail.test>
+To: Daniel Park <daniel@northwind.example>
+Subject: Launch checklist
+Date: @@7200
+Message-ID: <demo-sent-1@synapsemail.test>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+SGkgRGFuaWVsLAoKQ2FuIHlvdSB0YWtlIHRoZSBETlMgcmVjb3Jkcz8gSSB3aWxsIGRvIHRoZSBz
+Y3JlZW5zaG90cy4KVGhhbmtzIQ==

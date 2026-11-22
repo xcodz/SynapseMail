@@ -124,4 +124,9 @@ foreach (array_keys(synapse_platform::PANELS) as $p) {
 }
 $check(strpos(synapse_platform::help('ext', 'plain', 'pdo_sqlite'), 'php8.3-sqlite3') !== false, 'extension package names');
 
+// the public demo switches stay off in a normal install (only the demo build turns them on)
+$cfg = (string) file_get_contents(__DIR__ . '/../../../config/config.inc.php');
+$check(!preg_match('/synapse_demo|storage_driver/', $cfg), 'config.inc.php does not enable the demo');
+$check(strpos((string) file_get_contents(__DIR__ . '/../synapse_core.php'), "get('synapse_demo') === true") !== false, 'demo 2FA code needs the explicit demo switch');
+
 exit($fail ? 1 : 0);

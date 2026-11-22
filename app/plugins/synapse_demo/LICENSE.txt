@@ -1,0 +1,38 @@
+SynapseMail
+===========
+
+Copyright (c) 2026 SynapseCyber.io. All rights reserved.
+Developed by Milad Ahmadipour (https://milad.io).
+
+License: Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+(CC BY-NC-ND 4.0)  https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+
+In short:
+  - Free to use: you may install, use and share SynapseMail at no cost.
+  - Attribution: keep the copyright notices and the "Powered by SynapseCyber" credit.
+  - NonCommercial: you may not sell, resell or rent SynapseMail.
+  - NoDerivatives: you may not modify it or distribute modified versions.
+  (The legal code linked above is the binding text.)
+
+Scope
+-----
+This license covers the SynapseMail components:
+  skins/synapse/                 SynapseMail interface (templates, styles, scripts)
+  plugins/synapse_core/          security (passcode, 2FA, rate limits), sessions, installer, admin panel
+  plugins/synapse_editor/        rich-text editor integration
+  plugins/synapse_preview/       message preview text
+  config/config.inc.php          SynapseMail configuration
+  public_html/install.php, public_html/admin.php   installer and admin panel entry points
+  In the source repository also: editor/, installer/, repo-site/, tools/
+
+Third-party software
+--------------------
+  Roundcube Webmail   GPL-3.0 with exceptions for skins and plugins (see docs/LICENSE.md)
+                      https://github.com/roundcube/roundcubemail
+  Lexical             MIT License (see plugins/synapse_editor/LEXICAL-LICENSE.txt)
+  Lucide icons        ISC License   } bundled in skins/synapse/vendor/
+  anime.js            MIT License   } (licenses: skins/synapse/vendor/licenses/)
+  qrcode-generator    MIT License   }
+  Inter, IBM Plex Mono, Barlow Condensed fonts   SIL Open Font License 1.1 (Fontsource, bundled)
+
+Roundcube's own files remain under their original license; this notice does not change it.

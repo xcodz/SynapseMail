@@ -7,7 +7,7 @@ if len(sys.argv) != 2:
 here = os.path.dirname(os.path.abspath(__file__)); app = os.path.join(here, '..', 'app'); base = sys.argv[1].rstrip('/')
 version = re.search(r"RCMAIL_VERSION', '([^']+)'", open(os.path.join(base, 'program/include/iniset.php')).read()).group(1)
 out = subprocess.run(['diff', '-rq', base, app], capture_output=True, text=True).stdout.splitlines()
-skip = re.compile(r'^(config/(synapse\.inc\.php|config\.local\.inc\.php|ADMIN-URL\.txt|installed\.lock)|db/.*\.db.*|logs/.+|temp/.+|setup\.key|.*\.DS_Store)$')
+skip = re.compile(r'^(config/(synapse\.inc\.php|config\.local\.inc\.php|ADMIN-URL\.txt|installed\.lock)|db/.*\.db.*|logs/.+|temp/.+|setup\.key|plugins/synapse_demo(/.*)?|.*\.DS_Store)$')
 added, changed, removed = [], [], []
 for line in out:
     for kind, pat in (('added', r'Only in ' + re.escape(app) + r'/?(.*): (.*)'), ('removed', r'Only in ' + re.escape(base) + r'/?(.*): (.*)')):
