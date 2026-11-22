@@ -195,8 +195,7 @@ The admin panel lives at a **private address** (`/admin/<secret-key>`). People w
 
 ### 📦 Upload the zip (any PHP hosting)
 
-1. Download `SynapseMail_v<version>.zip` from [Releases](../../releases) or
-   https://repo.synapsecyber.io/synapsemail/releases/
+1. Download `SynapseMail_v<version>.zip` from [Releases](../../releases).
 2. Extract it into a folder on your website, for example `public_html/mail`.
 3. Open `https://your-domain/mail/` in your browser.
 4. Follow the installer. ✅
