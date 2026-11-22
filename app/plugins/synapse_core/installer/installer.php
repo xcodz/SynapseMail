@@ -21,6 +21,7 @@
 
 namespace SynapseMail\Installer;
 
+use synapse_platform;
 use synapse_probe;
 use synapse_secret;
 use synapse_totp;
@@ -39,6 +40,7 @@ $CANARY = $ROOT . 'db/install-probe.txt';
 require __DIR__ . '/../lib/synapse_totp.php';
 require __DIR__ . '/../lib/synapse_secret.php';
 require __DIR__ . '/../lib/synapse_probe.php';
+require __DIR__ . '/../lib/synapse_platform.php';
 
 /* ---------------- headers ---------------- */
 
@@ -77,6 +79,7 @@ if (!is_array($S) || ($S['started'] ?? 0) < time() - 3 * 3600) {
         'challenge' => 'SM-' . implode('-', str_split(strtoupper(bin2hex(random_bytes(6))), 4)),
     ];
 }
+$S['panel'] = $S['panel'] ?? synapse_platform::panel($ROOT);
 
 $reached = array_search($S['step'], array_keys(STEPS), true);
 $step = $_GET['step'] ?? $S['step'];
@@ -129,8 +132,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
 
+            case 'panel':
+                if (isset(synapse_platform::PANELS[$_POST['panel'] ?? ''])) {
+                    $S['panel'] = $_POST['panel'];
+                }
+                break;
+
             case 'env':
-                if (array_filter(env_checks($ROOT, $https), static function ($c) { return $c['level'] === 'fail'; })) {
+                if (array_filter(env_checks($ROOT, $https, $S['panel']), static function ($c) { return $c['level'] === 'fail'; })) {
                     $error = 'Fix the failed checks first, then reload this page.';
                 } elseif (empty($_POST['web_protected'])) {
                     $error = 'The protection test of the db folder did not pass (see below).';
@@ -237,17 +246,24 @@ if ($step === 'own') {
         . form('own', '<button class="access-button" type="submit"><span>I SAVED SETUP.KEY</span><b aria-hidden="true"></b></button>');
 } elseif ($step === 'env') {
     @file_put_contents($CANARY, $S['challenge']);
+    $panel = $S['panel'];
     $rows = '';
-    foreach (env_checks($ROOT, $https) as $c) {
-        $rows .= '<div class="check ' . $c['level'] . '"><span>' . h($c['label']) . '</span><small>' . h($c['detail']) . '</small><b>' . strtoupper($c['level'] === 'pass' ? 'ok' : $c['level']) . '</b></div>';
+    foreach (env_checks($ROOT, $https, $panel) as $c) {
+        $rows .= '<div class="check ' . $c['level'] . '"><span>' . h($c['label']) . '</span><small>' . h($c['detail']) . '</small><b>' . strtoupper($c['level'] === 'pass' ? 'ok' : $c['level']) . '</b>'
+            . ($c['level'] !== 'pass' && $c['help'] !== '' ? fix_help($c['help'], $panel) : '') . '</div>';
     }
-    $rows .= '<div class="check pending" id="webProbe" data-url="db/install-probe.txt" data-canary="' . h($S['challenge']) . '"><span>Data folders hidden from the web</span><small>Testing whether db/ can be downloaded…</small><b>…</b></div>';
-    $body = '<p class="setup-lead">Checking this server.</p><div class="checks">' . $rows . '</div>'
+    $rows .= '<div class="check pending" id="webProbe" data-url="' . h(synapse_platform::base_url($_SERVER['SCRIPT_NAME'] ?? '') . '/db/install-probe.txt') . '" data-canary="' . h($S['challenge']) . '"><span>Data folders hidden from the web</span><small>Testing whether db/ can be downloaded…</small><b>…</b>'
+        . '<div class="check-help" id="protectHelp" hidden><p>' . help_text(synapse_platform::help('protect', $panel)) . '</p>'
+        . '<pre class="setup-pre">' . h($snippet = synapse_platform::nginx_snippet(synapse_platform::base_url($_SERVER['SCRIPT_NAME'] ?? ''))) . '</pre>'
+        . '<button type="button" class="setup-text-btn" data-copy-text="' . h($snippet) . '">Copy nginx rules</button>'
+        . '<p>Then reload this page. More help: <a href="' . h(synapse_platform::DOCS) . '" target="_blank" rel="noopener noreferrer">troubleshooting guide</a>.</p></div></div>';
+    $body = '<p class="setup-lead">Checking this server.</p>' . panel_picker($panel) . '<div class="checks">' . $rows . '</div>'
         . form('env', '<input type="hidden" name="web_protected" id="webProtected" value=""><button class="access-button" type="submit" id="envNext" disabled><span>CONTINUE</span><b aria-hidden="true"></b></button>');
 } elseif ($step === 'mail') {
     $hosts = h(json_encode(candidate_hosts()));
     $body = '<p class="setup-lead">Finding the mail server (IMAP for reading, SMTP for sending). Connections with a certificate that matches the host name are preferred.</p>'
         . '<div id="probeApp" data-hosts="' . $hosts . '" data-token="' . $csrf . '"><div class="checks" id="probeRows"><div class="check pending"><span>Testing connections…</span><small>This can take up to a minute.</small><b>…</b></div></div>'
+        . fix_help(synapse_platform::help('mail', $S['panel']), $S['panel'], 'Mail server not found? Where to look on ')
         . '<div class="setup-custom"><input id="customHost" type="text" placeholder="Other host, e.g. mail.example.com" autocomplete="off" spellcheck="false"><button type="button" id="customProbe">TEST</button></div></div>'
         . form('mail', '<label class="field"><span class="field-label">IMAP (READING MAIL)</span><select name="imap" id="imapChoice" class="setup-select" required></select></label>'
             . '<label class="field"><span class="field-label">SMTP (SENDING MAIL)</span><select name="smtp" id="smtpChoice" class="setup-select" required></select></label>'
@@ -330,6 +346,31 @@ function key_code($text)
 function h($s)
 {
     return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+}
+
+/** Escaped help text; `backticks` become code */
+function help_text($text)
+{
+    return preg_replace('/`([^`]+)`/', '<code>$1</code>', h($text));
+}
+
+function fix_help($text, $panel, $prefix = 'How to fix on ')
+{
+    return '<details class="check-help"><summary>' . h($prefix . synapse_platform::PANELS[$panel]) . '</summary><p>' . help_text($text) . '</p></details>';
+}
+
+/** Detected hosting panel + web server, with a manual override */
+function panel_picker($panel)
+{
+    $opts = '';
+    foreach (synapse_platform::PANELS as $id => $name) {
+        $opts .= '<option value="' . $id . '"' . ($id === $panel ? ' selected' : '') . '>' . h($name) . '</option>';
+    }
+    $ws = ['apache' => 'Apache', 'litespeed' => 'LiteSpeed', 'nginx' => 'nginx', 'other' => 'unknown'][synapse_platform::web_server($_SERVER['SERVER_SOFTWARE'] ?? '')];
+
+    return '<form method="post" action="install.php" class="setup-panel"><input type="hidden" name="csrf" value="' . h($_SESSION['synapse_setup']['csrf']) . '"><input type="hidden" name="do" value="panel">'
+        . '<span>HOSTING</span><select name="panel" class="setup-select" aria-label="Hosting panel">' . $opts . '</select><button type="submit" class="setup-text-btn">CHANGE</button>'
+        . '<small>Web server: ' . h($ws) . '. The fix steps below follow this choice.</small></form>';
 }
 
 function form($do, $inner)
@@ -415,21 +456,24 @@ function weak_password($pass, $user)
     return null;
 }
 
-function env_checks($root, $https)
+function env_checks($root, $https, $panel = 'plain')
 {
     $c = [];
-    $add = static function ($level, $label, $detail) use (&$c) { $c[] = compact('level', 'label', 'detail'); };
-    $add(PHP_VERSION_ID >= 80100 ? 'pass' : 'fail', 'PHP 8.1 or newer', 'This server runs PHP ' . PHP_VERSION);
+    $add = static function ($level, $label, $detail, $topic, $arg = '') use (&$c, $panel) {
+        $help = synapse_platform::help($topic, $panel, $arg);
+        $c[] = compact('level', 'label', 'detail', 'help');
+    };
+    $add(PHP_VERSION_ID >= 80100 ? 'pass' : 'fail', 'PHP 8.1 or newer', 'This server runs PHP ' . PHP_VERSION, 'php');
     foreach (['pdo_sqlite' => 'SQLite database', 'intl' => 'Internationalization', 'mbstring' => 'Multibyte strings', 'openssl' => 'Encryption (TLS)', 'dom' => 'HTML processing', 'xml' => 'XML', 'json' => 'JSON', 'session' => 'Sessions', 'ctype' => 'Character types', 'filter' => 'Input filtering'] as $ext => $label) {
-        $add(extension_loaded($ext) ? 'pass' : 'fail', $label, 'PHP extension ' . $ext);
+        $add(extension_loaded($ext) ? 'pass' : 'fail', $label, 'PHP extension ' . $ext, 'ext', $ext);
     }
     foreach (['fileinfo' => 'File type detection', 'zip' => 'Download attachments as zip', 'gd' => 'Image thumbnails'] as $ext => $label) {
-        $add(extension_loaded($ext) ? 'pass' : 'warn', $label, 'Optional PHP extension ' . $ext);
+        $add(extension_loaded($ext) ? 'pass' : 'warn', $label, 'Optional PHP extension ' . $ext, 'ext', $ext);
     }
     foreach (['config', 'db', 'temp', 'logs'] as $dir) {
-        $add(is_writable($root . $dir) ? 'pass' : 'fail', 'Folder ' . $dir . '/ writable', is_writable($root . $dir) ? 'OK' : 'Set permissions to 755 in your file manager');
+        $add(is_writable($root . $dir) ? 'pass' : 'fail', 'Folder ' . $dir . '/ writable', is_writable($root . $dir) ? 'OK' : 'Set permissions to 755 in your file manager', 'perms', $dir . '/');
     }
-    $add($https ? 'pass' : 'warn', 'HTTPS', $https ? 'This page is served over HTTPS' : 'Serve SynapseMail over HTTPS (enable SSL / AutoSSL in your hosting panel)');
+    $add($https ? 'pass' : 'warn', 'HTTPS', $https ? 'This page is served over HTTPS' : 'Serve SynapseMail over HTTPS (enable SSL / AutoSSL in your hosting panel)', 'https');
 
     return $c;
 }

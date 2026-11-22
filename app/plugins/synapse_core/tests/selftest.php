@@ -23,6 +23,7 @@ require __DIR__ . '/../lib/synapse_probe.php';
 require __DIR__ . '/../lib/synapse_deliverability.php';
 require __DIR__ . '/../lib/synapse_backup.php';
 require __DIR__ . '/../lib/synapse_update.php';
+require __DIR__ . '/../lib/synapse_platform.php';
 
 $fail = 0;
 $check = static function ($ok, $what) use (&$fail) {
@@ -95,5 +96,32 @@ $check(synapse_update::verify($man, $sig, $pub)['version'] === '9.1', 'signed ma
 $check(synapse_update::verify(str_replace('9.1', '9.2', $man), $sig, $pub) === null, 'altered manifest refused');
 $check(synapse_update::verify($man, $sig, synapse_update::PUBLIC_KEY) === null, 'manifest signed by another key refused');
 $check(synapse_update::check('http://example.com/release.json', '1.0')['error'] !== '', 'plain http update URL refused');
+
+// hosting panel detection from install paths
+foreach ([
+    '/home/alice/public_html/mail' => 'cpanel', '/home2/bob/public_html' => 'cpanel',
+    '/home/alice/domains/example.com/public_html/mail' => 'directadmin',
+    '/home/alice/web/example.com/public_html/mail' => 'hestia',
+    '/home/site/htdocs/example.com/mail' => 'cloudpanel',
+    '/var/www/vhosts/example.com/httpdocs/mail' => 'plesk',
+    '/var/www/clients/client1/web3/web/mail' => 'ispconfig',
+    '/www/wwwroot/example.com/mail' => 'aapanel',
+    '/var/www/html/mail' => 'plain', '/srv/synapsemail' => 'plain',
+] as $path => $want) {
+    $check(synapse_platform::panel($path) === $want, "panel $path -> $want");
+}
+$check(synapse_platform::web_server('nginx/1.24.0') === 'nginx' && synapse_platform::web_server('LiteSpeed') === 'litespeed'
+    && synapse_platform::web_server('Apache/2.4.58 (Ubuntu)') === 'apache', 'web server detection');
+$check(synapse_platform::base_url('/mail/public_html/install.php') === '/mail' && synapse_platform::base_url('/install.php') === '', 'install base URL');
+$snip = synapse_platform::nginx_snippet('/mail');
+$check(strpos($snip, 'location ^~ /mail/db/ { return 404;') !== false && strpos($snip, 'location ^~ /mail/config/') !== false, 'nginx rules deny db and config');
+foreach (array_keys(synapse_platform::PANELS) as $p) {
+    foreach (['php', 'ext', 'perms', 'https', 'protect', 'mail'] as $topic) {
+        if (synapse_platform::help($topic, $p, 'intl') === '') {
+            $check(false, "help text $p/$topic");
+        }
+    }
+}
+$check(strpos(synapse_platform::help('ext', 'plain', 'pdo_sqlite'), 'php8.3-sqlite3') !== false, 'extension package names');
 
 exit($fail ? 1 : 0);

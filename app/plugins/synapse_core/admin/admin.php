@@ -26,6 +26,7 @@ use RuntimeException;
 use synapse_backup;
 use synapse_core;
 use synapse_deliverability;
+use synapse_platform;
 use synapse_secret;
 use synapse_totp;
 use synapse_update;
@@ -43,6 +44,7 @@ require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_probe.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_deliverability.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_backup.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_update.php';
+require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_platform.php';
 require_once __DIR__ . '/views.php';
 
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'");
@@ -486,6 +488,8 @@ function health($RC, $db)
         $w = is_writable(INSTALL_PATH . $dir);
         $c[] = [$w ? 'pass' : 'fail', "Folder $dir/", $w ? 'Writable' : 'Not writable by PHP', $w ? 'OK' : 'NO'];
     }
+    $ws = synapse_platform::web_server($_SERVER['SERVER_SOFTWARE'] ?? '');
+    $c[] = ['pass', 'Hosting', synapse_platform::PANELS[synapse_platform::panel(realpath(INSTALL_PATH))] . ' (detected) · web server ' . $ws, 'INFO'];
     $locked = is_file(INSTALL_PATH . 'config/installed.lock');
     $c[] = [$locked ? 'pass' : 'warn', 'Installer', $locked ? 'Locked' : 'config/installed.lock is missing', $locked ? 'OK' : 'CHECK'];
     // updates bring back the example file; only a real code left behind is worth a warning

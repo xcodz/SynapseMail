@@ -20,6 +20,7 @@ namespace SynapseMail\Admin;
 
 use synapse_core;
 use synapse_deliverability;
+use synapse_platform;
 
 const NAV = [
     'MONITOR' => ['overview' => ['Overview', 'layout-dashboard'], 'deliverability' => ['Deliverability', 'mail-check'], 'logs' => ['Logs', 'scroll-text']],
@@ -284,7 +285,8 @@ function view_overview($RC, $db)
     foreach ($health as [$level, $label, $detail, $state]) {
         $rows .= status_row($level, $label, $detail, $state);
     }
-    $health_card = card('System health', '<ul class="adm-statuses">' . $rows . '</ul>', [
+    $health_card = card('System health', '<ul class="adm-statuses">' . $rows . '</ul>'
+        . '<p class="adm-hint">Something to fix? Steps for each hosting panel: <a href="' . h(synapse_platform::DOCS) . '" target="_blank" rel="noopener noreferrer">troubleshooting guide</a>.</p>', [
         'icon' => 'activity',
         'meta' => $issues ? badge('warn', $issues . ' to review') : badge('ok', 'all good'),
     ]);

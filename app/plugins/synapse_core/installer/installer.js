@@ -25,6 +25,7 @@
       probe.querySelector('b').textContent = level === 'pass' ? 'OK' : 'FAIL';
       var failed = document.querySelectorAll('.check.fail').length > 0;
       $('webProtected').value = level === 'pass' ? '1' : '';
+      if ($('protectHelp')) $('protectHelp').hidden = level === 'pass';
       $('envNext').disabled = failed;
     };
     fetch(probe.dataset.url + '?' + Date.now(), { cache: 'no-store', credentials: 'omit' })

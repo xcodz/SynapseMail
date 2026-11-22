@@ -84,3 +84,16 @@
 .ui-select-menu li[aria-selected="true"] { color: var(--accent); }
 .ui-select-menu li[aria-selected="true"]::before { content: ""; position: absolute; left: 11px; top: 50%; width: 4px; height: 8px; margin-top: -6px; border-right: 1.5px solid var(--accent); border-bottom: 1.5px solid var(--accent); transform: rotate(45deg); }
 .ui-select-menu li[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+
+/* detected hosting panel + per-panel fix steps */
+.setup-panel { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px 10px; }
+.setup-panel > span { color: var(--dim); font: 600 9px IBM Plex Mono, monospace; letter-spacing: .1em; }
+.setup-panel .setup-select { height: 36px; }
+.setup-panel small { grid-column: 1 / -1; color: var(--dim); font: 400 9px/1.5 IBM Plex Mono, monospace; }
+.check .check-help { grid-column: 1 / -1; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.check-help summary { cursor: pointer; color: var(--accent); font: 600 9px IBM Plex Mono, monospace; letter-spacing: .08em; }
+.check-help p { margin: 6px 0; }
+.check-help code { color: var(--accent); font: 500 10px IBM Plex Mono, monospace; }
+.check-help a { color: var(--accent); }
+.setup-body > .check-help { padding: 8px 12px; border: 1px solid var(--line); }
+.setup-pre { margin: 6px 0; padding: 10px; max-height: 180px; overflow: auto; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--text); font: 400 10px/1.5 IBM Plex Mono, monospace; white-space: pre; }

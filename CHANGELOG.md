@@ -1,5 +1,21 @@
 # SynapseMail changelog
 
+## 3.1
+- **Installer: hosting panel detection.** The Environment step detects cPanel, Plesk, DirectAdmin, HestiaCP/VestaCP,
+  CloudPanel, aaPanel, ISPConfig or a plain Linux server from the install path, shows the web server, and lets you
+  pick another panel if the guess is wrong.
+- **Installer: "How to fix on <panel>"** under every failed or warning check (PHP version, extensions, folder
+  permissions, HTTPS), and a mail-server hint on the Mail step.
+- **nginx guard:** when `db/` can be downloaded (nginx ignores `.htaccess`), the installer shows ready nginx rules
+  with your folder name and a copy button, and stays blocked until the test passes.
+- **Fix:** the db/ protection test now fetches the install folder's `db/` (it used to test `public_html/db/`, so
+  an nginx install opened at `.../public_html/install.php` could pass without protection).
+- **Honest login text:** "END-TO-END ENCRYPTED" is now "TLS ENCRYPTED CONNECTION" and the login text no longer
+  says "encrypted mailbox" (English, Persian, Arabic).
+- **README** rewritten with screenshots.
+- **Docs:** `docs/TROUBLESHOOTING.md` and `docs/HOSTING-PANELS.md` (generated from the installer's help by
+  `tools/panel-docs.php`). The admin panel's health card shows the detected hosting and links to the guide.
+
 ## 3.0 (first public release)
 - **Public repository** with the complete package under `app/`, the editor source under `editor/` and the build
   tools under `tools/`. `app/SYNAPSEMAIL-FILES.txt` lists every SynapseMail file and every change to Roundcube.
