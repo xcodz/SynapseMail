@@ -209,14 +209,6 @@ The installer:
 
 Full steps: [app/INSTALL-SYNAPSEMAIL.txt](app/INSTALL-SYNAPSEMAIL.txt)
 
-### ⚡ One command (Linux server or SSH) *coming in the next release*
-
-```bash
-bash <(curl -fsSL https://repo.synapsecyber.io/synapsemail)
-```
-
-It will check the release signature before it installs anything.
-
 ### ✅ Requirements
 
 | Needed | Details |
