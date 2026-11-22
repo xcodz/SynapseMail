@@ -80,7 +80,7 @@ installer and a private admin panel.**
 
 ## 📸 Screenshots
 
-**🎬 A quick tour:** sign in → 2FA code → passcode → inbox → Persian email → security settings
+**🎬 A quick tour:** sign in → 2FA code → passcode → inbox → RTL email → security settings
 
 <img src="docs/screenshots/demo-tour.gif" alt="SynapseMail demo: secure webmail sign-in with two-factor authentication, passcode lock, inbox and RTL email" width="100%">
 
