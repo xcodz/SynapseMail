@@ -5,11 +5,13 @@
 #
 # Builds from app/ into dist/:
 #   dist/SynapseMail_v<V>.zip                      the portable (full tree) package
-#   dist/repo/                                     upload to https://repo.synapsecyber.io/synapsemail/
-#     releases/SynapseMail_v<V>.zip(.sha256)  SHA256SUMS  index.php  install.sh  .htaccess
+#   dist/repo/ and dist/repo.zip                   upload to https://repo.synapsecyber.io/synapsemail/
+#     releases/SynapseMail_v<V>.zip(.sha256)  SHA256SUMS  index.html  .htaccess
 #     release.json + release.json.sig              signed when ~/.synapsemail/release-signing.key exists
 #
-# Env: RELEASE_NOTES="..."  REPO_URL=https://repo.synapsecyber.io/synapsemail (default)
+# The package carries SYNAPSEMAIL-RELEASE.json + .sig (sha256 of every file, Ed25519): the admin panel installs
+# only zips signed with the release key. The key stays outside the repo (~/.synapsemail/release-signing.key).
+# Env: RELEASE_NOTES="..." (default: this version's CHANGELOG section)  REPO_URL=https://repo.synapsecyber.io/synapsemail (default)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -71,28 +73,56 @@ grep -q "synapse_demo'\] = true\|\"synapse_demo\"\] = true" "$OUT/config/config.
 missing=$(awk '/^\[added\]/{a=1;next} /^\[/{a=0} a&&NF' $APP/SYNAPSEMAIL-FILES.txt | while read -r p; do [[ -e "$OUT/$p" ]] || echo "$p"; done)
 [[ -z $missing ]] || die "listed in SYNAPSEMAIL-FILES.txt but missing: $missing"
 
-# 4. zip
+# 4. signed file list inside the package: the in-app updater installs only zips whose every file matches it
+[[ -f $KEY || -n ${UNSIGNED:-} ]] || die "no signing key at $KEY (UNSIGNED=1 builds a zip the updater refuses)"
+[[ -z $(find "$OUT" -type l) ]] || die "symbolic links in the package"
+# notes: this version's CHANGELOG section, wrapped lines joined, markdown marks removed
+NOTES=${RELEASE_NOTES:-$(awk -v v="## $V" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md | sed -e 's/\*\*//g' -e 's/`//g' | awk 'NR>1 && /^  /{sub(/^ +/," ");printf "%s",$0;next} {if(NR>1)printf "\n";printf "%s",$0} END{print ""}' | head -c 3000)}
+if [[ -f $KEY ]]; then
+  "$PHP" -r '
+    [, $dir, $v, $key, $notes] = $argv;
+    $files = [];
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+    foreach ($it as $f) {
+        if ($f->isFile()) { $files[substr($f->getPathname(), strlen($dir) + 1)] = hash_file("sha256", $f->getPathname()); }
+    }
+    ksort($files, SORT_STRING);
+    $m = json_encode(["product" => "SynapseMail", "version" => $v, "released" => gmdate("Y-m-d"), "notes" => $notes, "files" => $files],
+      JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+    file_put_contents("$dir/SYNAPSEMAIL-RELEASE.json", $m);
+    file_put_contents("$dir/SYNAPSEMAIL-RELEASE.sig", base64_encode(sodium_crypto_sign_detached($m, base64_decode(trim(file_get_contents($key))))) . "\n");
+    echo count($files) . " files signed\n";
+  ' "$OUT" "$V" "$KEY" "$NOTES"
+fi
+
+# 5. zip
 (cd "$OUT" && zip -qr -X "../$NAME.zip" .)
 echo "dist/$NAME.zip: $(unzip -l "dist/$NAME.zip" | tail -1 | awk '{print $2}') files, $(du -h "dist/$NAME.zip" | cut -f1)"
 
-# 5. repo site
+# 6. repo site
 mkdir -p dist/repo/releases
 cp "dist/$NAME.zip" dist/repo/releases/
 (cd dist/repo/releases && shasum -a 256 "$NAME.zip" > "$NAME.zip.sha256" && cat ./*.sha256 > ../SHA256SUMS)
-[[ -d repo-site ]] && cp -R repo-site/. dist/repo/
+# landing page and server rules (placeholders filled in)
+for f in repo-site/index.html repo-site/.htaccess; do
+  [[ -f $f ]] && sed -e "s/{{VERSION}}/$V/g" -e "s/{{DATE}}/$(date -u +%Y-%m-%d)/g" -e "s/{{SHA256}}/$(cut -d' ' -f1 dist/repo/releases/$NAME.zip.sha256)/g" "$f" > "dist/repo/$(basename "$f")"
+done
 [[ -f installer/install.sh ]] && cp installer/install.sh dist/repo/install.sh
 
-# 6. signed manifest (private key stays outside the repo)
+# 7. signed manifest (private key stays outside the repo)
 if [[ -f $KEY ]]; then
   "$PHP" -r '
     [, $v, $zip, $url, $key, $notes] = $argv;
     $m = json_encode(["product" => "SynapseMail", "edition" => "portable", "version" => $v, "released" => gmdate("Y-m-d"),
-      "url" => $url, "sha256" => hash_file("sha256", $zip), "notes" => $notes], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n";
+      "url" => $url, "sha256" => hash_file("sha256", $zip), "size" => filesize($zip), "notes" => $notes], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n";
     file_put_contents("dist/repo/release.json", $m);
     file_put_contents("dist/repo/release.json.sig", base64_encode(sodium_crypto_sign_detached($m, base64_decode(trim(file_get_contents($key))))) . "\n");
-  ' "$V" "dist/$NAME.zip" "$REPO_URL/releases/$NAME.zip" "$KEY" "${RELEASE_NOTES:-}"
+  ' "$V" "dist/$NAME.zip" "$REPO_URL/releases/$NAME.zip" "$KEY" "$NOTES"
   echo "dist/repo/release.json signed for $V"
 else
   echo "(no signing key at $KEY: release.json not written)"
 fi
-echo "done: dist/$NAME.zip and dist/repo/"
+# one zip of the repo folder: extract its contents into /synapsemail/ on the update server
+rm -f dist/repo.zip
+(cd dist/repo && zip -qr -X ../repo.zip .)
+echo "done: dist/$NAME.zip, dist/repo/ and dist/repo.zip (upload into https://repo.synapsecyber.io/synapsemail/)"

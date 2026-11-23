@@ -35,6 +35,27 @@ Click the address in the list:
 
 **When I reply** (under the list): reply from the address the message was sent to, or always from your default.
 
+## 📥 Read the inbox of an address
+
+You can also read the mail of a Send As address in SynapseMail. Nothing is imported: SynapseMail opens that
+address's mailbox **on its own server**, and your main mailbox stays as it is.
+
+1. Settings › Send As › click the address › **Inbox › Turn on**, or tick "Also read its inbox" when you add it.
+2. The incoming server (IMAP) is filled in for you (for example `imap.gmail.com`). Change it if needed.
+3. Keep "Use the password this address sends with" (App Passwords work for IMAP too), or enter another password.
+4. **Test and turn on** signs in once and shows how many messages are unread.
+
+On the mail screen, the **mailbox menu above the folders** lists your own mailbox and every inbox with its unread
+count. While another inbox is open, a bar says which one, with **Back to my inbox**. Its own folders are used (Sent,
+Drafts and Trash are found automatically), and new mail and replies come from that address. Gmail and Microsoft
+keep their own copy of sent mail, so SynapseMail does not add a second one there.
+
+- Only **IMAP over TLS on port 993** is used, the certificate is checked and private networks are blocked.
+- Settings, contacts and filters always belong to your own account.
+- If the password of that inbox changes, SynapseMail returns to your own inbox and tells you. Enter the new password
+  under Inbox in the address settings. **Turn off inbox** removes it (the mail stays on its server).
+- Hosting firewalls must allow outgoing port **993** (CSF: add 993 to `TCP_OUT`).
+
 ## 🔑 Provider notes (2026)
 
 | Provider | Server | Port / security | Password |
@@ -84,4 +105,7 @@ Many servers block this. On cPanel/WHM check three things: the CSF firewall's **
 `SMTP_ALLOWUSER`, and WHM **Tweak Settings › "Restrict outgoing SMTP to root, exim, and mailman"** (Security Center › SMTP Restrictions) must be off. Ask your host if you cannot change it.
 See [Troubleshooting](TROUBLESHOOTING.md#send-as) for test commands.
 
-**Users** shows how many Send As addresses each mailbox has. Send As addresses are part of the backup.
+**Admin › Security › Send As › "Users can open the inboxes of their addresses"** turns reading other inboxes on or
+off for everyone (on by default).
+
+**Users** shows how many Send As addresses and inboxes each mailbox has. Both are part of the backup.

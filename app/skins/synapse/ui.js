@@ -12,11 +12,12 @@
 var UI = (function () {
   var $ = window.jQuery, rc = window.rcmail, doc = document, html = doc.documentElement;
   var byId = function (id) { return doc.getElementById(id); };
-  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reduced = /^(reduce|off)$/.test(document.documentElement.dataset.motion || '') || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   var framed = html.classList.contains('iframe');
   // texts: plugins/synapse_core/localization (sent by synapse_core); vars fill $name placeholders
   function t(key, vars) { return rc ? rc.gettext(key, 'synapse_core', vars) : key; }
-  var themeLabels = { warfare: t('theme_warfare'), blackops: t('theme_blackops'), night: t('theme_night'), agency: t('theme_agency') };
+  var themeLabels = { warfare: t('theme_warfare'), blackops: t('theme_blackops'), night: t('theme_night'), agency: t('theme_agency'), soft: t('theme_soft'), auto: t('theme_auto') };
+  var lightQuery = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
 
   function store(key, value) { try { if (value === undefined) return localStorage.getItem(key); if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { return null; } }
   function icons() { enhanceButtons(); if (window.lucide) lucide.createIcons(); }
@@ -97,6 +98,9 @@ var UI = (function () {
   }
 
   function themeCookie() { var m = /(?:^|;\s*)synapsemail_theme2=([a-z]+)/.exec(doc.cookie); return m ? m[1] : null; }
+  // "auto" follows the system: Soft Light by day, the last dark theme chosen by night
+  function resolveTheme(theme) { return theme != 'auto' ? theme : (lightQuery && lightQuery.matches ? 'soft' : (store('synapsemail-dark') || 'agency')); }
+  var currentTheme = null;
 
   // persist: cookie (login page, before any session), local storage, and the account (server pref) when signed in
   function persistTheme(theme) {
@@ -104,13 +108,47 @@ var UI = (function () {
     doc.cookie = 'synapsemail_theme2=' + theme + '; path=/; max-age=31536000; SameSite=Lax' + (location.protocol == 'https:' ? '; Secure' : '');
   }
 
+  /* ---------- appearance (Settings > Appearance): motion, effects, density, text size, contrast, links ---------- */
+  var UI_DEFAULTS = { motion: 'system', effects: 'on', density: 'comfortable', text: 'normal', contrast: 'normal', links: 'plain' };
+  var UI_VALUES = { motion: ['system', 'reduce', 'off'], effects: ['on', 'off'], density: ['comfortable', 'compact'], text: ['small', 'normal', 'large', 'larger'], contrast: ['normal', 'more'], links: ['plain', 'underline'] };
+  function uiPrefs(str) {
+    var p = {}; Object.keys(UI_DEFAULTS).forEach(function (k) { p[k] = UI_DEFAULTS[k]; });
+    String(str || '').split('.').forEach(function (kv) { kv = kv.split('-'); if (UI_VALUES[kv[0]] && UI_VALUES[kv[0]].indexOf(kv[1]) > -1) p[kv[0]] = kv[1]; });
+    if (!str && store('synapsemail-density')) p.density = 'compact'; // the list toolbar's density button before 3.5
+    return p;
+  }
+  function uiString(p) { return Object.keys(UI_DEFAULTS).filter(function (k) { return p[k] != UI_DEFAULTS[k]; }).map(function (k) { return k + '-' + p[k]; }).join('.'); }
+  function uiCookie() { var m = /(?:^|;\s*)synapsemail_ui=([a-z0-9.-]+)/.exec(doc.cookie); return m ? m[1] : ''; }
+  function applyUi(p, save) {
+    var set = function (root) {
+      ['motion', 'effects', 'text', 'contrast', 'links'].forEach(function (k) {
+        var v = p[k] != UI_DEFAULTS[k] ? p[k] : null;
+        if (v) root.dataset[k] = v; else delete root.dataset[k];
+      });
+    };
+    set(html);
+    doc.querySelectorAll('iframe').forEach(function (f) { try { set(f.contentDocument.documentElement); } catch (e) { } });
+    if (doc.body) doc.body.classList.toggle('compact', p.density == 'compact');
+    store('synapsemail-density', p.density == 'compact' ? 'compact' : null);
+    var str = uiString(p);
+    doc.cookie = 'synapsemail_ui=' + str + '; path=/; max-age=' + (str ? 31536000 : 0) + '; SameSite=Lax' + (location.protocol == 'https:' ? '; Secure' : '');
+    if (save) { var trc = topRc(); if (trc && trc.env.task && trc.env.task != 'login') trc.save_pref({ name: 'synapse_ui', value: str, env: 'synapse_ui' }); }
+    return str;
+  }
+  function motionReduced() { return html.dataset.motion == 'reduce' || html.dataset.motion == 'off' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+
   function applyTheme(theme, announce, save) {
     if (!themeLabels[theme]) theme = 'agency';
-    html.dataset.theme = theme;
+    currentTheme = theme;
+    if (theme != 'auto' && theme != 'soft') store('synapsemail-dark', theme);
+    var shown = resolveTheme(theme);
+    html.dataset.theme = shown;
+    if (theme == 'auto') html.dataset.themeAuto = '1'; else delete html.dataset.themeAuto;
     if (announce || save) persistTheme(theme); // only a user's choice is remembered, so the default can change
     doc.querySelectorAll('.theme-dot, .theme-choice[data-theme]').forEach(function (el) { el.classList.toggle('active', el.dataset.theme === theme); });
+    doc.querySelectorAll('.ap-theme input').forEach(function (el) { el.checked = el.value === theme; });
     // keep framed views (preview, compose, settings forms) on the same theme
-    doc.querySelectorAll('iframe').forEach(function (f) { try { f.contentDocument.documentElement.dataset.theme = theme; } catch (e) { } });
+    doc.querySelectorAll('iframe').forEach(function (f) { try { f.contentDocument.documentElement.dataset.theme = shown; } catch (e) { } });
     if (save) {
       var trc = topRc();
       if (trc && trc.env.task && trc.env.task != 'login' && trc.env.task != 'logout' && trc.env.synapse_theme != theme) trc.save_pref({ name: 'synapse_theme', value: theme, env: 'synapse_theme' });
@@ -314,11 +352,17 @@ var UI = (function () {
     add(rc.gettext('settings'), t('settings_desc'), 'settings', 'G S', 'settings preferences options', function () { rc.command('settings'); });
     add(rc.gettext('managefolders'), t('cmd_folders_desc'), 'folder-cog', 'G F', 'folders manage create', function () { rc.goto_url('settings/folders'); });
     add(t('sendas'), t('cmd_identities_desc'), 'send', 'G D', 'identities signature sender send as alias', function () { rc.goto_url('settings/identities'); });
+    if (UI && UI.inboxes) UI.inboxes().forEach(function (x) {
+      add(t('cmd_inbox_open', { email: x.email }), t('cmd_inbox_open_desc'), 'inbox', '', 'inbox mailbox switch account other ' + x.email, function () { UI.openInbox(x.iid); });
+    });
     add(t('cmd_density'), t('cmd_density_desc'), 'rows-3', 'D', 'compact dense rows', toggleDensity);
     add(t('cmd_loadtheme', { theme: t('themename_warfare') }), t('theme_warfare_desc'), 'shield', '01', 'theme olive dark green', function () { applyTheme('warfare', true, true); });
     add(t('cmd_loadtheme', { theme: t('themename_blackops') }), t('theme_blackops_desc'), 'flame', '02', 'theme orange amber cyber', function () { applyTheme('blackops', true, true); });
     add(t('cmd_loadtheme', { theme: t('themename_night') }), t('theme_night_desc'), 'scan-eye', '03', 'theme terminal green', function () { applyTheme('night', true, true); });
     add(t('cmd_loadtheme', { theme: t('themename_agency') }), t('theme_agency_desc'), 'mail-check', '04', 'theme blue secure email', function () { applyTheme('agency', true, true); });
+    add(t('cmd_loadtheme', { theme: t('themename_soft') }), t('theme_soft_desc'), 'sun', '05', 'theme light soft day bright', function () { applyTheme('soft', true, true); });
+    add(t('cmd_loadtheme', { theme: t('themename_auto') }), t('theme_auto_desc'), 'sun-moon', '06', 'theme system auto light dark', function () { applyTheme('auto', true, true); });
+    add(t('appearance'), t('appearance_desc'), 'palette', '', 'appearance theme animation motion contrast text size density', function () { rc.goto_url('settings/plugin.synapse-appearance'); });
     add(t('aboutsynapsemail'), t('cmd_about_desc'), 'info', '?', 'about version credits developer', function () { about(true); });
     add(t('signout'), t('signout_desc'), 'log-out', 'Q', 'logout sign out exit', function () { rc.command('logout'); });
     return list;
@@ -336,6 +380,7 @@ var UI = (function () {
     icons();
   }
   function openPalette() {
+    commands = buildCommands(); // mailboxes and other entries can change after the page loaded
     var p = byId('commandPalette'); if (!p) return;
     closeMenus();
     p.classList.add('open'); p.setAttribute('aria-hidden', 'false');
@@ -346,9 +391,10 @@ var UI = (function () {
   function runCommand(c) { if (c) { closePalette(); c.action(); } }
 
   function toggleDensity() {
-    var on = doc.body.classList.toggle('compact');
-    store('synapsemail-density', on ? 'compact' : null);
-    toast(t(on ? 'density_on' : 'density_off'));
+    var p = uiPrefs(rc.env.synapse_ui != null ? rc.env.synapse_ui : uiCookie());
+    p.density = p.density == 'compact' ? 'comfortable' : 'compact';
+    rc.env.synapse_ui = applyUi(p, true);
+    toast(t(p.density == 'compact' ? 'density_on' : 'density_off'));
   }
 
   /* ---------- scrim / overlays ---------- */
@@ -1249,7 +1295,7 @@ var UI = (function () {
       else { var c = byId('appShell').classList.toggle('sidebar-collapsed'); store('synapsemail-sidebar', c ? 'collapsed' : null); }
     });
     if (store('synapsemail-sidebar') && window.innerWidth > 680) byId('appShell').classList.add('sidebar-collapsed');
-    if (store('synapsemail-density')) doc.body.classList.add('compact');
+    if (store('synapsemail-density')) doc.body.classList.add('compact'); // kept in sync by applyUi()
     if (byId('densityButton')) byId('densityButton').addEventListener('click', toggleDensity);
     byId('themeMenuButton').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('themePopover'); });
     byId('avatarButton').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('accountPopover'); });
@@ -1499,6 +1545,7 @@ var UI = (function () {
         if (it.default) badges.push('<b class="sa-badge on">' + esc(t('sa_default_caps')) + '</b>');
         if (sa) badges.push('<b class="sa-badge ok">' + esc(t('sa_verified_caps')) + '</b>');
         else if (it.email.toLowerCase() !== env.login) badges.push('<b class="sa-badge warn">' + esc(t('sa_legacy_caps')) + '</b>');
+        if (env.inbox_on && env.inbox && env.inbox[iid] && env.inbox[iid].on) badges.push('<b class="sa-badge ok">' + esc(t('ib_badge')) + '</b>');
         var via = sa && sa.mode == 'smtp' ? sa.host + ':' + sa.port : t('sa_via_server');
         var meta = doc.createElement('small'); meta.className = 'sa-meta';
         meta.innerHTML = badges.join('') + '<span>' + esc(t('sa_sendsvia')) + ' ' + esc(via) + '</span>';
@@ -1592,13 +1639,18 @@ var UI = (function () {
         codeStep();
       } else if (step == 'finish') {
         frame(t('sa_step4'), '<div class="settings-form sec-form"><label class="sec-field"><span>' + esc(t('sa_signature')) + '</span><textarea id="saSig" rows="4" maxlength="4000"></textarea></label>'
-          + '<label class="sa-check"><input type="checkbox" id="saDefault"> <span>' + esc(t('sa_makedefault')) + '</span></label></div>', t('sa_finish'));
+          + '<label class="sa-check"><input type="checkbox" id="saDefault"> <span>' + esc(t('sa_makedefault')) + '</span></label>'
+          + (env.inbox_on && s.mode == 'smtp' ? '<label class="sa-check"><input type="checkbox" id="saInbox" checked> <span>' + esc(t('ib_offer')) + '</span></label>' : '') + '</div>', t('sa_finish'));
         byId('saBack').hidden = true; // the address is saved already: only finish (or close) is left
         byId('saSig').value = s.first + (s.last ? ' ' + s.last : '');
         byId('saNext').onclick = function () {
           busy(true);
           api('sendas-finish', { _iid: s.iid, _signature: byId('saSig').value, _default: byId('saDefault').checked ? 1 : 0 }, token).then(function (r) {
             if (!r.ok) { busy(false); return err(r); }
+            if (byId('saInbox') && byId('saInbox').checked) {
+              close(); toast(t('sa_done', { email: s.email }), 'confirmation');
+              return inboxSetup(s.iid, { email: s.email, mode: 'smtp', username: s.username, host: r.imap_host || '', provider: r.imap_provider || null, reload: true });
+            }
             done(t('sa_done', { email: s.email }));
           }, function () { busy(false); err(); });
         };
@@ -1705,6 +1757,181 @@ var UI = (function () {
     }
     if (editServer) { frame(t('sa_server_section'), '', ''); detect(); } else show();
     return false;
+  }
+
+  /* ---------- other inboxes: switcher on the mail screen, setup dialog on the Send As page ---------- */
+  function initInboxes() {
+    var env = rc.env.synapse_inbox, host = byId('inboxSwitch'), bar = byId('inboxBar');
+    if (rc.env.synapse_inbox_failed) { toast(rc.env.synapse_inbox_failed, 'error'); setTimeout(function () { location.href = './?_task=mail&_mbox=INBOX'; }, 1800); }
+    rc.addEventListener('plugin.synapse_inbox_failed', function (a) { toast(a.message, 'error'); setTimeout(function () { location.href = './?_task=mail&_mbox=INBOX'; }, 1800); });
+    if (!env || !host || (!env.on && !env.active)) return;
+    var token = rc.env.request_token, data = null, menu;
+    host.hidden = false;
+    host.classList.toggle('other', !!env.active);
+    host.innerHTML = '<button type="button" class="ib-current" id="inboxButton" aria-haspopup="menu" aria-expanded="false" aria-controls="inboxMenu">'
+      + '<span class="ib-avatar" aria-hidden="true"></span><span class="ib-text"><small>' + esc(t(env.active ? 'ib_viewing' : 'ib_mailbox')) + '</small><b id="inboxCurrent">&nbsp;</b></span>'
+      + '<i data-lucide="chevrons-up-down"></i></button><div class="ib-menu" id="inboxMenu" role="menu" hidden></div>';
+    menu = byId('inboxMenu');
+    var button = byId('inboxButton');
+    var render = function () {
+      var cur = data.inboxes.filter(function (x) { return x.iid == data.active; })[0] || data.inboxes[0];
+      byId('inboxCurrent').textContent = cur.email;
+      var who = doc.querySelector('#quotaCard small'); if (who && data.active) who.textContent = cur.email; // storage card: the open mailbox
+      host.querySelector('.ib-avatar').textContent = initials(cur.name || cur.email);
+      menu.innerHTML = '<div class="ib-menu-h">' + esc(t('ib_menu_title')) + '</div>' + data.inboxes.map(function (x) {
+        var on = x.iid == data.active;
+        return '<button type="button" role="menuitemradio" aria-checked="' + on + '" class="ib-item' + (on ? ' active' : '') + '" data-iid="' + x.iid + '">'
+          + '<span class="ib-avatar" aria-hidden="true">' + esc(initials(x.name || x.email)) + '</span><span class="ib-text"><b>' + esc(x.email) + '</b><small>'
+          + esc(x.iid ? t('ib_other_note') : t('ib_own_note')) + '</small></span>'
+          + (x.unseen ? '<em class="ib-count" aria-label="' + esc(t('ib_unread', { n: x.unseen })) + '">' + x.unseen + '</em>' : '') + (on ? '<i data-lucide="check"></i>' : '') + '</button>';
+      }).join('') + '<a class="ib-manage" href="./?_task=settings&_action=identities"><i data-lucide="settings-2"></i><span>' + esc(t('ib_manage')) + '</span></a>';
+      menu.querySelectorAll('[data-iid]').forEach(function (b) { b.onclick = function () { open(+b.dataset.iid); }; });
+      var others = data.inboxes.filter(function (x) { return x.iid != data.active && x.unseen; }).length;
+      button.classList.toggle('has-new', others > 0);
+      if (bar) {
+        bar.hidden = !data.active;
+        if (data.active) {
+          bar.innerHTML = '<i data-lucide="inbox"></i><p>' + esc(t('ib_bar', { email: cur.email })) + '</p><button type="button" class="ghost-btn" data-back>' + esc(t('ib_back')) + '</button>';
+          bar.querySelector('[data-back]').onclick = function () { open(0); };
+        }
+      }
+      icons();
+    };
+    var load = function (fresh) {
+      api('inbox-list', { _fresh: fresh ? 1 : '' }, token).then(function (r) { if (r && r.ok) { data = r; render(); } }, function () {});
+    };
+    var toggle = function (show) {
+      show = show === undefined ? menu.hidden : show;
+      menu.hidden = !show; button.setAttribute('aria-expanded', show ? 'true' : 'false');
+      if (show) { if (data) render(); var f = menu.querySelector('.ib-item.active') || menu.querySelector('.ib-item'); if (f) f.focus(); }
+    };
+    var open = function (iid) {
+      toggle(false);
+      if (data && iid == data.active) return;
+      button.disabled = true; host.classList.add('busy');
+      toast(t('ib_opening'));
+      api('inbox-switch', { _iid: iid }, token).then(function (r) {
+        if (!r.ok) { button.disabled = false; host.classList.remove('busy'); return toast(r.message || t('connectionerror'), 'error'); }
+        location.href = './?_task=mail&_mbox=INBOX';
+      }, function () { button.disabled = false; host.classList.remove('busy'); toast(t('connectionerror'), 'error'); });
+    };
+    button.onclick = function (e) { e.stopPropagation(); toggle(); };
+    menu.addEventListener('keydown', function (e) {
+      var items = [].slice.call(menu.querySelectorAll('.ib-item, .ib-manage')), n = items.indexOf(doc.activeElement);
+      if (e.key == 'ArrowDown' || e.key == 'ArrowUp') { e.preventDefault(); items[(n + (e.key == 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); }
+      if (e.key == 'Escape') { toggle(false); button.focus(); }
+    });
+    doc.addEventListener('click', function (e) { if (!menu.hidden && !host.contains(e.target)) toggle(false); });
+    load(false);
+    // new mail check refreshes the other inboxes' counts too (cached on the server for two minutes)
+    rc.addEventListener('responseafterrefresh', function () { load(false); });
+    // command palette: one entry per mailbox
+    UI.inboxes = function () { return data ? data.inboxes : []; };
+    UI.openInbox = open;
+  }
+
+  function inboxSetup(iid, info) {
+    var env = rc.env.synapse_sendas || {}, it = (env.idents || {})[iid] || {}, ib = info || (env.inbox || {})[iid] || {}, sa = it.sa || info || {};
+    var token = rc.env.request_token, box = byId('sendasModal');
+    if (!box) { box = doc.createElement('div'); box.id = 'sendasModal'; box.className = 'sa-modal'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); doc.body.appendChild(box); }
+    var email = it.email || ib.email || '', canSame = (sa.mode || 'smtp') == 'smtp';
+    var close = function () { box.classList.remove('open'); box.innerHTML = ''; doc.removeEventListener('keydown', onEsc); if (ib.reload) location.reload(); };
+    var onEsc = function (e) { if (e.key == 'Escape') close(); };
+    doc.addEventListener('keydown', onEsc);
+    var say = function (text, ok) { var m = byId('ibMessage'); m.textContent = text || ''; m.classList.toggle('ok', !!ok); };
+    box.innerHTML = '<section class="sec-card sec-wizard sa-panel"><button type="button" class="sa-close" aria-label="' + esc(rc.gettext('close')) + '"><i data-lucide="x"></i></button>'
+      + '<h2>' + esc(t('ib_setup_title')) + '</h2><p class="sec-note">' + esc(t('ib_setup_note', { email: email })) + '</p>'
+      + '<div class="settings-form sec-form">'
+      + (ib.provider && ib.provider.tip ? '<p class="sa-tip"><i data-lucide="info"></i><span>' + esc(t('sa_tip_' + ib.provider.tip)) + (ib.provider.link ? ' <a href="' + esc(ib.provider.link) + '" target="_blank" rel="noopener noreferrer">' + esc(t('sa_tip_link')) + '</a>' : '') + '</span></p>' : '')
+      + '<label class="sec-field"><span>' + esc(t('ib_host')) + '</span><input type="text" id="ibHost" value="' + esc(ib.host || '') + '" maxlength="255" spellcheck="false" autocapitalize="off" dir="ltr"></label>'
+      + '<p class="sa-source"><i data-lucide="lock"></i><span>' + esc(t('ib_port_note')) + '</span></p>'
+      + '<label class="sec-field"><span>' + esc(t('sa_username_caps')) + '</span><input type="text" id="ibUser" value="' + esc(ib.user || sa.username || email) + '" maxlength="255" spellcheck="false" autocapitalize="off" autocomplete="off" dir="ltr"></label>'
+      + (canSame ? '<label class="sa-check"><input type="checkbox" id="ibSame"' + (ib.on ? (ib.same ? ' checked' : '') : ' checked') + '> <span>' + esc(t('ib_same')) + '</span></label>' : '')
+      + '<label class="sec-field" id="ibPassRow"><span>' + esc(t('sa_password_caps')) + '</span><input type="password" id="ibPass" autocomplete="new-password" data-lpignore="true" dir="ltr"' + (ib.on && !ib.same ? ' placeholder="' + esc(t('sa_password_keep')) + '"' : '') + '></label>'
+      + '<div class="sa-certs" id="ibCerts"></div></div><p class="pin-message sa-message" id="ibMessage" role="alert"></p>'
+      + '<div class="sec-actions">' + (ib.on ? '<button type="button" class="ghost-btn danger" id="ibOff">' + esc(t('ib_turnoff')) + '</button>' : '<button type="button" class="ghost-btn" id="ibCancel">' + esc(t('cancel_caps')) + '</button>')
+      + '<span class="spacer"></span><button type="button" class="solid-btn" id="ibSave">' + esc(t(ib.on ? 'sa_test_save' : 'ib_turnon')) + '</button></div></section>';
+    box.classList.add('open');
+    box.querySelector('.sa-close').onclick = close;
+    if (byId('ibCancel')) byId('ibCancel').onclick = close;
+    var same = byId('ibSame'), syncPass = function () { byId('ibPassRow').hidden = !!(same && same.checked); };
+    if (same) same.onchange = syncPass;
+    syncPass();
+    box.querySelectorAll('input[type=text], input[type=password]').forEach(function (el) { el.onkeydown = function (e) { if (e.key == 'Enter') byId('ibSave').click(); }; });
+    var busy = function (on) { box.querySelectorAll('button, input').forEach(function (el) { el.disabled = on; }); };
+    var save = function () {
+      var label = byId('ibSave').textContent;
+      busy(true); byId('ibSave').textContent = t('sa_testing'); say(''); byId('ibCerts').innerHTML = '';
+      api('inbox-save', { _iid: iid, _host: byId('ibHost').value.trim().toLowerCase(), _user: byId('ibUser').value.trim(), _same: same && same.checked ? 1 : '', _pass: byId('ibPass').value }, token).then(function (r) {
+        busy(false); byId('ibSave').textContent = label;
+        if (!r.ok) {
+          say(r.message || t('connectionerror'));
+          if (r.names && r.names.length) {
+            byId('ibCerts').innerHTML = r.names.map(function (n) { return '<button type="button" class="ghost-btn" data-host="' + esc(n) + '">' + esc(t('sa_usecert', { name: n })) + '</button>'; }).join('');
+            byId('ibCerts').querySelectorAll('[data-host]').forEach(function (b) { b.onclick = function () { byId('ibHost').value = b.dataset.host; save(); }; });
+          }
+          return;
+        }
+        ib.reload = true; close(); toast(t('ib_saved', { email: email, n: r.unseen || 0 }), 'confirmation');
+      }, function () { busy(false); byId('ibSave').textContent = label; say(t('connectionerror')); });
+    };
+    byId('ibSave').onclick = save;
+    if (byId('ibOff')) byId('ibOff').onclick = function () {
+      confirmBox(t('ib_turnoff'), t('ib_turnoff_confirm', { email: email }), [{ label: t('cancel_caps'), action: function () {} }, { label: t('ib_turnoff'), primary: true, action: function () {
+        api('inbox-remove', { _iid: iid }, token).then(function (r) { if (r.ok) { ib.reload = true; close(); toast(t('ib_removed'), 'confirmation'); } });
+      } }]);
+    };
+    icons();
+    (byId('ibHost').value ? (same && same.checked ? byId('ibSave') : byId('ibPass')) : byId('ibHost')).focus();
+    return false;
+  }
+
+  /* ---------- Settings › Appearance: theme cards, animations, display and accessibility options (applied at once) ---------- */
+  function initAppearance() {
+    var app = byId('appearanceApp'); if (!app) return;
+    var p = uiPrefs(rc.env.synapse_ui != null ? rc.env.synapse_ui : uiCookie());
+    var themes = [['warfare', 'theme_warfare', 'theme_warfare_desc'], ['blackops', 'theme_blackops', 'theme_blackops_desc'], ['night', 'theme_night', 'theme_night_desc'],
+      ['agency', 'theme_agency', 'theme_agency_desc'], ['soft', 'theme_soft', 'theme_soft_desc'], ['auto', 'theme_auto', 'theme_auto_desc']];
+    var seg = function (name, label, help, opts) {
+      return '<div class="ap-row"><span class="ap-label" id="apL' + name + '"><b>' + esc(label) + '</b>' + (help ? '<small>' + esc(help) + '</small>' : '') + '</span><div class="ap-seg" role="radiogroup" aria-labelledby="apL' + name + '">'
+        + opts.map(function (o) { return '<label><input type="radio" name="' + name + '" value="' + o[0] + '"' + (p[name] == o[0] ? ' checked' : '') + '><span>' + esc(t(o[1])) + '</span></label>'; }).join('') + '</div></div>';
+    };
+    var sw = function (name, on, label, help) {
+      return '<label class="ap-row ap-switch-row"><span><b>' + esc(label) + '</b>' + (help ? '<small>' + esc(help) + '</small>' : '') + '</span>'
+        + '<input type="checkbox" class="ap-switch" role="switch" name="' + name + '"' + (on ? ' checked' : '') + '></label>';
+    };
+    app.innerHTML = '<p class="sec-note ap-intro">' + esc(t('appearance_intro')) + '</p>'
+      + '<section class="ap-section" aria-labelledby="apTheme"><h2 id="apTheme">' + esc(t('ap_theme')) + '</h2><div class="ap-themes" role="radiogroup" aria-labelledby="apTheme">'
+      + themes.map(function (x) {
+        return '<label class="ap-theme" data-theme="' + x[0] + '"><input type="radio" name="theme" value="' + x[0] + '"' + ((currentTheme || 'agency') == x[0] ? ' checked' : '') + '>'
+          + '<span class="ap-preview ' + x[0] + '" aria-hidden="true"><i></i><i></i><i></i></span><span class="ap-theme-text"><b>' + esc(t(x[1])) + '</b><small>' + esc(t(x[2])) + '</small></span></label>';
+      }).join('') + '</div></section>'
+      + '<section class="ap-section"><h2>' + esc(t('ap_motion')) + '</h2>'
+      + seg('motion', t('ap_animations'), t('ap_animations_help'), [['system', 'ap_motion_system'], ['reduce', 'ap_motion_reduce'], ['off', 'ap_motion_off']])
+      + sw('effects', p.effects == 'on', t('ap_effects'), t('ap_effects_help')) + '</section>'
+      + '<section class="ap-section"><h2>' + esc(t('ap_display')) + '</h2>'
+      + seg('density', t('ap_density'), t('ap_density_help'), [['comfortable', 'ap_density_comfortable'], ['compact', 'ap_density_compact']])
+      + seg('text', t('ap_text'), t('ap_text_help'), [['small', 'ap_text_small'], ['normal', 'ap_text_normal'], ['large', 'ap_text_large'], ['larger', 'ap_text_larger']]) + '</section>'
+      + '<section class="ap-section"><h2>' + esc(t('ap_access')) + '</h2>'
+      + sw('contrast', p.contrast == 'more', t('ap_contrast'), t('ap_contrast_help'))
+      + sw('links', p.links == 'underline', t('ap_links'), t('ap_links_help')) + '</section>'
+      + '<div class="ap-foot"><button type="button" class="ghost-btn" id="apReset">' + esc(t('ap_reset')) + '</button><span class="ap-saved" id="apSaved" role="status" aria-live="polite"></span></div>';
+    var saved = byId('apSaved'), timer = null;
+    var flash = function () { saved.textContent = t('ap_saved'); clearTimeout(timer); timer = setTimeout(function () { saved.textContent = ''; }, 2200); };
+    var save = function () { rc.env.synapse_ui = applyUi(p, true); var top = topRc(); if (top && top.env) top.env.synapse_ui = rc.env.synapse_ui; flash(); };
+    app.addEventListener('change', function (e) {
+      var el = e.target;
+      if (el.name == 'theme') { applyTheme(el.value, false, true); flash(); return; }
+      if (el.type == 'radio') p[el.name] = el.value;
+      else if (el.name == 'effects') p.effects = el.checked ? 'on' : 'off';
+      else if (el.name == 'contrast') p.contrast = el.checked ? 'more' : 'normal';
+      else if (el.name == 'links') p.links = el.checked ? 'underline' : 'plain';
+      save();
+    });
+    byId('apReset').onclick = function () {
+      Object.keys(UI_DEFAULTS).forEach(function (k) { p[k] = UI_DEFAULTS[k]; });
+      applyTheme('agency', false, true); save(); initAppearance();
+    };
   }
 
   /* ---------- settings: grouped navigation + preference sections in the content frame ---------- */
@@ -2010,6 +2237,9 @@ var UI = (function () {
     // v2 keys: earlier versions stored the theme on every visit, so old values are not a user's choice
     var accountTheme = rc.env.synapse_theme || (topRc().env || {}).synapse_theme;
     applyTheme(accountTheme || themeCookie() || store('synapsemail-theme2') || 'agency');
+    if (lightQuery && lightQuery.addEventListener) lightQuery.addEventListener('change', function () { if (currentTheme == 'auto') applyTheme('auto'); });
+    var accountUi = rc.env.synapse_ui != null ? rc.env.synapse_ui : (topRc().env || {}).synapse_ui;
+    applyUi(uiPrefs(accountUi != null ? accountUi : uiCookie()), false);
     if (accountTheme) persistTheme(accountTheme); // the login page shows the account's theme next time
     if (rc.env.task == 'login' || rc.env.task == 'logout') { icons(); initLogin(); return; }
     if (rc.env.action == 'compose') { initComposeForm(); composeKeyboard(); quietAutocomplete(); }
@@ -2025,8 +2255,8 @@ var UI = (function () {
       if (rc.env.task == 'mail' && (rc.env.action == 'show' || rc.env.action == 'preview')) initPreview();
       initCompose();
       decorateFolders();
-      if (rc.env.task == 'settings') { initSettings(); initSecurity(); initSendAs(); }
-      if (rc.env.task == 'mail') initPinPrompt();
+      if (rc.env.task == 'settings') { initSettings(); initSecurity(); initSendAs(); initAppearance(); }
+      if (rc.env.task == 'mail') { initPinPrompt(); initInboxes(); }
       initDetailPane();
       if (rc.env.task == 'addressbook') {
         decorateDirectory();
@@ -2063,6 +2293,6 @@ var UI = (function () {
     toast: toast, applyTheme: applyTheme, palette: function () { openPalette(); return false; }, about: about,
     openReader: openReader, closeReader: closeReader, openCompose: openCompose, closeCompose: closeCompose, composeReady: composeReady, popOut: popOut,
     closeMenus: closeMenus, toggleMenu: toggleMenu, listOptions: listOptions, saveListOptions: saveListOptions,
-    search: search, confirm: confirmBox, frameCommand: frameCommand, icons: icons, decorateFolders: decorateFolders, sendAs: sendAs
+    search: search, confirm: confirmBox, frameCommand: frameCommand, icons: icons, decorateFolders: decorateFolders, sendAs: sendAs, inboxSetup: inboxSetup
   };
 })();

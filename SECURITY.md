@@ -45,8 +45,13 @@ Only the latest 3.x release receives fixes. New versions are published on GitHub
 - **Installer:** requires proof of hosting-account ownership (`setup.key`) and locks itself permanently.
   `config/`, `db/`, `logs/` and `temp/` are blocked from the web, and the installer checks this.
 - **Backups:** AES-256-GCM with a random key per backup that is shown once and never stored on the server.
-- **Updates:** the release manifest is signed with Ed25519. The public key is built into the app; the private
-  key never leaves the release machine.
+- **Updates:** the release manifest and every release zip are signed with Ed25519 (the zip carries a signed list
+  with the SHA-256 of every file). The public key is built into the app; the private key never leaves the release
+  machine. The admin panel installs a zip only when the signature is valid, the version is newer, every file
+  matches and nothing else is in the zip; it never writes config secrets, the database, logs or temp files, and
+  it saves the files it replaces first. Installing asks for the admin's authenticator code.
+- **Other inboxes:** IMAP over TLS on port 993 only, certificate checked, private networks blocked, the
+  connection pinned to the checked IP. Passwords are stored encrypted (AES-256-GCM) like Send As.
 - **Logs:** no passwords, codes or message content are logged. Releases contain no debug logging.
 - **Releases:** every build is checked for per-install files (config, database, logs) and secret-looking content
   before it is packaged.

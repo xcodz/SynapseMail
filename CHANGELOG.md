@@ -1,5 +1,31 @@
 # SynapseMail changelog
 
+## 3.5
+- **Read the inboxes of your Send As addresses.** Open any of your addresses from the new mailbox menu above the
+  folders and read its mail on that address's own server (IMAP over TLS, port 993). Nothing is imported or copied
+  into your main mailbox; "Back to my inbox" returns at once. Unread counts for every mailbox, its own folders
+  (Sent, Drafts, Trash found automatically), replies and new mail from that address. Turn it on per address in
+  Settings › Send As (one click when the address sends with the same password), or right after adding an address.
+  Settings, contacts and filters always stay with your own account. If the password of that inbox changes,
+  SynapseMail goes back to your own inbox and tells you why.
+- **Updates from the admin panel.** New page Admin › Updates: check the update server, install with one click, or
+  upload the release zip. Every release zip is signed (a signed list with the SHA-256 of every file); unsigned,
+  changed or older zips are refused, path tricks and links are blocked. Config secrets, the database, logs and temp
+  files are never written, cPanel's PHP handler lines in .htaccess are kept, only changed files are written, and the
+  replaced files are saved in db/ first. The Roundcube database schema is updated when needed. Update history with
+  the rollback copy of each update. The update server address can be changed in the panel.
+- **Settings › Appearance (new):** theme cards, animations (match system, reduced, off), background effects,
+  compact message list, text size, higher contrast and underlined links. Applied at once, saved to the account and
+  set before the page draws (no flash).
+- **Soft Light theme:** a calm grey-blue light theme (not stark white) with readable contrast, for the webmail, the
+  login page and the admin panel. "Match system" uses Soft Light by day and your dark theme by night.
+- **Admin panel redesign:** calmer layout with readable sentence-case labels, settings in rows (no more gaps between
+  cards), a numbers strip, skin-drawn checkboxes, clear button states, a light/dark switch, skip link and better
+  mobile layout. The Users page shows other inboxes per user.
+- **Settings controls:** checkboxes and radio buttons are drawn in the skin (no more browser-default check marks),
+  with focus rings; settings labels are readable text instead of tiny uppercase code font.
+- Theme colours in the skin's own styles now follow every theme (some olive tints showed in the other themes).
+
 ## 3.4
 - **Compose: a natural keyboard order.** Tab goes From → To → Subject → message text → attachments and Send. Before,
   every field had `tabindex="1"`, so after Subject the Tab key jumped back to the drawer buttons and through 13 editor

@@ -19,7 +19,7 @@
  *   other visitors. Mail comes from the sample mailbox (rcube_demo storage, kept in the session).
  * - Sending mail is blocked; no IMAP/SMTP/network connection is ever made.
  * - Send As: one sample address is ready; the wizard uses only the built-in provider list, simulates the server
- *   test and accepts the code 123456.
+ *   test and accepts the code 123456. Its inbox can be opened (sample mailbox in mail-studio/).
  * - Temporary users are removed after DEMO_TTL.
  */
 class synapse_demo extends rcube_plugin
@@ -129,6 +129,9 @@ class synapse_demo extends rcube_plugin
                 'host' => 'smtp.studio.example', 'port' => 465, 'security' => 'ssl', 'username' => 'hello@studio.example',
                 'password' => synapse_secret::encrypt('demo', $rcmail->config->get_crypto_key('des_key')), 'verified_at' => time() - 86400 * 3,
                 'last_ok_at' => time() - 7200, 'created_at' => time() - 86400 * 3]);
+            // its inbox is ready too (sample mailbox in mail-studio/, no connection)
+            synapse_inbox::put(['identity_id' => $iid, 'user_id' => $rcmail->user->ID, 'host' => 'imap.studio.example', 'username' => 'hello@studio.example',
+                'password' => '', 'created_at' => time() - 86400 * 3, 'last_ok_at' => time() - 7200]);
         }
     }
 

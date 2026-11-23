@@ -17,7 +17,14 @@
 <head>
 	<roundcube:object name="meta" />
 	<roundcube:object name="links" />
-	<script>try { var m = /(?:^|;\s*)synapsemail_theme2=([a-z]+)/.exec(document.cookie); document.documentElement.dataset.theme = (m && m[1]) || localStorage.getItem('synapsemail-theme2') || 'agency'; } catch (e) { }
+	<script>try { var h = document.documentElement, m = /(?:^|;\s*)synapsemail_theme2=([a-z]+)/.exec(document.cookie), th = (m && m[1]) || localStorage.getItem('synapsemail-theme2') || 'agency';
+	// "auto": Soft Light by day, the last dark theme by night
+	if (th == 'auto') { h.dataset.themeAuto = '1'; th = matchMedia('(prefers-color-scheme: light)').matches ? 'soft' : (localStorage.getItem('synapsemail-dark') || 'agency'); }
+	h.dataset.theme = th;
+	// appearance settings (Settings > Appearance), whitelisted: motion, effects, text, contrast, links
+	var u = /(?:^|;\s*)synapsemail_ui=([a-z0-9.-]+)/.exec(document.cookie), ok = { motion: /^(reduce|off)$/, effects: /^off$/, text: /^(small|large|larger)$/, contrast: /^more$/, links: /^underline$/ };
+	(u ? u[1].split('.') : []).forEach(function (p) { var kv = p.split('-'); if (ok[kv[0]] && ok[kv[0]].test(kv[1])) h.dataset[kv[0]] = kv[1]; });
+	} catch (e) { }
 	// core compose redirects to ?_id=… and drops _framed: restore it when running inside the compose drawer
 	try { if (window.parent !== window && parent.UI && /[?&]_action=compose\b/.test(location.search) && !/[?&]_framed=1/.test(location.search)) location.replace(location.href + '&_framed=1'); } catch (e) { }</script>
 	<link rel="icon" type="image/svg+xml" href="/assets/synapse-cyber-logo.svg">

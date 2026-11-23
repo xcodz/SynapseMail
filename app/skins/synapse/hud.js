@@ -19,7 +19,7 @@
   canvas.className = 'cyber-hud';
   host.appendChild(canvas);
 
-  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reduced = /^(reduce|off)$/.test(document.documentElement.dataset.motion || '') || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   var W = 0, H = 0, dpr = 1, grid = null, nodes = [], edges = [], packets = [], threats = [], colors = {}, last = 0, t0 = performance.now();
   var stats = { pkts: 4200, blocked: 0, uplink: 98 };
   var rand = function (a, b) { return a + Math.random() * (b - a); };

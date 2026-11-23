@@ -19,14 +19,15 @@
 namespace SynapseMail\Admin;
 
 use synapse_core;
+use synapse_inbox;
 use synapse_sendas;
 use synapse_deliverability;
 use synapse_platform;
 
 const NAV = [
-    'MONITOR' => ['overview' => ['Overview', 'layout-dashboard'], 'deliverability' => ['Deliverability', 'mail-check'], 'logs' => ['Logs', 'scroll-text']],
-    'MANAGE' => ['users' => ['Users', 'users'], 'security' => ['Security', 'shield-check'], 'backup' => ['Backup', 'archive']],
-    'ACCOUNT' => ['account' => ['Admin account', 'user-cog']],
+    'Monitor' => ['overview' => ['Overview', 'layout-dashboard'], 'deliverability' => ['Deliverability', 'mail-check'], 'logs' => ['Logs', 'scroll-text']],
+    'Manage' => ['users' => ['Users', 'users'], 'security' => ['Security', 'shield-check'], 'backup' => ['Backup', 'archive'], 'updates' => ['Updates', 'download']],
+    'Account' => ['account' => ['Admin account', 'user-cog']],
 ];
 
 /* ---------------- building blocks ---------------- */
@@ -49,14 +50,20 @@ function card($title, $body, array $o = [])
         . '<div class="adm-card-b">' . $body . '</div></section>';
 }
 
-function kpi($label, $value, $sub, $icon, $tone = '', $pct = null, $href = null)
+/** Settings row: what it is (left), the form or facts (right) */
+function section($title, $help, $body, $meta = '')
+{
+    return '<section class="adm-section"><div class="adm-section-h"><h2>' . h($title) . $meta . '</h2>' . ($help ? '<p>' . $help . '</p>' : '') . '</div>'
+        . '<div class="adm-section-b">' . $body . '</div></section>';
+}
+
+/** One cell of the numbers strip at the top of a page */
+function stat($label, $value, $sub, $tone = '', $href = null)
 {
     $tag = $href ? 'a href="' . h($href) . '"' : 'div';
 
-    return '<' . $tag . ' class="adm-kpi ' . h($tone) . '">' . icon($icon) . '<span class="adm-kpi-label">' . h($label) . '</span>'
-        . '<strong class="adm-kpi-value">' . h($value) . '</strong>'
-        . ($pct !== null ? '<span class="adm-bar"><i data-pct="' . (int) $pct . '"></i></span>' : '')
-        . '<span class="adm-kpi-sub">' . h($sub) . '</span></' . ($href ? 'a' : 'div') . '>';
+    return '<' . $tag . ' class="adm-stat ' . h($tone) . '"><span class="adm-stat-label">' . h($label) . '</span>'
+        . '<strong class="adm-stat-value">' . h($value) . '</strong><span class="adm-stat-sub">' . h($sub) . '</span></' . ($href ? 'a' : 'div') . '>';
 }
 
 function input($label, $name, array $o = [])
@@ -66,9 +73,14 @@ function input($label, $name, array $o = [])
         $attrs .= ' ' . $k . ($v === true ? '' : '="' . h($v) . '"');
     }
 
-    return '<label class="adm-field"><span>' . h($label) . '</span><input class="adm-input" name="' . h($name) . '" type="' . h($o['type'] ?? 'text') . '"'
+    return '<label class="adm-field"><span>' . h($label) . '</span><input class="adm-input' . (isset($o['class']) ? ' ' . $o['class'] : '') . '" name="' . h($name) . '" type="' . h($o['type'] ?? 'text') . '"'
         . (isset($o['value']) ? ' value="' . h($o['value']) . '"' : '') . $attrs . '>'
         . (isset($o['hint']) ? '<small>' . h($o['hint']) . '</small>' : '') . '</label>';
+}
+
+function code_input($label = 'Authenticator code')
+{
+    return input($label, 'code', ['class' => 'adm-code', 'attrs' => ['required' => true, 'inputmode' => 'numeric', 'autocomplete' => 'one-time-code', 'pattern' => '[0-9 ]{6,7}', 'maxlength' => 7, 'placeholder' => '000 000']]);
 }
 
 function select($label, $name, array $options, $selected, $hint = null)
@@ -80,6 +92,13 @@ function select($label, $name, array $options, $selected, $hint = null)
 
     return '<label class="adm-field"><span>' . h($label) . '</span><select name="' . h($name) . '" data-ui-select>' . $opts . '</select>'
         . ($hint ? '<small>' . h($hint) . '</small>' : '') . '</label>';
+}
+
+/** Checkbox with a label and an optional line of help (saved with the form's button) */
+function checkbox($name, $label, $checked, $help = null)
+{
+    return '<label class="adm-check"><input type="checkbox" name="' . h($name) . '" value="1"' . ($checked ? ' checked' : '') . '>'
+        . '<span><b>' . h($label) . '</b>' . ($help ? '<small>' . h($help) . '</small>' : '') . '</span></label>';
 }
 
 function button($text, array $o = [])
@@ -97,6 +116,7 @@ function status_row($level, $label, $detail, $state, $extra = '')
 {
     $ico = ['pass' => 'circle-check', 'warn' => 'triangle-alert', 'fail' => 'circle-x', 'pending' => 'circle-dashed'][$level] ?? 'circle';
     $tone = ['pass' => 'ok', 'warn' => 'warn', 'fail' => 'fail', 'pending' => 'off'][$level] ?? 'off';
+    $state = ['NO' => 'Failed', 'CHECK' => 'Check', 'INFO' => 'Info', 'NEW' => 'New', 'PASS' => 'Pass', 'PARTIAL' => 'Partial', 'FAIL' => 'Fail'][$state] ?? $state;
 
     return '<li class="adm-status ' . $tone . '">' . icon($ico) . '<div><b>' . h($label) . '</b><small>' . h($detail) . '</small></div>' . badge($tone, $state) . $extra . '</li>';
 }
@@ -186,7 +206,7 @@ function shell($view, $title, $subtitle, $content, $actions = '')
     global $A;
     $nav = '';
     foreach (NAV as $group => $items) {
-        $nav .= '<div class="adm-nav-group"><span>' . $group . '</span>';
+        $nav .= '<div class="adm-nav-group"><span>' . h($group) . '</span>';
         foreach ($items as $k => [$label, $ico]) {
             $nav .= '<a class="adm-nav-link' . ($k === $view ? ' active' : '') . '" href="' . h(self_url(['view' => $k])) . '"' . ($k === $view ? ' aria-current="page"' : '') . '>' . icon($ico) . '<span>' . h($label) . '</span></a>';
         }
@@ -195,25 +215,38 @@ function shell($view, $title, $subtitle, $content, $actions = '')
     $base = $GLOBALS['BASE'];
 
     head('Admin · ' . $title, 'adm-app');
-    echo '<div class="adm-shell">'
-        . '<aside class="adm-side" id="admSide"><div class="adm-brand"><span class="brand-mark" aria-hidden="true"></span><span><strong>SynapseMail</strong><small>ADMIN CONSOLE</small></span></div>'
+    echo '<a class="adm-skip" href="#admContent">Skip to content</a><div class="adm-shell">'
+        . '<aside class="adm-side" id="admSide"><div class="adm-brand"><span class="brand-mark" aria-hidden="true"></span><span><strong>SynapseMail</strong><small>Admin console</small></span></div>'
         . '<nav class="adm-nav" aria-label="Admin sections">' . $nav . '</nav>'
         . '<div class="adm-side-foot"><a class="adm-nav-link" href="' . h($base) . '" target="_blank" rel="noopener">' . icon('external-link') . '<span>Open webmail</span></a>'
         . form('logout', '<button class="adm-nav-link" type="submit">' . icon('log-out') . '<span>Sign out</span></button>', 'adm-logout')
-        . '<small>v' . h(synapse_core::VERSION) . ' · shared edition</small></div></aside>'
-        . '<div class="adm-main"><header class="adm-top"><button class="adm-burger" type="button" data-toggle-nav aria-label="Menu">' . icon('menu') . '</button>'
-        . '<div class="adm-title"><span class="adm-crumb">ADMIN / ' . h(strtoupper($title)) . '</span><h1>' . h($title) . '</h1>' . ($subtitle ? '<p>' . h($subtitle) . '</p>' : '') . '</div>'
+        . '<small>Version ' . h(synapse_core::VERSION) . ' · shared edition</small></div></aside>'
+        . '<div class="adm-main"><header class="adm-top"><button class="adm-icon-btn adm-burger" type="button" data-toggle-nav aria-label="Menu" aria-controls="admSide" aria-expanded="false">' . icon('menu') . '</button>'
+        . '<div class="adm-title"><h1>' . h($title) . '</h1>' . ($subtitle ? '<p>' . h($subtitle) . '</p>' : '') . '</div>'
         . '<div class="adm-top-right">' . $actions
+        . '<button class="adm-icon-btn" type="button" data-admin-theme aria-label="Switch between light and dark">' . icon('sun-moon') . '</button>'
         . '<span class="adm-chip" title="Signs out after 15 minutes without activity">' . icon('timer') . '<b data-idle="' . IDLE . '">15:00</b></span>'
-        . '<span class="adm-chip">' . icon('user-round') . '<b>' . h($A['user'] ?? '') . '</b></span></div></header>'
-        . '<main class="adm-content">' . demo_note() . flash_html() . $content . '</main></div></div>';
+        . '<span class="adm-chip adm-chip-user">' . icon('user-round') . '<b>' . h($A['user'] ?? '') . '</b></span></div></header>'
+        . '<main class="adm-content" id="admContent" tabindex="-1">' . demo_note() . flash_html() . $content . '</main></div></div>';
     foot();
+}
+
+/** Light or dark: the admin's own choice, else the webmail theme of this browser */
+function admin_theme()
+{
+    $own = (string) ($_COOKIE['synapse_admin_theme'] ?? '');
+    if (in_array($own, ['soft', 'agency'], true)) {
+        return $own;
+    }
+    $mail = (string) ($_COOKIE['synapsemail_theme2'] ?? '');
+
+    return in_array($mail, ['warfare', 'blackops', 'night', 'agency', 'soft'], true) ? $mail : 'agency';
 }
 
 function head($title, $class)
 {
     $base = $GLOBALS['BASE'];
-    echo '<!DOCTYPE html><html lang="en" data-theme="agency"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+    echo '<!DOCTYPE html><html lang="en" data-theme="' . h(admin_theme()) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<meta name="robots" content="noindex, nofollow"><title>SynapseMail - ' . h($title) . '</title>'
         . '<link rel="icon" type="image/svg+xml" href="' . asset('skins/synapse/assets/synapse-cyber-logo.svg') . '">'
         . '<link rel="stylesheet" href="' . asset('skins/synapse/vendor/fonts.css') . '"><link rel="stylesheet" href="' . asset('skins/synapse/login.css') . '">'
@@ -250,13 +283,13 @@ function signin_page($body)
 
 function view_moved($url, $fallback)
 {
-    return '<div class="adm-grid"><div class="adm-span-2">' . card('Your admin panel has a new private address', '<p class="adm-lead">From now on the admin panel only answers at this address. Everyone else, including bots that try <code>admin.php</code>, gets "404 Not Found".</p>'
+    return card('Your admin panel has a new private address', '<p class="adm-lead">From now on the admin panel only answers at this address. Everyone else, including bots that try <code>admin.php</code>, gets "404 Not Found".</p>'
         . '<div class="adm-secret"><code id="newAdminUrl">' . h($url) . '</code>' . button('Copy', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'copy', 'attrs' => ['data-copy' => $url]]) . '</div>'
         . '<p class="adm-hint">Server without .htaccess support (nginx)? Use <code>' . h($fallback) . '</code>. Both are also saved in <code>config/ADMIN-URL.txt</code> (File Manager).</p>'
         . '<ol class="adm-steps"><li>Copy the address into your password manager or bookmarks.</li><li><a href="' . h($url) . '" target="_blank" rel="noopener">Open it in a new tab</a> to check that it works on this server.</li><li>Confirm below. The old address stops working.</li></ol>'
-        . form('confirm_url', '<label class="adm-check"><input type="checkbox" name="saved" value="1" required data-unlock-btn="confirmUrl"><span></span>I saved the new admin address</label>'
-            . button('Continue to the dashboard', ['icon' => 'arrow-right', 'attrs' => ['id' => 'confirmUrl', 'disabled' => 'disabled']]), 'adm-form'),
-        ['icon' => 'key-round', 'class' => 'adm-highlight']) . '</div></div>';
+        . form('confirm_url', '<label class="adm-check"><input type="checkbox" name="saved" value="1" required data-unlock-btn="confirmUrl"><span><b>I saved the new admin address</b></span></label>'
+            . '<div class="adm-form-actions">' . button('Continue to the dashboard', ['icon' => 'arrow-right', 'attrs' => ['id' => 'confirmUrl', 'disabled' => 'disabled']]) . '</div>', 'adm-form'),
+        ['icon' => 'key-round', 'class' => 'adm-highlight adm-narrow']);
 }
 
 function view_overview($RC, $db)
@@ -264,7 +297,8 @@ function view_overview($RC, $db)
     $st = user_stats($db);
     $sess = count(sessions($db));
     $blocked = blocked_count($db);
-    $health = array_merge([update_status($RC)], health($RC, $db));
+    $upd = update_status($RC);
+    $health = array_merge([$upd], health($RC, $db));
     $issues = count(array_filter($health, static function ($c) { return in_array($c[0], ['fail', 'warn'], true); }));
     $best = null;
     foreach (mail_domains($db) as $d) {
@@ -275,42 +309,43 @@ function view_overview($RC, $db)
     }
     $pct = $st['total'] ? (int) round($st['otp'] * 100 / $st['total']) : 0;
 
-    $kpis = '<div class="adm-kpis">'
-        . kpi('Mailboxes', (string) $st['total'], $sess . ' active session' . ($sess === 1 ? '' : 's') . ' · ' . $st['online'] . ' online', 'users', '', null, self_url(['view' => 'users']))
-        . kpi('2FA adoption', $pct . '%', $st['otp'] . ' of ' . $st['total'] . ' mailboxes · ' . $st['pin'] . ' with passcode', 'shield-check', $pct >= 50 ? 'ok' : 'warn', $pct)
-        . kpi('Blocked now', (string) $blocked, $blocked ? 'accounts or IPs on a 15-minute block' : 'no active sign-in blocks', 'shield-alert', $blocked ? 'warn' : 'ok', null, self_url(['view' => 'security']))
-        . kpi('Deliverability', $best ? $best[1] . '/100' : '—', $best ? 'lowest: ' . $best[0] : 'not checked yet', 'mail-check', $best ? ($best[1] >= 80 ? 'ok' : ($best[1] >= 50 ? 'warn' : 'fail')) : '', $best ? $best[1] : null, self_url(['view' => 'deliverability']))
+    $stats = '<div class="adm-stats">'
+        . stat('Mailboxes', (string) $st['total'], $sess . ' active session' . ($sess === 1 ? '' : 's') . ', ' . $st['online'] . ' online', '', self_url(['view' => 'users']))
+        . stat('Using 2FA', $pct . '%', $st['otp'] . ' of ' . $st['total'] . ' mailboxes, ' . $st['pin'] . ' with a passcode', $pct >= 50 ? 'ok' : 'warn')
+        . stat('Blocked now', (string) $blocked, $blocked ? 'accounts or IPs on a 15-minute block' : 'no sign-in blocks', $blocked ? 'warn' : '', self_url(['view' => 'security']))
+        . stat('Deliverability', $best ? $best[1] . '/100' : 'Not checked', $best ? 'lowest: ' . $best[0] : 'check your DNS records', $best ? ($best[1] >= 80 ? 'ok' : ($best[1] >= 50 ? 'warn' : 'fail')) : '', self_url(['view' => 'deliverability']))
         . '</div>';
+
+    $update_banner = $upd[0] === 'warn' ? '<div class="adm-flash info" role="status">' . icon('download') . '<p><b>' . h($upd[1]) . '.</b> ' . h($upd[2]) . '</p><a class="adm-btn primary sm" href="' . h(self_url(['view' => 'updates'])) . '">' . icon('arrow-right') . '<span>Open Updates</span></a></div>' : '';
 
     $rows = '';
     foreach ($health as [$level, $label, $detail, $state]) {
         $rows .= status_row($level, $label, $detail, $state);
     }
     $health_card = card('System health', '<ul class="adm-statuses">' . $rows . '</ul>'
-        . '<p class="adm-hint">Something to fix? Steps for each hosting panel: <a href="' . h(synapse_platform::DOCS) . '" target="_blank" rel="noopener noreferrer">troubleshooting guide</a>.</p>', [
+        . '<p class="adm-hint">Something to fix? Steps for each hosting panel are in the <a href="' . h(synapse_platform::DOCS) . '" target="_blank" rel="noopener noreferrer">troubleshooting guide</a>.</p>', [
         'icon' => 'activity',
-        'meta' => $issues ? badge('warn', $issues . ' to review') : badge('ok', 'all good'),
+        'meta' => $issues ? badge('warn', $issues . ' to review') : badge('ok', 'All good'),
     ]);
 
     $events = log_entries($RC, 'synapse_security', 8) ?: [];
     $list = '';
     foreach ($events as [$t, , $msg]) {
         $tone = preg_match('/fail|refused|rate limit|denied/i', $msg) ? 'warn' : (preg_match('/^admin /', $msg) ? 'info' : 'ok');
-        $list .= '<li class="adm-event ' . $tone . '"><i></i><div><b>' . h($msg) . '</b><time>' . h(short_time($t)) . '</time></div></li>';
+        $list .= '<li class="adm-event ' . $tone . '">' . icon(['warn' => 'triangle-alert', 'info' => 'user-cog', 'ok' => 'circle-check'][$tone]) . '<div><b>' . h($msg) . '</b><time>' . h(short_time($t)) . '</time></div></li>';
     }
     $events_card = card('Recent security events', $list ? '<ul class="adm-events">' . $list . '</ul>' : empty_state('scroll-text', 'No events yet', 'Sign-ins, blocks and admin actions appear here.'), [
         'icon' => 'radar',
         'meta' => '<a class="adm-link" href="' . h(self_url(['view' => 'logs'])) . '">All logs ' . icon('arrow-right') . '</a>',
     ]);
 
-    $quick = card('Quick actions', '<div class="adm-quick">'
-        . '<a href="' . h(self_url(['view' => 'backup'])) . '">' . icon('archive') . '<span>Create a backup</span></a>'
-        . '<a href="' . h(self_url(['view' => 'deliverability'])) . '">' . icon('mail-check') . '<span>Check DNS records</span></a>'
-        . '<a href="' . h(self_url(['view' => 'users'])) . '">' . icon('user-x') . '<span>Reset a user\'s 2FA</span></a>'
-        . '<a href="' . h(self_url(['view' => 'security'])) . '">' . icon('shield-check') . '<span>2FA policy</span></a></div>'
-        . form('update_check', button('Check for updates', ['tone' => 'ghost', 'size' => 'sm', 'icon' => 'refresh-cw']), 'adm-inline'), ['icon' => 'zap']);
+    $link = static function ($view, $ico, $text) {
+        return '<a href="' . h(self_url(['view' => $view])) . '">' . icon($ico) . '<span>' . h($text) . '</span>' . icon('chevron-right') . '</a>';
+    };
+    $quick = card('Shortcuts', '<nav class="adm-links" aria-label="Shortcuts">' . $link('backup', 'archive', 'Create a backup') . $link('deliverability', 'mail-check', 'Check DNS records')
+        . $link('users', 'user-x', 'Reset a user\'s 2FA or passcode') . $link('security', 'shield-check', 'Change the 2FA policy') . $link('updates', 'download', 'Check for updates') . '</nav>', ['icon' => 'zap']);
 
-    return $kpis . '<div class="adm-grid"><div class="adm-span-2">' . $health_card . '</div><div class="adm-stack">' . $quick . $events_card . '</div></div>';
+    return $update_banner . $stats . '<div class="adm-grid"><div class="adm-span-2">' . $health_card . '</div><div class="adm-stack">' . $quick . $events_card . '</div></div>';
 }
 
 function view_users($db)
@@ -321,6 +356,7 @@ function view_users($db)
     }
     $rows = '';
     $sendas = synapse_sendas::counts();
+    $inboxes = synapse_inbox::counts();
     foreach ($st['rows'] as $u) {
         $uid = '<input type="hidden" name="uid" value="' . $u['id'] . '">';
         $acts = ($u['sessions'] ? form('end_sessions', $uid . button('End sessions', ['tone' => 'ghost', 'size' => 'sm', 'icon' => 'log-out']), 'adm-inline') : '')
@@ -328,31 +364,32 @@ function view_users($db)
             . ($u['otp'] ? form('reset_2fa', $uid . button('Reset 2FA', ['tone' => 'danger', 'size' => 'sm', 'icon' => 'shield-off', 'attrs' => ['data-confirm' => 'Remove 2FA of ' . $u['name'] . '? They can set it up again; their sessions end.']]), 'adm-inline') : '')
             . ($u['locked'] ? form('unlock', $uid . button('Unlock', ['tone' => 'ghost', 'size' => 'sm', 'icon' => 'lock-open']), 'adm-inline') : '');
         [$local, $domain] = array_pad(explode('@', $u['name'], 2), 2, '');
+        $n = $sendas[$u['id']] ?? 0;
         $rows .= '<tr data-search="' . h(strtolower($u['name'])) . '" data-tags="' . ($u['otp'] ? 'otp ' : 'nootp ') . ($u['sessions'] ? 'online ' : '') . ($u['locked'] ? 'locked' : '') . '">'
             . '<td><div class="adm-user"><span class="adm-avatar">' . h(strtoupper(mb_substr($local, 0, 1))) . '</span><div><b>' . h($local) . '</b><small>@' . h($domain) . '</small></div></div></td>'
-            . '<td><span class="adm-mono">' . h($u['last'] ? short_time($u['last'] . ' +0000') : 'never') . '</span></td>'
-            . '<td>' . ($u['otp'] ? badge('ok', '2FA on') : badge('off', 'off')) . '</td>'
-            . '<td>' . ($u['locked'] ? badge('fail', 'locked') : ($u['pin'] ? badge('ok', 'on') : badge('off', 'none'))) . '</td>'
-            . '<td>' . ($u['sessions'] ? badge('info', $u['sessions'] . ' online') : '<span class="adm-dim">—</span>') . '</td>'
-            . '<td>' . (!empty($sendas[$u['id']]) ? badge('info', $sendas[$u['id']] . ' address' . ($sendas[$u['id']] > 1 ? 'es' : '')) : '<span class="adm-dim">—</span>') . '</td>'
-            . '<td class="adm-actions"><div class="adm-acts">' . ($acts ?: '<span class="adm-dim">—</span>') . '</div></td></tr>';
+            . '<td class="adm-num">' . h($u['last'] ? short_time($u['last'] . ' +0000') : 'never') . '</td>'
+            . '<td>' . ($u['otp'] ? badge('ok', 'On') : badge('off', 'Off')) . '</td>'
+            . '<td>' . ($u['locked'] ? badge('fail', 'Locked') : ($u['pin'] ? badge('ok', 'On') : badge('off', 'None'))) . '</td>'
+            . '<td class="adm-num">' . ($u['sessions'] ? badge('info', $u['sessions'] . ' online') : '<span class="adm-dim">0</span>') . '</td>'
+            . '<td class="adm-num">' . ($n ? $n . ' address' . ($n > 1 ? 'es' : '') . (!empty($inboxes[$u['id']]) ? ', ' . $inboxes[$u['id']] . ' inbox' . ($inboxes[$u['id']] > 1 ? 'es' : '') : '') : '<span class="adm-dim">0</span>') . '</td>'
+            . '<td class="adm-actions"><div class="adm-acts">' . ($acts ?: '<span class="adm-dim">No actions</span>') . '</div></td></tr>';
     }
     $filters = '';
-    foreach (['all' => 'All ' . $st['total'], 'online' => 'Online ' . $st['online'], 'otp' => '2FA on ' . $st['otp'], 'nootp' => 'Without 2FA ' . ($st['total'] - $st['otp']), 'locked' => 'Locked ' . $st['locked']] as $k => $label) {
-        $filters .= '<button type="button" class="' . ($k === 'all' ? 'active' : '') . '" data-filter="' . $k . '">' . h($label) . '</button>';
+    foreach (['all' => ['All', $st['total']], 'online' => ['Online', $st['online']], 'otp' => ['2FA on', $st['otp']], 'nootp' => ['Without 2FA', $st['total'] - $st['otp']], 'locked' => ['Locked', $st['locked']]] as $k => [$label, $count]) {
+        $filters .= '<button type="button" class="' . ($k === 'all' ? 'active' : '') . '" data-filter="' . $k . '" aria-pressed="' . ($k === 'all' ? 'true' : 'false') . '">' . h($label) . ' <b>' . (int) $count . '</b></button>';
     }
 
-    return '<div class="adm-kpis small">'
-        . kpi('Mailboxes', (string) $st['total'], 'signed in at least once', 'users')
-        . kpi('Online now', (string) $st['online'], 'with an active session', 'radio', $st['online'] ? 'ok' : '')
-        . kpi('2FA', (string) $st['otp'], 'authenticator enabled', 'shield-check', '', $st['total'] ? round($st['otp'] * 100 / $st['total']) : 0)
-        . kpi('Locked', (string) $st['locked'], 'after too many wrong passcodes', 'lock', $st['locked'] ? 'warn' : '')
+    return '<div class="adm-stats">'
+        . stat('Mailboxes', (string) $st['total'], 'signed in at least once')
+        . stat('Online now', (string) $st['online'], 'with an active session', $st['online'] ? 'ok' : '')
+        . stat('Using 2FA', (string) $st['otp'], 'authenticator app on')
+        . stat('Locked', (string) $st['locked'], 'too many wrong passcodes', $st['locked'] ? 'warn' : '')
         . '</div>'
         . card('Mailboxes', '<div class="adm-toolbar"><label class="adm-search">' . icon('search') . '<input type="search" placeholder="Search mailboxes" data-table-search="usersTable" aria-label="Search mailboxes"></label>'
-            . '<div class="adm-seg" data-table-filter="usersTable">' . $filters . '</div></div>'
-            . '<div class="adm-table-wrap"><table class="adm-table" id="usersTable"><thead><tr><th>Mailbox</th><th>Last sign-in</th><th>2FA</th><th>Passcode</th><th>Sessions</th><th>Send As</th><th class="adm-actions">Actions</th></tr></thead><tbody>' . $rows . '</tbody></table>'
-            . '<p class="adm-noresult" hidden>No mailbox matches.</p></div>'
-            . '<p class="adm-hint">Resetting a passcode or 2FA also ends that user\'s sessions. Mail and mailbox passwords are never touched here.</p>', ['icon' => 'users', 'meta' => badge('off', $st['total'] . ' total')]);
+            . '<div class="adm-seg" role="group" aria-label="Filter" data-table-filter="usersTable">' . $filters . '</div></div>'
+            . '<div class="adm-table-wrap"><table class="adm-table" id="usersTable"><thead><tr><th scope="col">Mailbox</th><th scope="col" class="adm-num">Last sign-in</th><th scope="col">2FA</th><th scope="col">Passcode</th><th scope="col" class="adm-num">Sessions</th><th scope="col" class="adm-num">Send As</th><th scope="col" class="adm-actions">Actions</th></tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<p class="adm-noresult" hidden>No mailbox matches. <button type="button" class="adm-linkbtn" data-clear-filter="usersTable">Show all</button></p></div>'
+            . '<p class="adm-hint">Resetting a passcode or 2FA also ends that user\'s sessions. Mail and mailbox passwords are never touched here.</p>', ['icon' => 'users']);
 }
 
 function view_security($RC, $db)
@@ -362,38 +399,38 @@ function view_security($RC, $db)
     $blocked = blocked_count($db);
     $fallback = preg_replace('#/admin/([^/]+)$#', '/admin.php?k=$1', $ADMIN_URL);
 
-    $brand = card('Login page', form('service_name', input('Mail service name', 'service', ['value' => synapse_core::service_name(), 'hint' => 'Shown on the login page under "Mail service". 2–40 characters.', 'attrs' => ['required' => true, 'minlength' => 2, 'maxlength' => 40, 'spellcheck' => 'false']])
-        . '<div class="adm-form-actions">' . button('Save name', ['icon' => 'save']) . '</div>', 'adm-form'), ['icon' => 'monitor-smartphone']);
-
-    $otp = card('Two-factor authentication', form('policy', select('Policy for mailbox users', 'policy', [
-            'off' => 'Off · nobody can use 2FA',
-            'optional' => 'Optional · users decide in Settings › Security',
-            'required' => 'Required · set up at next sign-in',
-        ], $policy, 'The admin account always uses 2FA. "Required" asks every user without 2FA to set it up right after signing in.')
-        . '<div class="adm-form-actions">' . button('Save policy', ['icon' => 'save']) . '</div>', 'adm-form'), ['icon' => 'smartphone', 'meta' => badge($policy === 'off' ? 'off' : 'ok', $policy)]);
-
-    $limits = card('Sign-in protection', '<div class="adm-big ' . ($blocked ? 'warn' : 'ok') . '"><strong>' . $blocked . '</strong><span>accounts or IPs blocked right now</span></div>'
-        . '<ul class="adm-facts"><li><b>5</b> wrong passwords per account and IP</li><li><b>20</b> per IP for any accounts</li><li><b>20</b> per account from any IPs</li><li><b>5</b> password changes per account</li><li>Blocks last <b>15 minutes</b></li></ul>'
-        . form('clear_blocks', button('Clear all blocks now', ['tone' => 'danger', 'icon' => 'eraser', 'attrs' => ['data-confirm' => 'Clear every sign-in block and counter?']]), 'adm-form'), ['icon' => 'shield-alert']);
-
-    $access = card('Admin panel address', '<p class="adm-lead">Only this address opens the admin panel; anything else answers "404 Not Found".</p>'
-        . '<div class="adm-secret"><code data-reveal>' . h($ADMIN_URL) . '</code>' . button('Show', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'eye', 'attrs' => ['data-reveal-btn' => '1']]) . button('Copy', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'copy', 'attrs' => ['data-copy' => $ADMIN_URL]]) . '</div>'
+    $access = section('Admin panel address', 'Only this address opens the admin panel. Anything else answers "404 Not Found".',
+        '<div class="adm-secret"><code data-reveal>' . h($ADMIN_URL) . '</code>' . button('Show', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'eye', 'attrs' => ['data-reveal-btn' => '1']]) . button('Copy', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'copy', 'attrs' => ['data-copy' => $ADMIN_URL]]) . '</div>'
         . '<p class="adm-hint">Without .htaccess support: <code data-reveal>' . h($fallback) . '</code>. Also stored in <code>config/ADMIN-URL.txt</code>.</p>'
-        . form('rotate_key', button('Generate a new address', ['tone' => 'ghost', 'icon' => 'refresh-cw', 'attrs' => ['data-confirm' => 'Create a new admin address? The current one stops working immediately; the new one is shown and saved in config/ADMIN-URL.txt.']]), 'adm-form'), ['icon' => 'key-round']);
+        . form('rotate_key', '<div class="adm-form-actions">' . button('Generate a new address', ['tone' => 'ghost', 'icon' => 'refresh-cw', 'attrs' => ['data-confirm' => 'Create a new admin address? The current one stops working immediately; the new one is shown and saved in config/ADMIN-URL.txt.']]) . '</div>', 'adm-form'));
+
+    $otp = section('Two-factor authentication', 'The admin account always uses 2FA. "Required" asks every user without 2FA to set it up right after signing in.',
+        form('policy', select('Policy for mailbox users', 'policy', [
+            'off' => 'Off: nobody can use 2FA',
+            'optional' => 'Optional: users decide in Settings',
+            'required' => 'Required: set up at next sign-in',
+        ], $policy) . '<div class="adm-form-actions">' . button('Save policy', ['icon' => 'save']) . '</div>', 'adm-form'), badge($policy === 'off' ? 'off' : 'ok', ucfirst($policy)));
+
+    $limits = section('Sign-in protection', 'Wrong passwords and codes are counted per account and per IP. Blocks end by themselves after 15 minutes.',
+        '<div class="adm-big ' . ($blocked ? 'warn' : 'ok') . '"><strong>' . $blocked . '</strong><span>accounts or IPs blocked right now</span></div>'
+        . '<ul class="adm-facts"><li><b>5</b> wrong passwords per account and IP</li><li><b>20</b> per IP for any accounts</li><li><b>20</b> per account from any IPs</li><li><b>5</b> password changes per account</li></ul>'
+        . form('clear_blocks', '<div class="adm-form-actions">' . button('Clear all blocks now', ['tone' => 'danger', 'icon' => 'eraser', 'attrs' => ['data-confirm' => 'Clear every sign-in block and counter?']]) . '</div>', 'adm-form'));
 
     $on = synapse_sendas::enabled();
-    $check = static function ($name, $label, $checked) {
-        return '<label class="adm-check"><input type="checkbox" name="' . h($name) . '" value="1"' . ($checked ? ' checked' : '') . '><span></span>' . h($label) . '</label>';
-    };
-    $sendas = card('Send As', '<p class="adm-lead">Users can add other addresses and send through each address\'s own SMTP server. Every address is proven with a code sent to it.</p>'
-        . form('sendas', $check('sendas_on', 'Users can add new addresses', $on)
-        . input('Addresses per user', 'sendas_max', ['type' => 'number', 'value' => (string) synapse_sendas::max(), 'attrs' => ['min' => 1, 'max' => 99, 'required' => true]])
-        . '<label class="adm-field"><span>Domains this server sends for</span><textarea class="adm-input" name="sendas_domains" rows="2" spellcheck="false" placeholder="example.com shop.example.com">'
+    $sendas = section('Send As', 'Users add other addresses and send through each address\'s own server. Every address is proven with a code sent to it.',
+        form('sendas', checkbox('sendas_on', 'Users can add new addresses', $on, 'Addresses that already exist keep working when this is off.')
+        . checkbox('sendas_inbox', 'Users can open the inboxes of their addresses', synapse_core::setting('sendas_inbox') !== '0', 'Read mail of a Send As address in SynapseMail (IMAP over TLS). Nothing is copied into the user\'s own mailbox.')
+        . input('Addresses per user', 'sendas_max', ['type' => 'number', 'value' => (string) synapse_sendas::max(), 'class' => 'adm-short', 'attrs' => ['min' => 1, 'max' => 99, 'required' => true]])
+        . '<label class="adm-field"><span>Domains this server sends for</span><textarea class="adm-input adm-mono-input" name="sendas_domains" rows="2" spellcheck="false" placeholder="example.com shop.example.com">'
         . h((string) synapse_core::setting('sendas_domains')) . '</textarea><small>Addresses of these domains (and of the user\'s own domain) may use "Send through this mail server". Others must use their own server, so mail is not marked as spam.</small></label>'
-        . $check('sendas_local', 'Allow servers on the local network (only for company networks)', synapse_core::setting('sendas_local') === '1')
-        . '<div class="adm-form-actions">' . button('Save Send As', ['icon' => 'save']) . '</div>', 'adm-form'), ['icon' => 'send', 'meta' => badge($on ? 'ok' : 'off', $on ? 'on' : 'off')]);
+        . checkbox('sendas_local', 'Allow servers on the local network', synapse_core::setting('sendas_local') === '1', 'Only for company networks. Off blocks private and local addresses.')
+        . '<div class="adm-form-actions">' . button('Save Send As', ['icon' => 'save']) . '</div>', 'adm-form'), badge($on ? 'ok' : 'off', $on ? 'On' : 'Off'));
 
-    return '<div class="adm-grid">' . $access . $otp . $sendas . $brand . $limits . '</div>';
+    $brand = section('Login page', 'The name shown on the login page under "Mail service".',
+        form('service_name', input('Mail service name', 'service', ['value' => synapse_core::service_name(), 'hint' => '2 to 40 characters.', 'attrs' => ['required' => true, 'minlength' => 2, 'maxlength' => 40, 'spellcheck' => 'false']])
+        . '<div class="adm-form-actions">' . button('Save name', ['icon' => 'save']) . '</div>', 'adm-form'));
+
+    return '<div class="adm-sections">' . $access . $otp . $sendas . $limits . $brand . '</div>';
 }
 
 function view_deliverability($RC, $db)
@@ -416,8 +453,8 @@ function view_deliverability($RC, $db)
     foreach ($r['badges'] as $name => $on) {
         $badges .= badge($on ? 'ok' : 'off', $name);
     }
-    $summary = card('Score', '<div class="adm-ring ' . $tone . '" data-pct="' . (int) $score . '"><div><strong>' . ($score === null ? '—' : $score) . '</strong><span>/ 100</span></div></div>'
-        . '<dl class="adm-dl"><dt>Domain</dt><dd>' . h($domain) . '</dd><dt>Sending IP</dt><dd>' . h($r['ip'] ?: 'unknown') . '</dd><dt>Checked</dt><dd>' . h(gmdate('M j, H:i', $r['time'])) . ' UTC</dd></dl>'
+    $summary = card('Score', '<div class="adm-ring ' . $tone . '" data-pct="' . (int) $score . '"><div><strong>' . ($score === null ? '?' : $score) . '</strong><span>of 100</span></div></div>'
+        . '<dl class="adm-dl"><dt>Domain</dt><dd>' . h($domain) . '</dd><dt>Sending IP</dt><dd class="adm-mono">' . h($r['ip'] ?: 'unknown') . '</dd><dt>Checked</dt><dd>' . h(gmdate('M j, H:i', $r['time'])) . ' UTC</dd></dl>'
         . '<div class="adm-badges">' . $badges . '</div>'
         . '<p class="adm-hint">Read-only. Records are changed at your DNS host (cPanel › Zone Editor, Cloudflare…). Checks shown as N/A do not lower the score.</p>', ['icon' => 'gauge', 'class' => 'adm-score-card']);
 
@@ -436,23 +473,79 @@ function view_deliverability($RC, $db)
 function view_backup($A)
 {
     if (!empty($A['backup_key'])) {
-        $create = card('Backup ready', '<p class="adm-lead">Download the file, then store this key somewhere else, for example in a password manager. It is shown only now. Without it, nobody can open the backup, not even us.</p>'
-            . '<div class="adm-secret big"><code>' . h($A['backup_key']) . '</code>' . button('Copy key', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'copy', 'attrs' => ['data-copy' => $A['backup_key']]]) . '</div>'
-            . form('backup_download', button('Download ' . size($A['backup']['size']), ['icon' => 'download']), 'adm-form')
-            . '<p class="adm-hint">The file can be downloaded once and is deleted from the server within an hour.</p>', ['icon' => 'archive', 'class' => 'adm-highlight']);
+        $create = section('Backup ready', 'Download the file, then store this key somewhere else, for example in a password manager. It is shown only now. Without it, nobody can open the backup, not even us.',
+            '<div class="adm-secret big"><code>' . h($A['backup_key']) . '</code>' . button('Copy key', ['tone' => 'ghost', 'size' => 'sm', 'type' => 'button', 'icon' => 'copy', 'attrs' => ['data-copy' => $A['backup_key']]]) . '</div>'
+            . form('backup_download', '<div class="adm-form-actions">' . button('Download ' . size($A['backup']['size']), ['icon' => 'download']) . '</div>', 'adm-form')
+            . '<p class="adm-hint">The file can be downloaded once and is deleted from the server within an hour.</p>');
     } else {
-        $create = card('Create a backup', '<p class="adm-lead">An encrypted copy (AES-256-GCM) of everything SynapseMail stores itself.</p>'
-            . '<ul class="adm-facts"><li>Users, settings, identities and contacts</li><li>Passcodes, 2FA and recovery codes</li><li>The admin account and the encryption key</li><li><b>Not included:</b> mail. It stays on the mail server.</li></ul>'
-            . form('backup_create', button('Create backup', ['icon' => 'archive']), 'adm-form'), ['icon' => 'archive']);
+        $create = section('Create a backup', 'An encrypted copy (AES-256-GCM) of everything SynapseMail stores itself.',
+            '<ul class="adm-facts"><li>Users, settings, Send As addresses and contacts</li><li>Passcodes, 2FA and recovery codes</li><li>The admin account and the encryption key</li><li><b>Not included:</b> mail. It stays on the mail server.</li></ul>'
+            . form('backup_create', '<div class="adm-form-actions">' . button('Create backup', ['icon' => 'archive']) . '</div>', 'adm-form'));
     }
-    $restore = card('Restore', '<p class="adm-lead">Replaces all app data with a backup and signs everyone out. The current data is saved first as <code>db/before-restore-….db</code>; this install\'s mail server settings are kept.</p>'
-        . '<form method="post" enctype="multipart/form-data" class="adm-form"><input type="hidden" name="csrf" value="' . h($A['csrf']) . '"><input type="hidden" name="do" value="restore">'
+    $restore = section('Restore', 'Replaces all app data with a backup and signs everyone out. The current data is saved first as <code>db/before-restore-….db</code>; this install\'s mail server settings are kept.',
+        '<form method="post" enctype="multipart/form-data" class="adm-form"><input type="hidden" name="csrf" value="' . h($A['csrf']) . '"><input type="hidden" name="do" value="restore">'
         . '<label class="adm-field"><span>Backup file (.smbk)</span><input class="adm-input adm-file" name="file" type="file" accept=".smbk" required><small>Largest upload PHP allows here: ' . h(ini_get('upload_max_filesize')) . '</small></label>'
-        . input('Backup key', 'key', ['attrs' => ['required' => true, 'autocomplete' => 'off', 'spellcheck' => 'false', 'placeholder' => 'XXXX XXXX XXXX …']])
-        . input('Your authenticator code', 'code', ['attrs' => ['required' => true, 'inputmode' => 'numeric', 'autocomplete' => 'one-time-code', 'pattern' => '[0-9 ]{6,7}', 'maxlength' => 7, 'placeholder' => '000 000']])
-        . '<div class="adm-form-actions">' . button('Restore', ['tone' => 'danger', 'icon' => 'history', 'attrs' => ['data-confirm' => 'Replace all SynapseMail data with this backup and sign everyone out?']]) . '</div></form>', ['icon' => 'history']);
+        . input('Backup key', 'key', ['class' => 'adm-mono-input', 'attrs' => ['required' => true, 'autocomplete' => 'off', 'spellcheck' => 'false', 'placeholder' => 'XXXX XXXX XXXX …']])
+        . code_input('Your authenticator code')
+        . '<div class="adm-form-actions">' . button('Restore', ['tone' => 'danger', 'icon' => 'history', 'attrs' => ['data-confirm' => 'Replace all SynapseMail data with this backup and sign everyone out?']]) . '</div></form>');
 
-    return '<div class="adm-grid">' . $create . $restore . '</div>';
+    return '<div class="adm-sections">' . $create . $restore . '</div>';
+}
+
+function view_updates($RC, $A)
+{
+    $url = update_url($RC);
+    $last = json_decode((string) synapse_core::setting('update'), true);
+    $m = $last['latest'] ?? null;
+    $newer = $m && !empty($last['newer']) && version_compare($m['version'], synapse_core::VERSION, '>');
+    $needs = array_filter([
+        class_exists('ZipArchive') ? null : 'the PHP zip extension',
+        function_exists('sodium_crypto_sign_verify_detached') ? null : 'the PHP sodium extension',
+        is_writable(INSTALL_PATH . 'program') && is_writable(INSTALL_PATH . 'plugins/synapse_core') ? null : 'write access to the SynapseMail folder for PHP',
+    ]);
+    $limit = ini_get('upload_max_filesize');
+    $limit_bytes = (int) $limit * (['K' => 1024, 'M' => 1048576, 'G' => 1073741824][strtoupper(substr(trim($limit), -1))] ?? 1);
+
+    $state = !$last ? ['off', 'Not checked yet', 'circle-dashed']
+        : (!empty($last['error']) ? ['warn', $last['error'], 'triangle-alert']
+        : ($newer ? ['info', 'SynapseMail ' . $m['version'] . ' is available', 'download'] : ['ok', 'Up to date', 'circle-check']));
+    $current = section('Installed version', 'Updates are signed by SynapseCyber. Before anything is written, SynapseMail checks the signature, that the version is newer, and every file.',
+        '<div class="adm-version"><strong>' . h(synapse_core::VERSION) . '</strong><div><span class="adm-state ' . $state[0] . '">' . icon($state[2]) . h($state[1]) . '</span>'
+        . '<small>Roundcube ' . h(RCMAIL_VERSION) . ' · PHP ' . h(PHP_VERSION) . ($last ? ' · checked ' . h(gmdate('M j, H:i', $last['time'])) . ' UTC' : '') . '</small></div></div>'
+        . ($needs ? '<div class="adm-flash warn">' . icon('triangle-alert') . '<p>Installing from this page needs ' . h(implode(', ', $needs)) . '. You can still update by extracting the zip in File Manager.</p></div>' : '')
+        . form('update_check', '<div class="adm-form-actions">' . button('Check now', ['tone' => 'ghost', 'icon' => 'refresh-cw']) . '</div>', 'adm-form'));
+
+    $install = '';
+    if ($newer) {
+        $notes = trim((string) ($m['notes'] ?? ''));
+        $install = section('SynapseMail ' . $m['version'], 'Released ' . h($m['released'] ?? '') . (!empty($m['size']) ? ' · ' . h(size($m['size'])) : '') . '. Mail, users, settings, the database and config/synapse.inc.php are kept. The files it replaces are saved in <code>db/</code> first.',
+            ($notes ? '<details class="adm-notes" open><summary>What\'s new</summary><div>' . nl2br(h($notes)) . '</div></details>' : '')
+            . form('update_install', code_input() . '<div class="adm-form-actions">' . button('Install ' . $m['version'], ['icon' => 'download', 'attrs' => ['data-confirm' => 'Install SynapseMail ' . $m['version'] . ' now? Users stay signed in.', 'data-busy' => 'Installing…']]) . '</div>', 'adm-form'),
+            badge('info', 'New'));
+    }
+
+    $upload = section('Upload an update', 'Use a SynapseMail zip from GitHub Releases or the update server. Zips that are not signed, or that were changed, are refused.',
+        '<form method="post" enctype="multipart/form-data" class="adm-form"><input type="hidden" name="csrf" value="' . h($A['csrf']) . '"><input type="hidden" name="do" value="update_upload">'
+        . '<label class="adm-field"><span>Release zip</span><input class="adm-input adm-file" name="file" type="file" accept=".zip,application/zip" required>'
+        . '<small>Largest upload PHP allows here: ' . h($limit) . ($limit_bytes && $limit_bytes < 16 * 1048576 ? '. A release is about 10 MB: raise upload_max_filesize and post_max_size in cPanel › MultiPHP INI Editor, or use "Check now" and install from the update server.' : '.') . '</small></label>'
+        . code_input()
+        . '<div class="adm-form-actions">' . button('Upload and install', ['icon' => 'upload', 'attrs' => ['data-busy' => 'Installing…']]) . '</div></form>');
+
+    $server = section('Update server', 'SynapseMail reads <code>release.json</code> and its signature from here once a day and when you click "Check now".',
+        form('update_url', input('Manifest address', 'url', ['value' => (string) synapse_core::setting('update_url'), 'class' => 'adm-mono-input', 'hint' => 'Empty uses the default: ' . $RC->config->get('synapse_update_url'), 'attrs' => ['type' => 'url', 'spellcheck' => 'false', 'placeholder' => (string) $RC->config->get('synapse_update_url')]])
+        . '<div class="adm-form-actions">' . button('Save', ['tone' => 'ghost', 'icon' => 'save']) . '</div>', 'adm-form'));
+
+    $history = json_decode((string) synapse_core::setting('update_history'), true) ?: [];
+    $rows = '';
+    foreach ($history as $u) {
+        $rows .= '<tr><td class="adm-num">' . h(gmdate('M j, Y H:i', (int) $u['time'])) . '</td><td>' . h($u['from']) . ' → <b>' . h($u['to']) . '</b></td><td>' . h($u['how']) . '</td>'
+            . '<td class="adm-num">' . (int) $u['changed'] . ' changed, ' . (int) $u['added'] . ' new</td><td class="adm-mono">' . h($u['rollback'] ? 'db/' . $u['rollback'] : '') . '</td></tr>';
+    }
+    $past = section('History', 'To go back, extract the rollback zip over the SynapseMail folder in File Manager and delete the files listed in its ROLLBACK-NEW-FILES.txt. The newest three are kept.',
+        $rows ? '<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th scope="col" class="adm-num">Date (UTC)</th><th scope="col">Version</th><th scope="col">Source</th><th scope="col" class="adm-num">Files</th><th scope="col">Rollback copy</th></tr></thead><tbody>' . $rows . '</tbody></table></div>'
+        : empty_state('history', 'No updates installed here yet', 'Updates installed from this page are listed here.'));
+
+    return '<div class="adm-sections">' . $current . $install . $upload . $server . $past . '</div>';
 }
 
 function view_logs($RC)
@@ -460,7 +553,7 @@ function view_logs($RC)
     $log = isset(LOGS[$_GET['log'] ?? '']) ? $_GET['log'] : 'synapse_security';
     $tabs = '';
     foreach (LOGS as $k => $label) {
-        $tabs .= '<a class="' . ($k === $log ? 'active' : '') . '" href="' . h(self_url(['view' => 'logs', 'log' => $k])) . '">' . h($label) . '</a>';
+        $tabs .= '<a class="' . ($k === $log ? 'active' : '') . '" href="' . h(self_url(['view' => 'logs', 'log' => $k])) . '"' . ($k === $log ? ' aria-current="page"' : '') . '>' . h($label) . '</a>';
     }
     $entries = log_entries($RC, $log, 300);
     if ($entries === null) {
@@ -471,10 +564,10 @@ function view_logs($RC)
         $rows = '';
         foreach ($entries as [$t, $sid, $msg]) {
             $tone = preg_match('/error|fail|refused|fatal|denied/i', $msg) ? 'warn' : '';
-            $rows .= '<tr class="' . $tone . '" data-search="' . h(strtolower($msg . ' ' . $sid)) . '"><td class="adm-mono adm-nowrap">' . h(short_time($t)) . '</td><td class="adm-mono adm-dim">' . h($sid) . '</td><td class="adm-logmsg">' . h($msg) . '</td></tr>';
+            $rows .= '<tr class="' . $tone . '" data-search="' . h(strtolower($msg . ' ' . $sid)) . '"><td class="adm-num adm-nowrap">' . h(short_time($t)) . '</td><td class="adm-mono adm-dim">' . h($sid) . '</td><td class="adm-logmsg">' . h($msg) . '</td></tr>';
         }
-        $body = '<div class="adm-toolbar"><label class="adm-search">' . icon('search') . '<input type="search" placeholder="Filter entries" data-table-search="logTable" aria-label="Filter entries"></label><span class="adm-dim adm-mono">' . count($entries) . ' newest entries</span></div>'
-            . '<div class="adm-table-wrap"><table class="adm-table adm-log" id="logTable"><thead><tr><th>Time (UTC)</th><th>Session</th><th>Entry</th></tr></thead><tbody>' . $rows . '</tbody></table><p class="adm-noresult" hidden>No entry matches.</p></div>';
+        $body = '<div class="adm-toolbar"><label class="adm-search">' . icon('search') . '<input type="search" placeholder="Filter entries" data-table-search="logTable" aria-label="Filter entries"></label><span class="adm-dim">' . count($entries) . ' newest entries</span></div>'
+            . '<div class="adm-table-wrap"><table class="adm-table adm-log" id="logTable"><thead><tr><th scope="col">Time (UTC)</th><th scope="col">Session</th><th scope="col">Entry</th></tr></thead><tbody>' . $rows . '</tbody></table><p class="adm-noresult" hidden>No entry matches.</p></div>';
     }
 
     return '<nav class="adm-tabs" aria-label="Logs">' . $tabs . '</nav>' . card(LOGS[$log], $body, ['icon' => 'scroll-text']);
@@ -494,16 +587,17 @@ function view_account($db, $admins, &$A)
         $codes = '<div class="adm-flash ok">' . icon('circle-check') . '<p>New recovery codes. The old ones no longer work. Save these now: they are shown only once.</p></div><div class="setup-codes" id="recoveryCodes">' . $codes . '</div>'
             . '<button type="button" class="adm-btn ghost sm" id="copyCodes">' . icon('copy') . '<span>Copy codes</span></button>';
     }
-    $profile = card('Administrator', '<div class="adm-user big"><span class="adm-avatar">' . h(strtoupper(substr($row['username'] ?? '?', 0, 1))) . '</span><div><b>' . h($row['username'] ?? '') . '</b><small>separate from every mailbox · 2FA required</small></div></div>'
-        . '<dl class="adm-dl"><dt>Created</dt><dd>' . h($row['created_at'] ? gmdate('M j, Y', (int) $row['created_at']) : '—') . '</dd><dt>Last sign-in</dt><dd>' . h($row['last_login'] ? gmdate('M j, H:i', (int) $row['last_login']) . ' UTC' : '—') . '</dd>'
-        . '<dt>Recovery codes</dt><dd>' . $left . ' of 8 left</dd></dl><span class="adm-bar"><i data-pct="' . (int) round($left * 100 / 8) . '"></i></span>', ['icon' => 'user-cog']);
-    $password = card('Change password', form('admin_password', input('Current password', 'current', ['type' => 'password', 'attrs' => ['required' => true, 'autocomplete' => 'current-password']])
-        . input('New password', 'new', ['type' => 'password', 'hint' => 'At least 12 characters.', 'attrs' => ['required' => true, 'minlength' => 12, 'autocomplete' => 'new-password']])
+    $profile = section('Administrator', 'Separate from every mailbox. 2FA is always required.',
+        '<div class="adm-user big"><span class="adm-avatar">' . h(strtoupper(substr($row['username'] ?? '?', 0, 1))) . '</span><div><b>' . h($row['username'] ?? '') . '</b><small>admin account</small></div></div>'
+        . '<dl class="adm-dl"><dt>Created</dt><dd>' . h($row['created_at'] ? gmdate('M j, Y', (int) $row['created_at']) : 'unknown') . '</dd><dt>Last sign-in</dt><dd>' . h($row['last_login'] ? gmdate('M j, H:i', (int) $row['last_login']) . ' UTC' : 'never') . '</dd>'
+        . '<dt>Recovery codes</dt><dd>' . $left . ' of 8 left</dd></dl>');
+    $password = section('Change password', 'At least 12 characters. Other admin sessions stay signed in until they time out.',
+        form('admin_password', input('Current password', 'current', ['type' => 'password', 'attrs' => ['required' => true, 'autocomplete' => 'current-password']])
+        . input('New password', 'new', ['type' => 'password', 'attrs' => ['required' => true, 'minlength' => 12, 'autocomplete' => 'new-password']])
         . input('Repeat new password', 'new2', ['type' => 'password', 'attrs' => ['required' => true, 'minlength' => 12, 'autocomplete' => 'new-password']])
-        . '<div class="adm-form-actions">' . button('Change password', ['icon' => 'key-round']) . '</div>', 'adm-form'), ['icon' => 'key-round']);
-    $recovery = card('Recovery codes', $codes . '<p class="adm-lead">Each code signs you in once if you lose your phone. Creating new codes cancels the old ones.</p>'
-        . form('admin_recovery', input('Authenticator code', 'code', ['attrs' => ['required' => true, 'inputmode' => 'numeric', 'autocomplete' => 'one-time-code', 'pattern' => '[0-9 ]{6,7}', 'maxlength' => 7, 'placeholder' => '000 000']])
-            . '<div class="adm-form-actions">' . button('Create new codes', ['tone' => 'ghost', 'icon' => 'refresh-cw']) . '</div>', 'adm-form'), ['icon' => 'life-buoy']);
+        . '<div class="adm-form-actions">' . button('Change password', ['icon' => 'key-round']) . '</div>', 'adm-form'));
+    $recovery = section('Recovery codes', 'Each code signs you in once if you lose your phone. Creating new codes cancels the old ones.',
+        $codes . form('admin_recovery', code_input() . '<div class="adm-form-actions">' . button('Create new codes', ['tone' => 'ghost', 'icon' => 'refresh-cw']) . '</div>', 'adm-form'));
 
-    return '<div class="adm-grid">' . $profile . $password . $recovery . '</div>';
+    return '<div class="adm-sections">' . $profile . $password . $recovery . '</div>';
 }

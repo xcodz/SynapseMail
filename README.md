@@ -4,20 +4,22 @@
 
 # SynapseMail
 
-### 🔐 Secure, self-hosted webmail with 2FA, a passcode lock, Send As and a mobile-first design
+### 🔐 Secure, self-hosted webmail: 2FA, a passcode lock, every address in one place, and signed one-click updates
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.4-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.5-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
 ![Send As](https://img.shields.io/badge/Send%20As-any%20SMTP-e0a030)
+![Inboxes](https://img.shields.io/badge/other%20inboxes-IMAP%20over%20TLS-1f68bc)
+![Updates](https://img.shields.io/badge/updates-signed%20Ed25519-2ea44f)
 ![Mobile](https://img.shields.io/badge/mobile-ready-ff8c42)
 ![RTL](https://img.shields.io/badge/RTL-Persian%20%7C%20Arabic-9b59b6)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5](#new) · [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -36,6 +38,31 @@ Sample data only. No mail server is connected and nothing is sent.
 
 ---
 
+<a id="new"></a>
+
+## ✨ New in 3.5: send **and read** from every address
+
+| 📥 Switch between your inboxes | 👀 Read another address, nothing imported |
+|:---:|:---:|
+| <img src="docs/screenshots/inbox-menu.webp" alt="SynapseMail mailbox menu: switch between your own inbox and the inboxes of your Send As addresses" width="100%"> | <img src="docs/screenshots/other-inbox.webp" alt="SynapseMail reading the inbox of another address over IMAP, with a Back to my inbox bar" width="100%"> |
+
+- 📥 **Other inboxes, one click away.** Open the inbox of any of your Send As addresses from the menu above the
+  folders. The mail stays **on that address's own server**: nothing is copied into your main mailbox, and
+  **"Back to my inbox"** brings you home. Unread counts for every mailbox, and replies come from the right address.
+- ⬆️ **Updates from the admin panel.** Check and install a new version with one click, or upload the release zip.
+  Every release is **signed by SynapseCyber**: changed, unsigned or older zips are refused, your settings and data
+  are never touched, and the replaced files are kept as a rollback copy.
+- 🎨 **Settings › Appearance.** Five themes plus Match system, animations on, reduced or off, background effects, text size, a compact
+  list, higher contrast and underlined links. Saved to the account, ready before the page draws.
+- 🌤️ **Soft Light theme.** A calm grey-blue light theme, easy on the eyes, for the webmail, the sign-in page and
+  the admin panel. **Match system** switches between Soft Light and your dark theme.
+- 🧑‍💼 **A redesigned admin panel** with readable labels, settings in clear rows, a numbers strip, a light/dark
+  switch and a better phone layout. Checkboxes and radio buttons in Settings now match the skin.
+
+📋 [Full changelog](CHANGELOG.md)
+
+---
+
 ## 👋 What is SynapseMail?
 
 SynapseMail is a **webmail**: the website where people read and send their email. It connects to the **mail
@@ -47,8 +74,9 @@ many teams need today: **stronger sign-in security, a modern interface that work
 installer and a private admin panel.**
 
 > 💡 **It is not just a theme.** A theme only changes colours. SynapseMail adds a passcode lock, two-factor
-> authentication, brute-force protection, device trust, **Send As for all your addresses**, a server check before
-> install, an admin panel with backups, and a new editor for left-to-right and right-to-left email.
+> authentication, brute-force protection, device trust, **Send As and the inboxes of all your addresses**, a server
+> check before install, an admin panel with backups and **signed updates**, and a new editor for left-to-right and
+> right-to-left email.
 
 > ⚠️ **Please read: what 2FA covers today.** The passcode and 2FA protect **the SynapseMail webmail**. They do not
 > change your mail server. **IMAP, POP3 and SMTP** (Outlook, Thunderbird, the phone mail app) and **other webmail
@@ -62,16 +90,19 @@ installer and a private admin panel.**
 | | Roundcube (default) | **SynapseMail** |
 |---|:---:|:---:|
 | Read and send email (IMAP/SMTP) | ✅ | ✅ |
-| Modern interface with 4 colour themes | ➖ | ✅ |
+| Modern interface with 5 themes (4 dark + Soft Light) | ➖ | ✅ |
+| 🎨 Appearance settings: reduced motion, text size, contrast | ➖ | ✅ |
 | Phone and tablet layouts | ✅ | ✅ **redesigned for touch** |
 | 🔢 Passcode lock after the password | ❌ | ✅ |
 | 📱 Two-factor authentication (TOTP) + recovery codes | plugin needed | ✅ **built in** |
 | 🧱 Brute-force lockout for passcode and 2FA | ❌ | ✅ |
 | 📤 **Send As**: every address with **its own SMTP server**, proven with a code | ➖ one server only | ✅ **built in** |
+| 📥 **Read the inboxes** of your other addresses, without importing them | ❌ | ✅ |
 | 🧷 "Remember this device" with automatic idle sign-out | ➖ | ✅ |
 | ✍️ Editor with LTR + RTL in the same email | ➖ | ✅ |
 | 🧙 Web installer that checks your hosting panel | basic | ✅ **with fix steps per panel** |
-| 🧑‍💼 Admin panel (users, policy, backups, updates) | ❌ | ✅ |
+| 🧑‍💼 Admin panel (users, policy, backups) | ❌ | ✅ |
+| ⬆️ Signed updates installed from the admin panel | ❌ | ✅ |
 | 📊 Email deliverability score (SPF, DKIM, DMARC...) | ❌ | ✅ |
 | 🌐 No third-party requests (fonts and icons included) | ✅ | ✅ |
 
@@ -92,6 +123,10 @@ installer and a private admin panel.**
 | 🧙 Web installer | 🛠️ Installer help for your hosting |
 |:---:|:---:|
 | <img src="docs/screenshots/installer-own.webp" alt="SynapseMail web installer: prove hosting ownership" width="100%"> | <img src="docs/screenshots/installer-env.webp" alt="SynapseMail installer: server check with nginx rules and fix steps" width="100%"> |
+
+| 🎨 Appearance in Soft Light | 🧑‍💼 Admin panel |
+|:---:|:---:|
+| <img src="docs/screenshots/appearance.webp" alt="SynapseMail Appearance settings: theme cards, animations and background effects in the Soft Light theme" width="100%"> | <img src="docs/screenshots/admin-overview.webp" alt="SynapseMail admin panel overview: mailboxes, 2FA use, blocked sign-ins, deliverability and system health" width="100%"> |
 
 ---
 
@@ -163,6 +198,9 @@ With **Send As** you write from **all of them in SynapseMail**. No more switchin
   DMARC pass and your email lands in the **inbox, not in spam**.
 - ✍️ **A name and a signature for each address**, and one **default address**.
 - ↩️ **Smart replies**: a reply comes from the address the message was sent to (or always from your default).
+- 📥 **Read their inboxes too**: open the mailbox of any of your addresses from the menu above the folders.
+  SynapseMail reads it **on that address's own server** (IMAP over TLS): nothing is copied into your main
+  mailbox, and one click brings you back. Replies come from the right address automatically.
 - 🔐 **Built like a security product**: passwords are encrypted with your install key, they are **only sent over
   TLS**, certificates are checked, private networks are blocked, and every change is logged.
 - 🧱 **Clear help when something is wrong**: wrong password, App Password needed, a certificate for another name,
@@ -183,8 +221,19 @@ SynapseMail has **separate layouts for desktop, tablet and phone**, not a deskto
 - 👆 Big touch targets and simple navigation on small screens
 - 📨 Read, write, search and manage folders on the phone
 - 🔐 The passcode and 2FA screens are designed for one-hand use
-- 🌗 4 colour themes, which follow you on every device
+- 🌗 5 themes (4 dark and a calm **Soft Light**), or follow the system, on every device
 - 🪟 On desktop: **floating reading windows** and a **command palette** (⌘K / Ctrl+K)
+
+---
+
+## 🎨 Make it yours: Appearance
+
+Settings › Appearance puts the look in the user's hands, and it is saved to the account:
+
+- 🌗 **Theme**: Synapse Dark, Amber Shield, Terminal Green, Secure Blue, **Soft Light**, or **Match system**
+- 🎞️ **Animations**: follow the system, reduced (no background effects, short fades only) or off
+- 🔠 **Text size** for the message list, the reader and the editor, and a compact message list
+- ♿ **Higher contrast** and **underlined links**, so nothing depends on colour alone
 
 ---
 
@@ -205,8 +254,11 @@ The admin panel lives at a **private address** (`/admin/<secret-key>`). People w
 - 🩺 **Health checks**: PHP, folders, HTTPS, mail server connections, hosting panel
 - 👥 **Users**: reset a passcode or 2FA, end sessions
 - 🔐 **Security policy**: for example, make 2FA required
-- 📤 **Send As settings**: turn it on or off, set the number of addresses, and check that your host allows
-  outgoing mail connections
+- 📤 **Send As settings**: turn it on or off, allow reading other inboxes, set the number of addresses, and
+  check that your host allows outgoing mail connections
+- ⬆️ **Updates**: install a new version with one click, or upload the release zip. Only releases signed by
+  SynapseCyber are accepted, every file is checked, your settings and data are kept, and the replaced files
+  are saved first
 - 📊 **Deliverability score**: MX, PTR, SPF, DKIM, DMARC, TLS and blacklist checks for your domains
 - 💾 **Encrypted backup and restore**
 - 📜 **Logs** for sign-ins and admin actions
@@ -308,11 +360,13 @@ step, together with the people who use it. 💪
 ### ✅ Already here
 - Passcode lock, 2FA with recovery codes, lockouts, device trust and idle sign-out
 - 📤 Send As: other addresses with their own SMTP server, a setup wizard and a code check
+- 📥 Read the inboxes of those addresses in SynapseMail, without importing them
+- ⬆️ Signed updates installed from the admin panel
+- 🎨 Appearance settings and the Soft Light theme
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
 - Web installer with hosting panel detection, and a private admin panel with health checks and backups
 
 ### 🛠️ Next steps (planned)
-- ⬆️ **Signed updates** shown in the admin panel when a new version is out
 - ⚡ **One-command installer** for Linux servers and SSH accounts, with signature checks and a terminal interface
 - 🖥️ **Server edition for WHM**: install once for the whole server and manage it from WHM, with the option to make
   SynapseMail the only webmail on the server
@@ -331,8 +385,15 @@ Have an idea or a need? [Open an issue](../../issues) and tell us. ⭐ **Star th
 
 ## 🔄 Updating
 
-1. Download the new `SynapseMail_v<version>.zip` from [Releases](../../releases).
-2. Extract it over your install folder. Your settings and data are kept.
+**From the admin panel (3.5 and newer):** open **Admin › Updates**. Click **Check now** and **Install**, or upload
+the `SynapseMail_v<version>.zip` from [Releases](../../releases). SynapseMail checks the signature and every file
+before it writes anything, keeps your settings and data, and saves the files it replaces in `db/`.
+
+**By hand:** download the zip from [Releases](../../releases) and extract it over your install folder. Your
+settings and data are kept.
+
+**Coming from 3.4 or older?** Those versions have no Updates page yet, so install 3.5 by hand once. From then on,
+updates come from the admin panel.
 
 👀 Tip: on GitHub, choose **Watch › Custom › Releases** to get a message when a new version is out. See the
 [changelog](CHANGELOG.md).
@@ -389,6 +450,7 @@ Copyright © 2026 SynapseCyber.io
 <sub>Keywords: secure webmail, self-hosted webmail, Roundcube alternative, Roundcube 2FA, webmail two-factor authentication,
 TOTP, passcode, cPanel webmail, Plesk webmail, DirectAdmin webmail, mobile webmail, responsive webmail, RTL email,
 Persian email client, Arabic email client, PHP webmail, IMAP client, send as, multiple email addresses, SMTP per
-identity, email aliases</sub>
+identity, email aliases, multiple inboxes, read other mailboxes, light theme webmail, accessible webmail, reduced
+motion, signed updates, one-click webmail update</sub>
 
 </div>

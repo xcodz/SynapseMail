@@ -28,13 +28,14 @@ use synapse_core;
 use synapse_deliverability;
 use synapse_platform;
 use synapse_secret;
+use synapse_inbox;
 use synapse_sendas;
 use synapse_totp;
 use synapse_update;
 
 const IDLE = 900;
 const ABSOLUTE = 8 * 3600;
-const VIEWS = ['overview' => 'Overview', 'users' => 'Users', 'security' => 'Security', 'deliverability' => 'Deliverability', 'backup' => 'Backup', 'logs' => 'Logs', 'account' => 'Admin account'];
+const VIEWS = ['overview' => 'Overview', 'users' => 'Users', 'security' => 'Security', 'deliverability' => 'Deliverability', 'backup' => 'Backup', 'updates' => 'Updates', 'logs' => 'Logs', 'account' => 'Admin account'];
 const LOGS = ['synapse_security' => 'Security events', 'errors' => 'Errors', 'password' => 'Password changes', 'userlogins' => 'Sign-ins'];
 
 define('INSTALL_PATH', realpath(__DIR__ . '/../../..') . '/');
@@ -44,6 +45,7 @@ $RC = rcube::get_instance(rcube::INIT_WITH_DB);
 require_once INSTALL_PATH . 'plugins/synapse_core/synapse_core.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_probe.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_sendas.php';
+require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_inbox.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_deliverability.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_backup.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_update.php';
@@ -188,6 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             synapse_core::set_setting('sendas_max', (string) $max);
             synapse_core::set_setting('sendas_domains', implode(' ', $domains));
             synapse_core::set_setting('sendas_local', !empty($_POST['sendas_local']) ? '1' : '0');
+            synapse_core::set_setting('sendas_inbox', !empty($_POST['sendas_inbox']) ? '1' : '0');
             audit('changed the Send As settings');
             flash('ok', 'Send As settings saved.');
             back('security');
@@ -271,7 +274,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'update_check':
             update_status($RC, true);
             audit('checked for updates');
-            back();
+            back('updates');
+
+        case 'update_url':
+            $url = trim((string) ($_POST['url'] ?? ''));
+            if ($url !== '' && (!preg_match('#^https?://[a-z0-9.-]+(:\d+)?/\S*$#i', $url) || strlen($url) > 300)) {
+                flash('fail', 'Enter a web address that starts with https:// (or leave it empty for the default).');
+                back('updates');
+            }
+            synapse_core::set_setting('update_url', $url);
+            synapse_core::set_setting('update', '');
+            audit('set the update server to ' . ($url ?: 'the default'));
+            flash('ok', 'Update server saved.');
+            back('updates');
+
+        case 'update_install':
+        case 'update_upload':
+            if (!admin_code_ok($RC, $db, $admins, $A['id'])) {
+                flash('fail', 'Authenticator code is incorrect.');
+                back('updates');
+            }
+            $file = null;
+            try {
+                if ($do === 'update_install') {
+                    $st = synapse_update::check(update_url($RC), synapse_core::VERSION);
+                    if (empty($st['newer'])) {
+                        throw new RuntimeException($st['error'] ?? 'No newer version on the update server.');
+                    }
+                    $file = synapse_update::download($st['latest'], INSTALL_PATH . 'temp');
+                } else {
+                    $up = $_FILES['file'] ?? null;
+                    if (!$up || $up['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'])) {
+                        throw new RuntimeException('Upload failed' . ($up && in_array($up['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
+                            ? ': the zip is larger than PHP allows here (upload_max_filesize ' . ini_get('upload_max_filesize') . '). Raise it in cPanel > MultiPHP INI Editor, or use "Install update".' : '.'));
+                    }
+                    $file = INSTALL_PATH . 'temp/sm-upload-' . bin2hex(random_bytes(6)) . '.zip';
+                    if (!move_uploaded_file($up['tmp_name'], $file)) {
+                        throw new RuntimeException('The upload could not be saved in temp/.');
+                    }
+                }
+                install_package($RC, $file, $do === 'update_install' ? 'from the update server' : 'from an uploaded zip');
+            } catch (RuntimeException $e) {
+                audit('update failed: ' . $e->getMessage());
+                flash('fail', $e->getMessage());
+            }
+            if ($file) {
+                @unlink($file);
+            }
+            back('updates');
 
         case 'service_name':
             $name = trim(preg_replace('/\s+/u', ' ', strip_tags((string) ($_POST['service'] ?? ''))));
@@ -349,6 +399,7 @@ $subtitles = [
     'security' => 'Admin address, 2FA policy, login page and sign-in protection',
     'deliverability' => 'DNS and reputation checks for your mail domains (read-only)',
     'backup' => 'Encrypted backup and restore of the app data',
+    'updates' => 'Install signed SynapseMail releases from the update server or a zip',
     'logs' => 'Security events, errors, password changes and sign-ins',
     'account' => 'Your administrator account',
 ];
@@ -357,6 +408,7 @@ switch ($view) {
     case 'security': $content = view_security($RC, $db); break;
     case 'deliverability': $content = view_deliverability($RC, $db); break;
     case 'backup': $content = view_backup($A); unset($A['backup_key']); break;
+    case 'updates': $content = view_updates($RC, $A); break;
     case 'logs': $content = view_logs($RC); break;
     case 'account': $content = view_account($db, $admins, $A); break;
     default: $content = view_overview($RC, $db);
@@ -476,12 +528,62 @@ function end_sessions($db, $uid)
     return $n;
 }
 
-/* ---------------- updates (signed manifest, read-only) ---------------- */
+/* ---------------- updates (signed releases) ---------------- */
+
+/** Update server: the panel setting, else config (default https://repo.synapsecyber.io/synapsemail/release.json) */
+function update_url($RC)
+{
+    return (string) (synapse_core::setting('update_url') ?: $RC->config->get('synapse_update_url'));
+}
+
+/** Install a release zip (signature, newer version and every file checked by synapse_update) */
+function install_package($RC, $file, $how)
+{
+    @set_time_limit(300);
+    $from = synapse_core::VERSION;
+    $pkg = synapse_update::open($file, $from);
+    $rollback = INSTALL_PATH . 'db/rollback-v' . $from . '-' . gmdate('Ymd-His') . '.zip';
+    $res = synapse_update::apply($pkg, INSTALL_PATH, $rollback);
+    $pkg['zip']->close();
+    // database schema of the bundled Roundcube (no-op when nothing changed)
+    try {
+        \rcmail_utils::db_update(INSTALL_PATH . 'SQL', 'roundcube', null, ['quiet' => true]);
+    } catch (\Throwable $e) {
+        rcube::write_log('errors', 'SynapseMail update: database schema update failed: ' . $e->getMessage());
+    }
+    $old = glob(INSTALL_PATH . 'db/rollback-v*.zip') ?: [];
+    usort($old, static function ($a, $b) { return filemtime($b) <=> filemtime($a); });
+    foreach (array_slice($old, 3) as $f) {
+        @unlink($f); // keep the newest three rollback copies
+    }
+    $history = json_decode((string) synapse_core::setting('update_history'), true) ?: [];
+    array_unshift($history, ['from' => $from, 'to' => $pkg['version'], 'time' => time(), 'how' => $how, 'changed' => $res['changed'], 'added' => $res['added'],
+        'rollback' => $res['rollback'] ? basename($res['rollback']) : null]);
+    synapse_core::set_setting('update_history', json_encode(array_slice($history, 0, 10)));
+    synapse_core::set_setting('update', '');
+    audit("installed SynapseMail {$pkg['version']} $how ({$res['changed']} files changed, {$res['added']} added)");
+    flash('ok', "SynapseMail {$pkg['version']} is installed: {$res['changed']} files changed, {$res['added']} added."
+        . ($res['rollback'] ? ' The replaced files are saved in db/' . basename($res['rollback']) . '.' : ''));
+}
+
+/** Authenticator code of the signed-in admin (each code once) */
+function admin_code_ok($RC, $db, $admins, $id)
+{
+    $row = admin_row($db, $admins, $id);
+    $secret = $row ? synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key')) : null;
+    $step = $secret ? synapse_totp::verify($secret, $_POST['code'] ?? '') : false;
+    if ($step === false || $step <= (int) $row['totp_last_step']) {
+        return false;
+    }
+    $db->query("UPDATE {$admins} SET `totp_last_step` = ? WHERE `id` = ?", $step, $row['id']);
+
+    return true;
+}
 
 /** Overview row; checks the network when asked or when the last check is older than a day */
 function update_status($RC, $fresh = false)
 {
-    $url = (string) $RC->config->get('synapse_update_url');
+    $url = update_url($RC);
     $last = json_decode((string) synapse_core::setting('update'), true);
     if ($fresh || !$last || time() - $last['time'] > 86400 || ($last['url'] ?? null) !== $url) {
         $last = synapse_update::check($url, synapse_core::VERSION) + ['time' => time(), 'url' => $url];
@@ -496,8 +598,7 @@ function update_status($RC, $fresh = false)
         return ['pass', 'Updates', 'Up to date (latest signed release ' . $m['version'] . ')' . $when, 'OK'];
     }
 
-    return ['warn', 'Update available: SynapseMail ' . $m['version'], 'Download ' . $m['url'] . ' · SHA-256 ' . $m['sha256']
-        . (!empty($m['notes']) ? ' · ' . $m['notes'] : '') . ' · signature verified', 'NEW'];
+    return ['warn', 'Update available: SynapseMail ' . $m['version'], 'Signed release from ' . ($m['released'] ?? 'the update server') . '. Install it under Updates.', 'NEW'];
 }
 
 /* ---------------- health ---------------- */

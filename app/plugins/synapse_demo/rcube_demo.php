@@ -101,19 +101,36 @@ class rcube_demo extends rcube_storage
     protected function &box()
     {
         if (empty($_SESSION['synapse_demo_box'])) {
-            $box = ['base' => time(), 'next' => 1000, 'folders' => []];
-            foreach (self::SPECIAL as $f) {
-                $box['folders'][$f] = [];
-                foreach (glob(__DIR__ . '/mail/' . $f . '/*.eml') ?: [] as $i => $file) {
-                    $raw = (string) file_get_contents($file, false, null, 0, 65536);
-                    $flags = preg_match('/^X-Demo-Flags: (.*)$/mi', $raw, $m) ? array_fill_keys(preg_split('/\s+/', trim($m[1])), true) : [];
-                    $box['folders'][$f][$i + 1] = ['src' => $f . '/' . basename($file), 'raw' => null, 'flags' => $flags];
-                }
-            }
-            $_SESSION['synapse_demo_box'] = $box;
+            // another inbox (Send As address) open: its own sample mailbox
+            $_SESSION['synapse_demo_box'] = self::fresh_box(empty($_SESSION['synapse_inbox']) ? 'mail' : 'mail-studio');
         }
 
         return $_SESSION['synapse_demo_box'];
+    }
+
+    protected static function fresh_box($dir)
+    {
+        $box = ['base' => time(), 'next' => 1000, 'folders' => []];
+        foreach (self::SPECIAL as $f) {
+            $box['folders'][$f] = [];
+            foreach (glob(__DIR__ . '/' . $dir . '/' . $f . '/*.eml') ?: [] as $i => $file) {
+                $raw = (string) file_get_contents($file, false, null, 0, 65536);
+                $flags = preg_match('/^X-Demo-Flags: (.*)$/mi', $raw, $m) ? array_fill_keys(preg_split('/\s+/', trim($m[1])), true) : [];
+                $box['folders'][$f][$i + 1] = ['src' => $dir . '/' . $f . '/' . basename($file), 'raw' => null, 'flags' => $flags];
+            }
+        }
+
+        return $box;
+    }
+
+    /** Unread INBOX messages of a demo mailbox (0 = own) for the inbox switcher */
+    public static function unseen_of($iid)
+    {
+        $active = (int) ($_SESSION['synapse_inbox'] ?? 0);
+        $box = $iid === $active ? ($_SESSION['synapse_demo_box'] ?? null) : ($_SESSION['synapse_inbox_bags'][$iid]['synapse_demo_box'] ?? null);
+        $box = $box ?: self::fresh_box($iid ? 'mail-studio' : 'mail');
+
+        return count(array_filter($box['folders']['INBOX'] ?? [], static function ($m) { return empty($m['flags']['SEEN']); }));
     }
 
     protected function folder_name($folder)
@@ -166,7 +183,7 @@ class rcube_demo extends rcube_storage
         if ($msg['raw'] !== null) {
             return $msg['raw'];
         }
-        $raw = (string) file_get_contents(__DIR__ . '/mail/' . $msg['src']);
+        $raw = (string) file_get_contents(__DIR__ . '/' . (strpos($msg['src'], 'mail') === 0 ? '' : 'mail/') . $msg['src']);
         $base = $this->box()['base'];
 
         return preg_replace_callback('/^Date: @@(\d+)\r?$/m', static function ($m) use ($base) {

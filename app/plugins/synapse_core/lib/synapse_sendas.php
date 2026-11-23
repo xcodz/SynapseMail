@@ -79,7 +79,10 @@ class synapse_sendas
 
                 return $args;
             });
+            require_once __DIR__ . '/synapse_inbox.php';
+            $inbox = synapse_inbox::page_env($rcmail->user->ID, $rows, array_map(static function ($i) { return $i['email']; }, $idents));
             $rcmail->output->set_env('synapse_sendas', ['on' => self::enabled(), 'idents' => $idents, 'max' => self::max(),
+                'inbox' => $inbox, 'inbox_on' => synapse_inbox::enabled(),
                 'reply' => $rcmail->config->get('synapse_reply_from') === 'default' ? 'default' : 'same',
                 'login' => self::login_email(), 'demo' => self::demo(), 'ports' => self::PORTS]);
         }
@@ -452,11 +455,11 @@ class synapse_sendas
      * unreachable, no STARTTLS, TLS broken, certificate for another name (with the names it is for),
      * expired or not trusted.
      */
-    public static function probe($ip, $host, $port, $security)
+    public static function probe($ip, $host, $port, $security, $imap = false)
     {
         $addr = strpos($ip, ':') !== false ? "[{$ip}]" : $ip;
         $banner = '';
-        $open = static function ($verify) use ($addr, $host, $port, $security, &$fp, &$banner) {
+        $open = static function ($verify) use ($addr, $host, $port, $security, $imap, &$fp, &$banner) {
             $ctx = stream_context_create(['ssl' => ['verify_peer' => $verify, 'verify_peer_name' => $verify, 'capture_peer_cert' => true,
                 'SNI_enabled' => true, 'peer_name' => $host, 'allow_self_signed' => false]]);
             $fp = @stream_socket_client("tcp://{$addr}:{$port}", $no, $str, 6, STREAM_CLIENT_CONNECT, $ctx);
@@ -482,7 +485,7 @@ class synapse_sendas
             if (!@stream_socket_enable_crypto($fp, true, $method)) {
                 return 'tlsfail';
             }
-            if ($security === 'ssl') {
+            if ($security === 'ssl' && !$imap) {
                 $banner = self::smtp_read($fp);
             }
 
@@ -978,7 +981,11 @@ class synapse_sendas
         if ($this->input('default') === '1') {
             $rcmail->user->set_default($iid);
         }
-        $this->plugin->json(['ok' => true]);
+        // suggestion for "also open its inbox here"
+        $row = self::row($rcmail->user->ID, $iid);
+        require_once __DIR__ . '/synapse_mailconfig.php';
+        $imap = $row['mode'] === 'smtp' ? synapse_mailconfig::imap_host((string) ($rcmail->user->get_identity($iid)['email'] ?? ''), $row['host']) : ['host' => '', 'provider' => null];
+        $this->plugin->json(['ok' => true, 'imap_host' => $imap['host'], 'imap_provider' => $imap['provider']]);
     }
 
     /** "When I reply": from the address the message was sent to, or always from the default address */
@@ -1032,12 +1039,22 @@ class synapse_sendas
         $html = '<div class="sendas-box"><p>' . implode('<br>', $lines) . '</p>'
             . (self::enabled() ? '<button type="button" class="ghost-btn" onclick="return parent.UI && parent.UI.sendAs(' . $iid . ')">' . rcube::Q($button) . '</button>' : '')
             . '</div>';
+        $inbox = '';
+        if ($r && !empty($r['verified_at']) && synapse_inbox::enabled()) {
+            $ib = synapse_inbox::rows($rcmail->user->ID)[$iid] ?? null;
+            $inbox = '<div class="sendas-box"><p>' . ($ib ? rcube::Q($p->gettext('ib_opens')) . ' <b>' . rcube::Q($ib['host']) . ':993</b> · SSL/TLS<br>' . rcube::Q($p->gettext('sa_username')) . ': <b>' . rcube::Q($ib['username']) . '</b>'
+                : rcube::Q($p->gettext('ib_form_off'))) . '</p><button type="button" class="ghost-btn" onclick="return parent.UI && parent.UI.inboxSetup(' . $iid . ')">'
+                . rcube::Q($p->gettext($ib ? 'ib_change' : 'ib_turnon')) . '</button></div>';
+        }
         // right after the address fields
         $form = [];
         foreach ($args['form'] as $k => $v) {
             $form[$k] = $v;
             if ($k === 'addressing') {
                 $form['synapse_sendas'] = ['name' => $p->gettext('sa_server_section'), 'content' => $html];
+                if ($inbox) {
+                    $form['synapse_inbox'] = ['name' => $p->gettext('ib_section'), 'content' => $inbox];
+                }
             }
         }
         $args['form'] = $form;

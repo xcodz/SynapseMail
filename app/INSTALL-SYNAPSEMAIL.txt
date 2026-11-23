@@ -96,11 +96,17 @@ Admin panel (private address: https://your-domain/mail/admin/xxxx-xxxx-xxxx-xxxx
     are kept. Uploads are limited by PHP's upload_max_filesize.
   - Logs: security events, errors, password changes and sign-ins (newest first).
   - Admin account: change the admin password, create new recovery codes.
-  - Updates (on the Overview): checks a release manifest signed with SynapseMail's Ed25519 key once a day
-    and shows a newer version with its SHA-256 checksum only when the signature is valid. Set the manifest
-    address in config/synapse.inc.php (kept on updates): $config['synapse_update_url'] = 'https://…/release.json';
-    To update, extract the new zip over this folder. config/synapse.inc.php, the database and logs are not
-    in the zip; config/config.inc.php is replaced, so keep your own settings in config/synapse.inc.php.
+  - Updates: checks the signed release manifest once a day (default server
+    https://repo.synapsecyber.io/synapsemail/release.json, can be changed on the Updates page).
+    "Install" downloads the new version; "Upload and install" takes the release zip. Both need your
+    authenticator code. The zip must be signed by SynapseCyber: the signature, the version and every file
+    are checked before anything is written. config/synapse.inc.php, config/config.local.inc.php, the
+    database, logs and temp files are never touched; .htaccess files keep cPanel's PHP handler lines.
+    The replaced files are saved in db/rollback-v<old version>-<date>.zip (newest three kept). To go back,
+    extract that zip over this folder and delete the files listed in its ROLLBACK-NEW-FILES.txt.
+    PHP needs the zip and sodium extensions and write access to this folder (normal on cPanel).
+    Uploads are limited by upload_max_filesize (a release is about 10 MB).
+    By hand still works: extract the new zip over this folder.
   Protection: 15-minute idle timeout (8 hours maximum), CSRF tokens, 5 failed sign-ins per admin name or
   10 per IP block for 15 minutes; every admin action is written to logs/synapse_security.log.
   Lost the admin password AND both the authenticator and recovery codes: delete config/installed.lock and

@@ -21,8 +21,8 @@ require_once __DIR__ . '/lib/synapse_secret.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.4';
-    public const THEMES = ['warfare', 'blackops', 'night', 'agency'];
+    public const VERSION = '3.5';
+    public const THEMES = ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'];
 
     // "remember this device": sliding window, renewed while the account is used
     public const REMEMBER_SECONDS = 15 * 86400;
@@ -59,10 +59,11 @@ class synapse_core extends rcube_plugin
         'sadetect' => 30, // Send As: settings lookups per user
         'satest' => 15, // Send As: failed server tests per user (each one connects to another server)
         'sacode' => 5, // Send As: code mails per user
+        'sainbox' => 15, // other inboxes: failed sign-in tests per user
     ];
 
     // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init())
-    public $allowed_prefs = ['synapse_theme'];
+    public $allowed_prefs = ['synapse_theme', 'synapse_ui'];
 
     // requests allowed while the passcode gate is up
     private const GATE_ACTIONS = ['plugin.synapse-gate', 'plugin.synapse-pin-status', 'plugin.synapse-pin-verify', 'plugin.synapse-pin-forgot',
@@ -81,12 +82,14 @@ class synapse_core extends rcube_plugin
         $this->security_headers();
         $this->init_session_lifetime($rcmail);
 
-        foreach (['gate', 'pin-status', 'pin-verify', 'pin-forgot', 'pin-save', 'pin-remove', 'pin-prompt', 'security',
+        foreach (['gate', 'pin-status', 'pin-verify', 'pin-forgot', 'pin-save', 'pin-remove', 'pin-prompt', 'security', 'appearance',
             'otp-verify', 'otp-enroll', 'otp-recovery', 'otp-disable'] as $action) {
             $this->register_action('plugin.synapse-' . $action, [$this, 'action_' . str_replace('-', '_', $action)]);
         }
         require_once __DIR__ . '/lib/synapse_sendas.php';
+        require_once __DIR__ . '/lib/synapse_inbox.php';
         (new synapse_sendas($this))->init();
+        (new synapse_inbox($this))->init();
 
         if (empty($rcmail->output)) {
             return;
@@ -106,6 +109,11 @@ class synapse_core extends rcube_plugin
             $theme = $rcmail->config->get('synapse_theme');
             if (in_array($theme, self::THEMES, true)) {
                 $rcmail->output->set_env('synapse_theme', $theme);
+            }
+            // appearance settings: only known keys and values reach the page (ui.js whitelists them again)
+            $ui = (string) $rcmail->config->get('synapse_ui', '');
+            if (preg_match('/^((motion-(reduce|off)|effects-off|density-compact|text-(small|large|larger)|contrast-more|links-underline)(\.|$))*$/', $ui)) {
+                $rcmail->output->set_env('synapse_ui', $ui);
             }
             if ($prompt = $this->prompt_state()) {
                 $rcmail->output->set_env('synapse_pin_prompt', $prompt);
@@ -379,6 +387,18 @@ class synapse_core extends rcube_plugin
             'plugin.body' => static function () { return '<div id="securityApp" class="security-app"></div>'; },
         ]);
         $rcmail->output->set_pagetitle($this->gettext('security'));
+        $rcmail->output->send('plugin');
+    }
+
+    /** Settings > Appearance: theme, animations and display options (the page is built by ui.js, saved with save_pref) */
+    public function action_appearance()
+    {
+        $rcmail = rcmail::get_instance();
+        $rcmail->output->add_handlers([
+            'plugin.pagetitle' => static function () { return rcmail::get_instance()->gettext('appearance', 'synapse_core'); },
+            'plugin.body' => static function () { return '<div id="appearanceApp" class="appearance-app"></div>'; },
+        ]);
+        $rcmail->output->set_pagetitle($this->gettext('appearance'));
         $rcmail->output->send('plugin');
     }
 

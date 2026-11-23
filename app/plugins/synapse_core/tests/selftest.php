@@ -98,7 +98,60 @@ $sig = base64_encode(sodium_crypto_sign_detached($man, sodium_crypto_sign_secret
 $check(synapse_update::verify($man, $sig, $pub)['version'] === '9.1', 'signed manifest accepted');
 $check(synapse_update::verify(str_replace('9.1', '9.2', $man), $sig, $pub) === null, 'altered manifest refused');
 $check(synapse_update::verify($man, $sig, synapse_update::PUBLIC_KEY) === null, 'manifest signed by another key refused');
-$check(synapse_update::check('http://example.com/release.json', '1.0')['error'] !== '', 'plain http update URL refused');
+$check(!empty(synapse_update::check('file:///etc/passwd', '1.0')['error']), 'non-web update URL refused');
+
+// signed release zips: install, keep per-install files, refuse tampering
+$sk = sodium_crypto_sign_secretkey($kp);
+$pkgdir = sys_get_temp_dir() . '/sm-upd-' . bin2hex(random_bytes(4));
+mkdir("$pkgdir/site/config", 0700, true);
+mkdir("$pkgdir/site/db", 0700);
+file_put_contents("$pkgdir/site/config/synapse.inc.php", 'SECRET');
+file_put_contents("$pkgdir/site/db/synapsemail.db", 'DATA');
+file_put_contents("$pkgdir/site/old.txt", 'old');
+file_put_contents("$pkgdir/site/.htaccess", "Old\n# php -- BEGIN cPanel-generated handler, do not edit\nAddHandler x\n# php -- END cPanel-generated handler, do not edit\n");
+$mkzip = static function ($name, array $files, $version = '9.9', array $extra = []) use ($pkgdir, $sk) {
+    $list = [];
+    foreach ($files as $p => $c) {
+        $list[$p] = hash('sha256', $c);
+    }
+    $man = json_encode(['product' => 'SynapseMail', 'version' => $version, 'files' => $list]);
+    $z = new ZipArchive();
+    $z->open("$pkgdir/$name", ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    foreach ($files + $extra as $p => $c) {
+        $z->addFromString($p, $c);
+    }
+    $z->addFromString(synapse_update::PACKAGE_MANIFEST, $man);
+    $z->addFromString(synapse_update::PACKAGE_SIG, base64_encode(sodium_crypto_sign_detached($man, $sk)));
+    $z->close();
+
+    return "$pkgdir/$name";
+};
+$good = ['old.txt' => 'new', 'plugins/x/new.php' => '<?php', 'config/synapse.inc.php' => 'EVIL', 'db/synapsemail.db' => 'EVIL', '.htaccess' => "New\n"];
+$pkg = synapse_update::open($mkzip('good.zip', $good), '3.4', $pub);
+$res = synapse_update::apply($pkg, "$pkgdir/site", "$pkgdir/rollback.zip");
+$check($res['changed'] === 2 && $res['added'] === 1 && file_get_contents("$pkgdir/site/old.txt") === 'new' && is_file("$pkgdir/site/plugins/x/new.php"), 'signed update installs changed and new files');
+$check(file_get_contents("$pkgdir/site/config/synapse.inc.php") === 'SECRET' && file_get_contents("$pkgdir/site/db/synapsemail.db") === 'DATA', 'update never touches config secrets or the database');
+$check(strpos(file_get_contents("$pkgdir/site/.htaccess"), "New\n") === 0 && strpos(file_get_contents("$pkgdir/site/.htaccess"), 'AddHandler x') !== false, 'update keeps the cPanel PHP handler in .htaccess');
+$rb = new ZipArchive();
+$check($rb->open("$pkgdir/rollback.zip") === true && $rb->getFromName('old.txt') === 'old' && trim($rb->getFromName('ROLLBACK-NEW-FILES.txt')) === 'plugins/x/new.php', 'rollback copy holds the replaced files');
+$rb->close();
+$refused = static function ($fn) { try { $fn(); return false; } catch (RuntimeException $e) { return true; } };
+$check($refused(static function () use ($mkzip, $pub) { synapse_update::open($mkzip('old.zip', ['a' => 'b'], '3.4'), '3.4', $pub); }), 'same or older version refused');
+$check($refused(static function () use ($mkzip) { synapse_update::open($mkzip('other.zip', ['a' => 'b']), '3.4', synapse_update::PUBLIC_KEY); }), 'zip signed by another key refused');
+$check($refused(static function () use ($mkzip, $pub) { synapse_update::open($mkzip('extra.zip', ['a' => 'b'], '9.9', ['evil.php' => 'x']), '3.4', $pub); }), 'file outside the signed list refused');
+$check($refused(static function () use ($mkzip, $pub) { synapse_update::open($mkzip('slip.zip', ['../escape.php' => 'x']), '3.4', $pub); }), 'path traversal refused');
+$tamper = $mkzip('tamper.zip', ['a.txt' => 'good']);
+$z = new ZipArchive();
+$z->open($tamper);
+$z->addFromString('a.txt', 'evil');
+$z->close();
+$check($refused(static function () use ($tamper, $pub, $pkgdir) { synapse_update::apply(synapse_update::open($tamper, '3.4', $pub), "$pkgdir/site", "$pkgdir/rb2.zip"); }), 'changed file content refused');
+$unsigned = new ZipArchive();
+$unsigned->open("$pkgdir/unsigned.zip", ZipArchive::CREATE);
+$unsigned->addFromString('a.txt', 'x');
+$unsigned->close();
+$check($refused(static function () use ($pkgdir, $pub) { synapse_update::open("$pkgdir/unsigned.zip", '3.4', $pub); }), 'unsigned zip refused');
+exec('rm -rf ' . escapeshellarg($pkgdir));
 
 // hosting panel detection from install paths
 foreach ([
@@ -162,11 +215,15 @@ $check(synapse_mailconfig::base_domain('mx1.example.co.uk') === 'example.co.uk' 
 $check(synapse_sendas::clean_password('abcd efgh ijkl mnop') === 'abcdefghijklmnop' && synapse_sendas::clean_password("abcd\u{00A0}efgh ijkl mnop\n") === 'abcdefghijklmnop'
     && synapse_sendas::clean_password('my pass phrase 1') === 'my pass phrase 1' && synapse_sendas::clean_password("Secret 9\r\n") === 'Secret 9', 'App Password spaces removed, other passwords kept');
 $src = (string) file_get_contents(__DIR__ . '/../lib/synapse_sendas.php');
-preg_match_all("/rl_(?:fail|blocked)\(\['(\w+)'/", $src, $m);
+$inbox = (string) file_get_contents(__DIR__ . '/../lib/synapse_inbox.php');
+preg_match_all("/rl_(?:fail|blocked)\(\['(\w+)'/", $src . $inbox, $m);
 $core = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
 $check($m[1] && !array_filter(array_unique($m[1]), static function ($k) use ($core) { return !preg_match("/'$k' => \d+/", $core); }), 'send as rate limits are registered');
 $check(strpos($src, "'smtp_auth_type' => synapse_smtp_tls::METHOD") !== false, 'send as signs in only after TLS');
 $check(strpos($src, "'verify_peer' => true, 'verify_peer_name' => true") !== false, 'send as checks server certificates');
+$check(strpos($inbox, 'public const PORT = 993;') !== false && strpos($inbox, "'ssl_mode' => 'ssl'") !== false, 'other inboxes use IMAP over TLS on port 993 only');
+$check(strpos($inbox, "'verify_peer' => true, 'verify_peer_name' => true") !== false && strpos($inbox, 'synapse_sendas::resolve($host)') !== false, 'other inboxes check certificates and block private addresses');
+$check(strpos($inbox, "\$rcmail->task === 'mail'") !== false, 'other inboxes only replace the mailbox on the mail screens');
 
 // the public demo switches stay off in a normal install (only the demo build turns them on)
 $cfg = (string) file_get_contents(__DIR__ . '/../../../config/config.inc.php');

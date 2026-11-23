@@ -29,35 +29,59 @@ class synapse_mailconfig
      * oauth (only OAuth sign-in, not supported yet), enable (sending must be switched on), proton (Proton Bridge).
      */
     public const PROVIDERS = [
-        'gmail' => ['name' => 'Gmail / Google Workspace', 'domains' => ['gmail.com', 'googlemail.com'], 'mx' => '/(^|\.)(google|googlemail)\.com$/',
+        'gmail' => ['imap' => 'imap.gmail.com', 'name' => 'Gmail / Google Workspace', 'domains' => ['gmail.com', 'googlemail.com'], 'mx' => '/(^|\.)(google|googlemail)\.com$/',
             'host' => 'smtp.gmail.com', 'port' => 465, 'security' => 'ssl', 'tip' => 'apppass', 'link' => 'https://myaccount.google.com/apppasswords'],
-        'microsoft365' => ['name' => 'Microsoft 365', 'domains' => [], 'mx' => '/\.mail\.protection\.outlook\.com$/',
+        'microsoft365' => ['imap' => 'outlook.office365.com', 'name' => 'Microsoft 365', 'domains' => [], 'mx' => '/\.mail\.protection\.outlook\.com$/',
             'host' => 'smtp.office365.com', 'port' => 587, 'security' => 'starttls', 'tip' => 'ms365', 'link' => 'https://learn.microsoft.com/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission'],
-        'outlook' => ['name' => 'Outlook.com', 'domains' => ['outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'passport.com'], 'match' => '/^(hotmail|outlook|live|windowslive)\.[a-z.]+$/',
+        'outlook' => ['imap' => 'outlook.office365.com', 'name' => 'Outlook.com', 'domains' => ['outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'passport.com'], 'match' => '/^(hotmail|outlook|live|windowslive)\.[a-z.]+$/',
             'host' => 'smtp-mail.outlook.com', 'port' => 587, 'security' => 'starttls', 'tip' => 'oauth', 'link' => ''],
-        'yahoo' => ['name' => 'Yahoo Mail', 'domains' => ['yahoo.com', 'ymail.com', 'rocketmail.com'], 'match' => '/^yahoo\.[a-z.]+$/', 'mx' => '/(^|\.)yahoodns\.net$/',
+        'yahoo' => ['imap' => 'imap.mail.yahoo.com', 'name' => 'Yahoo Mail', 'domains' => ['yahoo.com', 'ymail.com', 'rocketmail.com'], 'match' => '/^yahoo\.[a-z.]+$/', 'mx' => '/(^|\.)yahoodns\.net$/',
             'host' => 'smtp.mail.yahoo.com', 'port' => 465, 'security' => 'ssl', 'tip' => 'apppass', 'link' => 'https://login.yahoo.com/account/security'],
-        'aol' => ['name' => 'AOL Mail', 'domains' => ['aol.com', 'aim.com'], 'host' => 'smtp.aol.com', 'port' => 465, 'security' => 'ssl', 'tip' => 'apppass',
+        'aol' => ['imap' => 'imap.aol.com', 'name' => 'AOL Mail', 'domains' => ['aol.com', 'aim.com'], 'host' => 'smtp.aol.com', 'port' => 465, 'security' => 'ssl', 'tip' => 'apppass',
             'link' => 'https://login.aol.com/account/security'],
-        'icloud' => ['name' => 'iCloud Mail', 'domains' => ['icloud.com', 'me.com', 'mac.com'], 'host' => 'smtp.mail.me.com', 'port' => 587, 'security' => 'starttls',
+        'icloud' => ['imap' => 'imap.mail.me.com', 'name' => 'iCloud Mail', 'domains' => ['icloud.com', 'me.com', 'mac.com'], 'host' => 'smtp.mail.me.com', 'port' => 587, 'security' => 'starttls',
             'tip' => 'apppass', 'link' => 'https://account.apple.com'],
-        'zoho' => ['name' => 'Zoho Mail', 'domains' => ['zoho.com', 'zohomail.com'], 'mx' => '/(^|\.)zoho(mail)?\.com$/', 'host' => 'smtp.zoho.com', 'port' => 465,
+        'zoho' => ['imap' => 'imap.zoho.com', 'name' => 'Zoho Mail', 'domains' => ['zoho.com', 'zohomail.com'], 'mx' => '/(^|\.)zoho(mail)?\.com$/', 'host' => 'smtp.zoho.com', 'port' => 465,
             'security' => 'ssl', 'tip' => 'apppass2fa', 'link' => 'https://accounts.zoho.com/home#security/app_password'],
-        'zoho_eu' => ['name' => 'Zoho Mail (EU)', 'domains' => ['zoho.eu', 'zohomail.eu'], 'mx' => '/(^|\.)zoho(mail)?\.eu$/', 'host' => 'smtp.zoho.eu', 'port' => 465,
+        'zoho_eu' => ['imap' => 'imap.zoho.eu', 'name' => 'Zoho Mail (EU)', 'domains' => ['zoho.eu', 'zohomail.eu'], 'mx' => '/(^|\.)zoho(mail)?\.eu$/', 'host' => 'smtp.zoho.eu', 'port' => 465,
             'security' => 'ssl', 'tip' => 'apppass2fa', 'link' => 'https://accounts.zoho.eu/home#security/app_password'],
-        'fastmail' => ['name' => 'Fastmail', 'domains' => ['fastmail.com', 'fastmail.fm'], 'mx' => '/(^|\.)messagingengine\.com$/', 'host' => 'smtp.fastmail.com',
+        'fastmail' => ['imap' => 'imap.fastmail.com', 'name' => 'Fastmail', 'domains' => ['fastmail.com', 'fastmail.fm'], 'mx' => '/(^|\.)messagingengine\.com$/', 'host' => 'smtp.fastmail.com',
             'port' => 465, 'security' => 'ssl', 'tip' => 'apppass', 'link' => 'https://app.fastmail.com/settings/security/apps'],
-        'gmx' => ['name' => 'GMX', 'domains' => ['gmx.net', 'gmx.de', 'gmx.at', 'gmx.ch'], 'host' => 'mail.gmx.net', 'port' => 587, 'security' => 'starttls', 'tip' => 'enable',
+        'gmx' => ['imap' => 'imap.gmx.net', 'name' => 'GMX', 'domains' => ['gmx.net', 'gmx.de', 'gmx.at', 'gmx.ch'], 'host' => 'mail.gmx.net', 'port' => 587, 'security' => 'starttls', 'tip' => 'enable',
             'link' => ''],
-        'gmx_com' => ['name' => 'GMX / mail.com', 'domains' => ['gmx.com', 'gmx.us', 'mail.com'], 'host' => 'mail.gmx.com', 'port' => 587, 'security' => 'starttls',
+        'gmx_com' => ['imap' => 'imap.gmx.com', 'name' => 'GMX / mail.com', 'domains' => ['gmx.com', 'gmx.us', 'mail.com'], 'host' => 'mail.gmx.com', 'port' => 587, 'security' => 'starttls',
             'tip' => 'enable', 'link' => ''],
-        'yandex' => ['name' => 'Yandex Mail', 'domains' => ['yandex.com', 'yandex.ru', 'ya.ru'], 'mx' => '/(^|\.)yandex\.(net|ru)$/', 'host' => 'smtp.yandex.com',
+        'yandex' => ['imap' => 'imap.yandex.com', 'name' => 'Yandex Mail', 'domains' => ['yandex.com', 'yandex.ru', 'ya.ru'], 'mx' => '/(^|\.)yandex\.(net|ru)$/', 'host' => 'smtp.yandex.com',
             'port' => 465, 'security' => 'ssl', 'tip' => 'apppass', 'link' => 'https://id.yandex.com/security/app-passwords'],
-        'proton' => ['name' => 'Proton Mail', 'domains' => ['proton.me', 'protonmail.com', 'protonmail.ch', 'pm.me'], 'mx' => '/(^|\.)protonmail\.ch$/',
+        'proton' => ['imap' => '127.0.0.1', 'name' => 'Proton Mail', 'domains' => ['proton.me', 'protonmail.com', 'protonmail.ch', 'pm.me'], 'mx' => '/(^|\.)protonmail\.ch$/',
             'host' => 'smtp.protonmail.ch', 'port' => 587, 'security' => 'starttls', 'tip' => 'proton', 'link' => 'https://proton.me/support/smtp-submission'],
     ];
 
     private static $deadline = 0;
+
+    /**
+     * Incoming (IMAP over TLS, port 993) host for an address that already sends through $smtp_host:
+     * the provider's IMAP host, else imap.<x> for smtp.<x> when it resolves, else the sending host (cPanel: mail.<domain>).
+     */
+    public static function imap_host($email, $smtp_host)
+    {
+        $domain = rcube_utils::idn_to_ascii(substr(strtolower($email), strrpos($email, '@') + 1));
+        $smtp_host = strtolower((string) $smtp_host);
+        $p = self::provider_by_domain($domain);
+        foreach (self::PROVIDERS as $key => $prov) {
+            if (!$p && $prov['host'] === $smtp_host) {
+                $p = ['key' => $key] + $prov;
+            }
+        }
+        if ($p) {
+            return ['host' => $p['imap'], 'provider' => ['key' => $p['key'] ?? null, 'name' => $p['name'], 'tip' => $p['tip'] ?? null, 'link' => $p['link'] ?? '']];
+        }
+        if (strpos($smtp_host, 'smtp.') === 0 && self::resolves('imap.' . substr($smtp_host, 5))) {
+            return ['host' => 'imap.' . substr($smtp_host, 5), 'provider' => null];
+        }
+
+        return ['host' => $smtp_host ?: 'mail.' . $domain, 'provider' => null];
+    }
 
     /**
      * @param bool $network false: only the provider list and a guess (demo site, tests)

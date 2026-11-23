@@ -19,7 +19,21 @@
   // destructive actions ask first
   document.addEventListener('submit', function (e) {
     var btn = e.submitter || e.target.querySelector('[data-confirm]');
-    if (btn && btn.dataset.confirm && !window.confirm(btn.dataset.confirm)) e.preventDefault();
+    if (btn && btn.dataset.confirm && !window.confirm(btn.dataset.confirm)) { e.preventDefault(); return; }
+    // long actions (update install): show progress and stop a second click
+    var busy = e.target.querySelector('[data-busy]');
+    if (busy) {
+      setTimeout(function () { busy.disabled = true; busy.setAttribute('aria-busy', 'true'); busy.querySelector('span').textContent = busy.dataset.busy; }, 0);
+    }
+  });
+
+  // light / dark for this admin browser (cookie read by the server, so the first paint is right)
+  all('[data-admin-theme]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var next = document.documentElement.dataset.theme === 'soft' ? 'agency' : 'soft';
+      document.documentElement.dataset.theme = next;
+      document.cookie = 'synapse_admin_theme=' + next + '; path=/; max-age=31536000; SameSite=Strict' + (location.protocol === 'https:' ? '; Secure' : '');
+    });
   });
 
   // copy buttons
@@ -74,8 +88,16 @@
     seg.addEventListener('click', function (e) {
       var b = e.target.closest('button');
       if (!b) return;
-      all('button', seg).forEach(function (x) { x.classList.toggle('active', x === b); });
+      all('button', seg).forEach(function (x) { x.classList.toggle('active', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
       apply(seg.dataset.tableFilter);
+    });
+  });
+
+  all('[data-clear-filter]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var id = b.dataset.clearFilter, input = document.querySelector('[data-table-search="' + id + '"]'), first = document.querySelector('[data-table-filter="' + id + '"] button');
+      if (input) input.value = '';
+      if (first) first.click(); else apply(id);
     });
   });
 
@@ -95,7 +117,7 @@
 
   // mobile navigation
   all('[data-toggle-nav]').forEach(function (b) {
-    b.addEventListener('click', function () { document.body.classList.toggle('nav-open'); });
+    b.addEventListener('click', function () { b.setAttribute('aria-expanded', document.body.classList.toggle('nav-open') ? 'true' : 'false'); });
   });
   document.addEventListener('click', function (e) {
     if (document.body.classList.contains('nav-open') && !e.target.closest('.adm-side, [data-toggle-nav]')) document.body.classList.remove('nav-open');

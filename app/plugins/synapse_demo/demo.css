@@ -34,3 +34,5 @@ a[href*="plugin.password"], li:has(> a[href*="plugin.password"]) { display: none
   .synapse-demo-chip { display: block; position: fixed; z-index: 100000; top: 0; left: 50%; transform: translateX(-50%); padding: 1px 8px 2px; background: rgba(24, 18, 6, .94); border: 1px solid rgba(240, 180, 60, .55); border-top: 0; color: #f3d79a; font: 500 9px/1.4 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .04em; white-space: nowrap; pointer-events: none; }
   .synapse-demo-chip b { color: #f0b43c; letter-spacing: .12em; }
 }
+/* Soft Light theme: readable demo text on the light status strip */
+[data-theme="soft"] .synapse-demo-text { color: #6b4a06 !important; }

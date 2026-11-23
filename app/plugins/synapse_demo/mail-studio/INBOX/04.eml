@@ -1,0 +1,17 @@
+From: SynapseMail Team <team@synapsemail.test>
+To: Studio Example <hello@studio.example>
+Subject: This is the inbox of hello@studio.example
+Date: @@3000
+Message-ID: <demo-studio-INBOX-04@studio.example>
+MIME-Version: 1.0
+X-Demo-Flags: SEEN
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hello,
+
+You are looking at the inbox of a Send As address. SynapseMail opens it on that address's own mail server: nothing is copied into your main mailbox.
+
+Switch back with the mailbox menu above the folders, or with "Back to my inbox" at the top.
+
+The SynapseMail team (sample message)

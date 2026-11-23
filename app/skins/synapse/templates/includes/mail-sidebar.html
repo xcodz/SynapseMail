@@ -1,6 +1,8 @@
 <aside class="mail-sidebar" aria-label="<roundcube:label name="synapse_core.mailfolders" />">
 	<roundcube:button command="compose" type="link" class="compose-btn" id="composeButton" data-icon="square-pen" data-label="synapse_core.composemail_caps" data-wrap="span" />
 
+	<div class="ib-switch" id="inboxSwitch" hidden></div>
+
 	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.mailfolders" />">
 		<roundcube:object name="mailboxlist" id="mailboxlist" class="treelist" folder_filter="mail" unreadwrap="%s" />
 	</nav>
