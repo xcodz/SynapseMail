@@ -24,6 +24,9 @@ require __DIR__ . '/../lib/synapse_deliverability.php';
 require __DIR__ . '/../lib/synapse_backup.php';
 require __DIR__ . '/../lib/synapse_update.php';
 require __DIR__ . '/../lib/synapse_platform.php';
+require __DIR__ . '/../../../program/lib/Roundcube/rcube_utils.php';
+require __DIR__ . '/../lib/synapse_sendas.php';
+require __DIR__ . '/../lib/synapse_mailconfig.php';
 
 $fail = 0;
 $check = static function ($ok, $what) use (&$fail) {
@@ -123,6 +126,47 @@ foreach (array_keys(synapse_platform::PANELS) as $p) {
     }
 }
 $check(strpos(synapse_platform::help('ext', 'plain', 'pdo_sqlite'), 'php8.3-sqlite3') !== false, 'extension package names');
+
+// Send As: the network guard refuses every private, local and reserved address, also when hidden inside IPv6
+foreach (['127.0.0.1', '10.1.2.3', '172.16.5.4', '192.168.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '198.18.0.1', '224.0.0.1', '255.255.255.255',
+    '::1', '::', 'fe80::1', 'fc00::1', 'fd12::1', 'ff02::1', '::ffff:127.0.0.1', '::ffff:10.0.0.1', '64:ff9b::a00:1', '2002:7f00:1::', '::127.0.0.1'] as $ip) {
+    $check(!synapse_sendas::is_public($ip), "send as blocks $ip");
+}
+foreach (['8.8.8.8', '142.250.1.108', '2a00:1450:4001::6d', '::ffff:8.8.8.8', '64:ff9b::808:808'] as $ip) {
+    $check(synapse_sendas::is_public($ip), "send as allows $ip");
+}
+$check(synapse_sendas::resolve('127.0.0.1', false) === 'blocked' && synapse_sendas::resolve('10.0.0.5', true) === ['10.0.0.5'], 'local servers only with the admin switch');
+$check(synapse_sendas::resolve('bad host!', false) === 'host' && !synapse_sendas::valid_host('mail.local') && !synapse_sendas::valid_host('localhost')
+    && synapse_sendas::valid_host('smtp.gmail.com'), 'server names are checked');
+$check(in_array(465, synapse_sendas::PORTS, true) && !in_array(22, synapse_sendas::PORTS, true) && !in_array(6379, synapse_sendas::PORTS, true), 'only mail ports');
+$check(synapse_sendas::name_match('mail.example.com', '*.example.com') && !synapse_sendas::name_match('a.b.example.com', '*.example.com')
+    && !synapse_sendas::name_match('example.com', '*.example.com') && synapse_sendas::name_match('smtp.x.io', 'smtp.x.io'), 'certificate name rules');
+foreach ([['535-5.7.8 Username and Password not accepted', 'auth'], ['534-5.7.9 Application-specific password required', 'apppass'],
+    ['535 5.7.139 Authentication unsuccessful, basic authentication is disabled', 'msauth'], ['554 5.7.60 Client does not have permissions to send as this sender', 'sendas'],
+    ['synapse-notls: the connection is not encrypted', 'notls']] as [$reply, $want]) {
+    $check(synapse_sendas::error_key(['label' => 'smtpautherror', 'vars' => ['msg' => $reply]]) === $want, "SMTP reply -> $want");
+}
+$check(synapse_sendas::error_key(['label' => 'smtpconnerror', 'vars' => ['msg' => 'Failed to connect socket']]) === 'connect', 'connection errors are probed');
+$xml = '<?xml version="1.0"?><clientConfig version="1.1"><emailProvider id="example.com"><outgoingServer type="smtp"><hostname>plain.example.com</hostname><port>25</port>'
+    . '<socketType>plain</socketType><authentication>password-cleartext</authentication></outgoingServer><outgoingServer type="smtp"><hostname>smtp.%EMAILDOMAIN%</hostname>'
+    . '<port>587</port><socketType>STARTTLS</socketType><authentication>password-cleartext</authentication><username>%EMAILLOCALPART%</username></outgoingServer></emailProvider></clientConfig>';
+$got = synapse_mailconfig::parse_xml($xml, 'sara@example.com');
+$check($got && $got['host'] === 'smtp.example.com' && $got['port'] === 587 && $got['security'] === 'starttls' && $got['username'] === '%EMAILLOCALPART%', 'autoconfig: first encrypted SMTP server');
+$check(synapse_mailconfig::parse_xml('<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/passwd">]><clientConfig><emailProvider><outgoingServer type="smtp">'
+    . '<hostname>&e;</hostname><port>465</port><socketType>SSL</socketType></outgoingServer></emailProvider></clientConfig>', 'a@b.com') === null, 'autoconfig refuses entities (XXE)');
+$check(synapse_mailconfig::parse_xml(str_replace(['STARTTLS', 'plain'], 'plain', $xml), 'a@example.com') === null, 'autoconfig never uses plain text servers');
+$p = synapse_mailconfig::provider_by_domain('yahoo.co.uk');
+$check($p && $p['host'] === 'smtp.mail.yahoo.com' && synapse_mailconfig::provider_by_domain('hotmail.de')['tip'] === 'oauth', 'known providers');
+$check(synapse_mailconfig::provider_by_mx('example-com.mail.protection.outlook.com.')['key'] === 'microsoft365' && synapse_mailconfig::provider_by_mx('aspmx.l.google.com')['key'] === 'gmail', 'providers by MX');
+$check(synapse_mailconfig::base_domain('mx1.example.co.uk') === 'example.co.uk' && synapse_mailconfig::base_domain('mx.mail.example.com') === 'example.com', 'MX base domain');
+$check(synapse_sendas::clean_password('abcd efgh ijkl mnop') === 'abcdefghijklmnop' && synapse_sendas::clean_password("abcd\u{00A0}efgh ijkl mnop\n") === 'abcdefghijklmnop'
+    && synapse_sendas::clean_password('my pass phrase 1') === 'my pass phrase 1' && synapse_sendas::clean_password("Secret 9\r\n") === 'Secret 9', 'App Password spaces removed, other passwords kept');
+$src = (string) file_get_contents(__DIR__ . '/../lib/synapse_sendas.php');
+preg_match_all("/rl_(?:fail|blocked)\(\['(\w+)'/", $src, $m);
+$core = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
+$check($m[1] && !array_filter(array_unique($m[1]), static function ($k) use ($core) { return !preg_match("/'$k' => \d+/", $core); }), 'send as rate limits are registered');
+$check(strpos($src, "'smtp_auth_type' => synapse_smtp_tls::METHOD") !== false, 'send as signs in only after TLS');
+$check(strpos($src, "'verify_peer' => true, 'verify_peer_name' => true") !== false, 'send as checks server certificates');
 
 // the public demo switches stay off in a normal install (only the demo build turns them on)
 $cfg = (string) file_get_contents(__DIR__ . '/../../../config/config.inc.php');

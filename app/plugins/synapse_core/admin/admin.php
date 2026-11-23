@@ -28,6 +28,7 @@ use synapse_core;
 use synapse_deliverability;
 use synapse_platform;
 use synapse_secret;
+use synapse_sendas;
 use synapse_totp;
 use synapse_update;
 
@@ -42,6 +43,7 @@ require_once INSTALL_PATH . 'program/include/iniset.php';
 $RC = rcube::get_instance(rcube::INIT_WITH_DB);
 require_once INSTALL_PATH . 'plugins/synapse_core/synapse_core.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_probe.php';
+require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_sendas.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_deliverability.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_backup.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_update.php';
@@ -172,6 +174,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 audit("set 2FA policy to $policy");
                 flash('ok', "2FA policy set to \"$policy\".");
             }
+            back('security');
+
+        case 'sendas':
+            $max = (int) ($_POST['sendas_max'] ?? 0);
+            $domains = array_unique(preg_split('/[\s,]+/', strtolower((string) ($_POST['sendas_domains'] ?? '')), -1, PREG_SPLIT_NO_EMPTY));
+            $bad = array_filter($domains, static function ($d) { return !synapse_sendas::valid_host($d); });
+            if ($max < 1 || $max > 99 || $bad) {
+                flash('fail', $bad ? 'Not a domain: ' . implode(', ', $bad) : 'The limit must be between 1 and 99 addresses.');
+                back('security');
+            }
+            synapse_core::set_setting('sendas', !empty($_POST['sendas_on']) ? '1' : '0');
+            synapse_core::set_setting('sendas_max', (string) $max);
+            synapse_core::set_setting('sendas_domains', implode(' ', $domains));
+            synapse_core::set_setting('sendas_local', !empty($_POST['sendas_local']) ? '1' : '0');
+            audit('changed the Send As settings');
+            flash('ok', 'Send As settings saved.');
             back('security');
 
         case 'recheck':
@@ -505,6 +523,7 @@ function health($RC, $db)
     foreach (['imap_host' => 'IMAP', 'smtp_host' => 'SMTP'] as $k => $label) {
         $c[] = probe($RC->config->get($k), $label);
     }
+    $c[] = outgoing_smtp();
     $pw = $RC->config->get('password_cpanel_host');
     $c[] = [$pw ? 'pass' : 'warn', 'Password change host', $pw ? $pw . ':2096' : 'Not set: password change uses the server hostname', $pw ? 'OK' : 'CHECK'];
     $dbfile = INSTALL_PATH . 'db/synapsemail.db';
@@ -533,6 +552,25 @@ function probe($host, $label)
     fclose($fp);
 
     return ['pass', "$label server", "$name:$port reachable in " . (int) ((microtime(true) - $t) * 1000) . ' ms', 'OK'];
+}
+
+/** Send As needs outgoing connections to other mail servers; many shared hosts block them for PHP */
+function outgoing_smtp()
+{
+    if (demo()) {
+        return ['pass', 'Outgoing SMTP (Send As)', 'Demo: no connection is made', 'INFO'];
+    }
+    // reads the greeting too: a firewall can also send the connection to this server's own mail server
+    $st = synapse_sendas::outbound_status();
+    if (!$st['blocked'] && !$st['redirected']) {
+        return ['pass', 'Outgoing SMTP (Send As)', 'This server can reach other mail servers (' . implode(', ', $st['open']) . ')', 'OK'];
+    }
+    $panel = synapse_platform::panel(realpath(INSTALL_PATH));
+    $tip = $panel === 'cpanel' ? 'With the CSF firewall: add 465 and 587 to TCP_OUT, and set SMTP_BLOCK = 0 or add this cPanel user to SMTP_ALLOWUSER. In WHM: Tweak Settings > "Restrict outgoing SMTP to root, exim, and mailman" must be off.'
+        : 'Ask your host to allow outgoing connections on ports 465 and 587 for the webmail.';
+    $what = ($st['blocked'] ? 'Blocked: ' . implode(', ', $st['blocked']) . '. ' : '') . ($st['redirected'] ? 'Sent to this server\'s own mail server instead: ' . implode(', ', $st['redirected']) . '. ' : '');
+
+    return [$st['open'] ? 'warn' : 'fail', 'Outgoing SMTP (Send As)', $what . 'Send As with outside servers will not work. ' . $tip, $st['open'] ? 'CHECK' : 'NO'];
 }
 
 /* ---------------- deliverability (read-only) ---------------- */

@@ -18,6 +18,8 @@
  * - Every visitor gets a private, temporary user, so settings, contacts, passcode and 2FA changes never reach
  *   other visitors. Mail comes from the sample mailbox (rcube_demo storage, kept in the session).
  * - Sending mail is blocked; no IMAP/SMTP/network connection is ever made.
+ * - Send As: one sample address is ready; the wizard uses only the built-in provider list, simulates the server
+ *   test and accepts the code 123456.
  * - Temporary users are removed after DEMO_TTL.
  */
 class synapse_demo extends rcube_plugin
@@ -92,6 +94,7 @@ class synapse_demo extends rcube_plugin
             ]);
             $rcmail->config->set_user_prefs($user->get_prefs());
             $this->seed_contacts($rcmail);
+            $this->seed_sendas($rcmail);
         }
 
         return $args;
@@ -113,6 +116,19 @@ class synapse_demo extends rcube_plugin
         foreach ($people as [$first, $last, $email, $org, $job]) {
             $book->insert(['name' => "$first $last", 'firstname' => $first, 'surname' => $last, 'email' => [$email],
                 'organization' => $org, 'jobtitle' => $job]);
+        }
+    }
+
+    /** One ready Send As address, so visitors see the result without running the wizard */
+    protected function seed_sendas($rcmail)
+    {
+        $iid = (int) $rcmail->user->insert_identity(['name' => 'Studio Example', 'email' => 'hello@studio.example', 'standard' => 0, 'organization' => 'Studio Example',
+            'reply-to' => '', 'bcc' => '', 'signature' => "Studio Example\nDesign and branding", 'html_signature' => 0]);
+        if ($iid) {
+            synapse_sendas::put(['identity_id' => $iid, 'user_id' => $rcmail->user->ID, 'first_name' => 'Studio', 'last_name' => 'Example', 'mode' => 'smtp',
+                'host' => 'smtp.studio.example', 'port' => 465, 'security' => 'ssl', 'username' => 'hello@studio.example',
+                'password' => synapse_secret::encrypt('demo', $rcmail->config->get_crypto_key('des_key')), 'verified_at' => time() - 86400 * 3,
+                'last_ok_at' => time() - 7200, 'created_at' => time() - 86400 * 3]);
         }
     }
 

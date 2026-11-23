@@ -1,5 +1,33 @@
 # SynapseMail changelog
 
+## 3.3
+- **Send As** (Settings › Send As, was "Identities"): send from other addresses, each with its own SMTP server,
+  name, signature and a default address, like Gmail's "Send mail as". See `docs/SEND_AS.md`.
+- **Setup wizard:** finds the SMTP settings (known providers, Mail Autoconfig, Thunderbird ISPDB, DNS SRV, MX, a
+  guess) and shows where they came from; every setting can be changed. Tips for Gmail/Yahoo App Passwords,
+  Microsoft 365 SMTP AUTH and Outlook.com (OAuth, not supported yet).
+- **Verification:** a 6-digit code is sent to the new address through its own server (15 minutes, 5 tries, new
+  code after 60 seconds). Nothing is saved before the code is correct.
+- **Security:** passwords encrypted (AES-256-GCM), password only sent over TLS (stops when a server does not offer
+  STARTTLS), certificates checked (the wizard offers the certificate's name), private and local addresses blocked
+  (also inside IPv6) with the IP pinned against DNS rebinding, mail ports only, rate limits per user, security log.
+- "Send through this mail server" only for the user's domain and the domains the admin allows (DMARC).
+- Replies come from the address the message was sent to, or always from the default address (new option).
+- The old "add identity" form can no longer add another address without the wizard. Existing identities keep
+  working and can be verified with "Verify this address".
+- **Hosting firewall detection:** when an outside server cannot be reached, the wizard checks the same port on
+  Gmail and Microsoft 365 and reads the greeting. If the hosting blocks or redirects outgoing mail (CSF `TCP_OUT` /
+  `SMTP_BLOCK`, WHM "Restrict outgoing SMTP to root, exim, and mailman"), it says so with the fix, instead of a
+  general error. The admin "Outgoing SMTP" check does the same.
+- **App Passwords** shown as `abcd efgh ijkl mnop` work with or without the spaces.
+- Only failed server tests count toward the limit (15 in 15 minutes), and the wait time counts down live.
+- Clear messages when sending through a Send As server fails ("Could not send as ...: the server did not accept
+  this user name or password").
+- **Admin panel:** Send As settings (on/off, addresses per user, domains this server sends for, local network
+  servers), a Send As column in Users, and an "Outgoing SMTP" health check with the cPanel SMTP Restrictions tip.
+- **Demo:** every visitor has a sample Send As address; the wizard works with the built-in provider list and the
+  code 123456, without any network connection.
+
 ## 3.2
 - **Public demo build** (`tools/build_demo.sh`, see `docs/DEMO.md`): the real interface with a sample mailbox and
   no mail server. Sign in with demo / demo, 2FA 123456, passcode 1234. Every visitor gets a private temporary

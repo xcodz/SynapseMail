@@ -19,6 +19,7 @@
 namespace SynapseMail\Admin;
 
 use synapse_core;
+use synapse_sendas;
 use synapse_deliverability;
 use synapse_platform;
 
@@ -319,6 +320,7 @@ function view_users($db)
         return card('Mailboxes', empty_state('users', 'No users yet', 'Mailboxes appear here after their first sign-in to SynapseMail.'), ['icon' => 'users']);
     }
     $rows = '';
+    $sendas = synapse_sendas::counts();
     foreach ($st['rows'] as $u) {
         $uid = '<input type="hidden" name="uid" value="' . $u['id'] . '">';
         $acts = ($u['sessions'] ? form('end_sessions', $uid . button('End sessions', ['tone' => 'ghost', 'size' => 'sm', 'icon' => 'log-out']), 'adm-inline') : '')
@@ -332,6 +334,7 @@ function view_users($db)
             . '<td>' . ($u['otp'] ? badge('ok', '2FA on') : badge('off', 'off')) . '</td>'
             . '<td>' . ($u['locked'] ? badge('fail', 'locked') : ($u['pin'] ? badge('ok', 'on') : badge('off', 'none'))) . '</td>'
             . '<td>' . ($u['sessions'] ? badge('info', $u['sessions'] . ' online') : '<span class="adm-dim">—</span>') . '</td>'
+            . '<td>' . (!empty($sendas[$u['id']]) ? badge('info', $sendas[$u['id']] . ' address' . ($sendas[$u['id']] > 1 ? 'es' : '')) : '<span class="adm-dim">—</span>') . '</td>'
             . '<td class="adm-actions"><div class="adm-acts">' . ($acts ?: '<span class="adm-dim">—</span>') . '</div></td></tr>';
     }
     $filters = '';
@@ -347,7 +350,7 @@ function view_users($db)
         . '</div>'
         . card('Mailboxes', '<div class="adm-toolbar"><label class="adm-search">' . icon('search') . '<input type="search" placeholder="Search mailboxes" data-table-search="usersTable" aria-label="Search mailboxes"></label>'
             . '<div class="adm-seg" data-table-filter="usersTable">' . $filters . '</div></div>'
-            . '<div class="adm-table-wrap"><table class="adm-table" id="usersTable"><thead><tr><th>Mailbox</th><th>Last sign-in</th><th>2FA</th><th>Passcode</th><th>Sessions</th><th class="adm-actions">Actions</th></tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<div class="adm-table-wrap"><table class="adm-table" id="usersTable"><thead><tr><th>Mailbox</th><th>Last sign-in</th><th>2FA</th><th>Passcode</th><th>Sessions</th><th>Send As</th><th class="adm-actions">Actions</th></tr></thead><tbody>' . $rows . '</tbody></table>'
             . '<p class="adm-noresult" hidden>No mailbox matches.</p></div>'
             . '<p class="adm-hint">Resetting a passcode or 2FA also ends that user\'s sessions. Mail and mailbox passwords are never touched here.</p>', ['icon' => 'users', 'meta' => badge('off', $st['total'] . ' total')]);
 }
@@ -378,7 +381,19 @@ function view_security($RC, $db)
         . '<p class="adm-hint">Without .htaccess support: <code data-reveal>' . h($fallback) . '</code>. Also stored in <code>config/ADMIN-URL.txt</code>.</p>'
         . form('rotate_key', button('Generate a new address', ['tone' => 'ghost', 'icon' => 'refresh-cw', 'attrs' => ['data-confirm' => 'Create a new admin address? The current one stops working immediately; the new one is shown and saved in config/ADMIN-URL.txt.']]), 'adm-form'), ['icon' => 'key-round']);
 
-    return '<div class="adm-grid">' . $access . $otp . $brand . $limits . '</div>';
+    $on = synapse_sendas::enabled();
+    $check = static function ($name, $label, $checked) {
+        return '<label class="adm-check"><input type="checkbox" name="' . h($name) . '" value="1"' . ($checked ? ' checked' : '') . '><span></span>' . h($label) . '</label>';
+    };
+    $sendas = card('Send As', '<p class="adm-lead">Users can add other addresses and send through each address\'s own SMTP server. Every address is proven with a code sent to it.</p>'
+        . form('sendas', $check('sendas_on', 'Users can add new addresses', $on)
+        . input('Addresses per user', 'sendas_max', ['type' => 'number', 'value' => (string) synapse_sendas::max(), 'attrs' => ['min' => 1, 'max' => 99, 'required' => true]])
+        . '<label class="adm-field"><span>Domains this server sends for</span><textarea class="adm-input" name="sendas_domains" rows="2" spellcheck="false" placeholder="example.com shop.example.com">'
+        . h((string) synapse_core::setting('sendas_domains')) . '</textarea><small>Addresses of these domains (and of the user\'s own domain) may use "Send through this mail server". Others must use their own server, so mail is not marked as spam.</small></label>'
+        . $check('sendas_local', 'Allow servers on the local network (only for company networks)', synapse_core::setting('sendas_local') === '1')
+        . '<div class="adm-form-actions">' . button('Save Send As', ['icon' => 'save']) . '</div>', 'adm-form'), ['icon' => 'send', 'meta' => badge($on ? 'ok' : 'off', $on ? 'on' : 'off')]);
+
+    return '<div class="adm-grid">' . $access . $otp . $sendas . $brand . $limits . '</div>';
 }
 
 function view_deliverability($RC, $db)

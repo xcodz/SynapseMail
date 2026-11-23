@@ -21,7 +21,7 @@ require_once __DIR__ . '/lib/synapse_secret.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.2';
+    public const VERSION = '3.3';
     public const THEMES = ['warfare', 'blackops', 'night', 'agency'];
 
     // "remember this device": sliding window, renewed while the account is used
@@ -56,6 +56,9 @@ class synapse_core extends rcube_plugin
         'admin' => 5, // admin panel sign-in failures per admin name
         'admip' => 10, // admin panel sign-in failures per IP
         'pwuser' => 5, // password change attempts per account (protects against guessing the current password)
+        'sadetect' => 30, // Send As: settings lookups per user
+        'satest' => 15, // Send As: failed server tests per user (each one connects to another server)
+        'sacode' => 5, // Send As: code mails per user
     ];
 
     // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init())
@@ -82,6 +85,8 @@ class synapse_core extends rcube_plugin
             'otp-verify', 'otp-enroll', 'otp-recovery', 'otp-disable'] as $action) {
             $this->register_action('plugin.synapse-' . $action, [$this, 'action_' . str_replace('-', '_', $action)]);
         }
+        require_once __DIR__ . '/lib/synapse_sendas.php';
+        (new synapse_sendas($this))->init();
 
         if (empty($rcmail->output)) {
             return;
@@ -944,14 +949,20 @@ class synapse_core extends rcube_plugin
         $db->query('DELETE FROM ' . $db->table_name('synapse_ratelimit', true) . ' WHERE `k` = ?', self::rl_key($scope, $value));
     }
 
-    private function require_post()
+    /** One line in logs/synapse_security.log (never passwords or codes) */
+    public static function security_log($message)
+    {
+        rcube::write_log('synapse_security', $message . ' from ' . rcube_utils::remote_ip());
+    }
+
+    public function require_post()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !rcmail::get_instance()->check_request(rcube_utils::INPUT_POST)) {
             $this->json(['ok' => false, 'message' => $this->gettext('invalidrequest')], 403);
         }
     }
 
-    private function json(array $data, $status = 200)
+    public function json(array $data, $status = 200)
     {
         while (ob_get_level()) {
             ob_end_clean();

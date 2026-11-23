@@ -845,3 +845,47 @@ html.iframe body.action-preview .reader-body { height: 100%; }
 .otp-recovery-input { height: 40px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); padding: 0 12px; font: 600 14px IBM Plex Mono, monospace; letter-spacing: .16em; text-transform: uppercase; text-align: center; outline: 0; }
 .otp-recovery-input:focus { border-color: var(--green); }
 .otp-setup:empty, .sec-pad:empty { display: none; }
+
+/* ---------- Send As: list badges, reply option, wizard ---------- */
+.sa-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; color: var(--dim); font: 400 9px IBM Plex Mono, monospace; letter-spacing: .04em; overflow-wrap: anywhere; }
+.sa-badge { padding: 1px 5px; border: 1px solid var(--line-strong); font: 600 8px IBM Plex Mono, monospace; letter-spacing: .12em; }
+.sa-badge.on { color: var(--green); border-color: color-mix(in srgb, var(--green) 55%, transparent); }
+.sa-badge.ok { color: var(--cyan, var(--green)); }
+.sa-badge.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
+.sendas-foot { padding: 12px 14px; border-top: 1px solid var(--line); }
+.sendas-foot .sec-field { margin: 8px 0 0; }
+.sendas-foot select { width: 100%; }
+.sa-modal { position: fixed; inset: 0; z-index: 140; display: none; place-items: center; padding: 16px; background: color-mix(in srgb, #000 62%, transparent); overflow-y: auto; }
+.sa-modal.open { display: grid; }
+.sa-panel { position: relative; width: min(560px, 100%); margin: auto; background: var(--bg-soft); }
+.sa-panel h2 { margin-bottom: 16px; }
+.sa-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.sa-close:hover { color: var(--green); }
+.sa-close svg { width: 18px; }
+.sa-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sa-panel input[type=text], .sa-panel input[type=password], .sa-panel select, .sa-panel textarea { width: 100%; min-height: 36px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); padding: 0 10px; outline: 0; font: 13px/1.4 inherit; }
+.sa-panel textarea { padding: 8px 10px; resize: vertical; }
+.sa-panel input:focus, .sa-panel select:focus, .sa-panel textarea:focus { border-color: var(--green); }
+.sa-panel input[readonly] { opacity: .7; }
+.sa-source, .sa-tip { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; margin: 0 0 14px !important; padding: 9px 11px; border: 1px solid var(--line); font: 400 10px/1.6 IBM Plex Mono, monospace; color: var(--muted) !important; }
+.sa-source svg, .sa-tip svg { width: 16px; height: 16px; color: var(--green); }
+.sa-source.warn svg { color: var(--amber); }
+.sa-tip { border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.sa-tip svg { color: var(--amber); }
+.sa-tip a { color: var(--green); }
+.sa-modes { grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+.sa-certs { display: flex; flex-wrap: wrap; gap: 8px; }
+.sa-message { min-height: 1.4em; text-align: left; font: 500 12px/1.6 inherit; letter-spacing: 0; }
+.sa-message.ok { color: var(--green); }
+.sa-resend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.sa-check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; cursor: pointer; }
+.sendas-box p { margin: 0 0 10px; color: var(--muted); line-height: 1.7; }
+.sendas-box b { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+[dir=rtl] .sa-close { right: auto; left: 10px; }
+[dir=rtl] .sa-message { text-align: right; }
+@media (max-width: 680px) {
+  .sa-modal { padding: 0; place-items: stretch; }
+  .sa-panel { width: 100%; min-height: 100dvh; clip-path: none; border: 0; padding: 54px 16px 24px; }
+  .sa-row, .sa-modes { grid-template-columns: 1fr; gap: 0; }
+  .sa-modes { gap: 10px; }
+}

@@ -75,3 +75,30 @@ The installer tests `localhost`, the server's host name, `mail.<domain>` and the
 
 Still stuck? Open an issue at https://github.com/xcodz/SynapseMail/issues with the failing check and your panel
 (no passwords, keys or log files with addresses).
+
+## Send As
+
+**"Your hosting does not allow outgoing mail connections"** (Gmail and other outside servers fail, addresses of
+your own server work): a firewall blocks outgoing ports 465/587. Admin › Overview › "Outgoing SMTP (Send As)" shows
+which ports. Test on the server (as root and as the cPanel user):
+
+```bash
+openssl s_client -connect smtp.gmail.com:465 -quiet
+openssl s_client -connect smtp.gmail.com:587 -starttls smtp -quiet
+```
+
+`220 smtp.gmail.com ESMTP` means open. "Connection refused" even as root: the port is missing from the firewall's
+outgoing list (CSF: `TCP_OUT` in `/etc/csf/csf.conf`; its default list has 587 but not 465), or your provider blocks
+it. Works as root but not as the cPanel user: CSF `SMTP_BLOCK` (set it to 0 or add the user to `SMTP_ALLOWUSER`) or
+WHM › Tweak Settings › "Restrict outgoing SMTP to root, exim, and mailman" (also shown as Security Center › SMTP Restrictions). Restart CSF after a change (`csf -r`).
+
+**"The server did not accept this user name or password"** with Gmail, Yahoo or iCloud: use an App Password, not
+the normal password. **Microsoft 365:** the admin must turn on SMTP AUTH for the mailbox (it is off by default from
+the end of December 2026). **Outlook.com / Hotmail:** only OAuth works, which is not supported yet.
+
+**"The server certificate is for another name"**: use the name the wizard shows (often the server's host name,
+for example `server12.host.com` instead of `mail.example.com`).
+
+**No code arrives:** look in the spam folder of that address. The code mail is sent from the address to itself.
+
+More: [Send As guide](SEND_AS.md)

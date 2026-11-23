@@ -313,7 +313,7 @@ var UI = (function () {
     add(rc.gettext('contacts'), t('contacts_desc'), 'contact-round', 'G C', 'contacts address book people', function () { rc.command('addressbook'); });
     add(rc.gettext('settings'), t('settings_desc'), 'settings', 'G S', 'settings preferences options', function () { rc.command('settings'); });
     add(rc.gettext('managefolders'), t('cmd_folders_desc'), 'folder-cog', 'G F', 'folders manage create', function () { rc.goto_url('settings/folders'); });
-    add(rc.gettext('identities'), t('cmd_identities_desc'), 'id-card', 'G D', 'identities signature sender', function () { rc.goto_url('settings/identities'); });
+    add(t('sendas'), t('cmd_identities_desc'), 'send', 'G D', 'identities signature sender send as alias', function () { rc.goto_url('settings/identities'); });
     add(t('cmd_density'), t('cmd_density_desc'), 'rows-3', 'D', 'compact dense rows', toggleDensity);
     add(t('cmd_loadtheme', { theme: t('themename_warfare') }), t('theme_warfare_desc'), 'shield', '01', 'theme olive dark green', function () { applyTheme('warfare', true, true); });
     add(t('cmd_loadtheme', { theme: t('themename_blackops') }), t('theme_blackops_desc'), 'flame', '02', 'theme orange amber cyber', function () { applyTheme('blackops', true, true); });
@@ -1486,6 +1486,227 @@ var UI = (function () {
     if (/[?&]_setup=1/.test(location.search) && !st.has_pin) wizard('setup'); else overview();
   }
 
+  /* ---------- Settings › Send As: list badges, reply option and the add / change wizard ---------- */
+  function initSendAs() {
+    var env = rc.env.synapse_sendas; if (!env) return;
+    var add = byId('sendasAdd'); if (add && !env.on) add.hidden = true;
+    var decorate = function () {
+      Object.keys(env.idents || {}).forEach(function (iid) {
+        var row = byId('rcmrow' + iid), it = env.idents[iid]; if (!row) return;
+        var cell = row.querySelector('td'); if (!cell) return;
+        var old = cell.querySelector('.sa-meta'); if (old) old.remove();
+        var sa = it.sa, badges = [];
+        if (it.default) badges.push('<b class="sa-badge on">' + esc(t('sa_default_caps')) + '</b>');
+        if (sa) badges.push('<b class="sa-badge ok">' + esc(t('sa_verified_caps')) + '</b>');
+        else if (it.email.toLowerCase() !== env.login) badges.push('<b class="sa-badge warn">' + esc(t('sa_legacy_caps')) + '</b>');
+        var via = sa && sa.mode == 'smtp' ? sa.host + ':' + sa.port : t('sa_via_server');
+        var meta = doc.createElement('small'); meta.className = 'sa-meta';
+        meta.innerHTML = badges.join('') + '<span>' + esc(t('sa_sendsvia')) + ' ' + esc(via) + '</span>';
+        cell.appendChild(meta);
+      });
+    };
+    decorate();
+    // the list row is rewritten after a save in the edit frame
+    var upd = rc.update_identity_row;
+    if (upd) rc.update_identity_row = function () { var r = upd.apply(rc, arguments); setTimeout(decorate, 0); return r; };
+    var foot = byId('sendasFoot');
+    if (foot) {
+      foot.innerHTML = '<p class="sec-note">' + esc(t('sa_intro')) + ' ' + esc(t('sa_limit_note', { max: env.max })) + '</p>'
+        + '<label class="sec-field"><span>' + esc(t('sa_reply').toUpperCase()) + '</span><select class="synapse-select" id="sendasReply">'
+        + '<option value="same">' + esc(t('sa_reply_same')) + '</option><option value="default">' + esc(t('sa_reply_default')) + '</option></select></label>';
+      var sel = byId('sendasReply'); sel.value = env.reply;
+      sel.onchange = function () { api('sendas-reply', { _mode: sel.value }, rc.env.request_token).then(function (r) { if (r.ok) { env.reply = sel.value; toast(t('sa_reply_saved'), 'confirmation'); } }); };
+    }
+    if (/[?&]_sendas=new/.test(location.search) && env.on) sendAs(0);
+  }
+
+  function sendAs(iid) {
+    var env = rc.env.synapse_sendas; if (!env || !env.on) return false;
+    var token = rc.env.request_token, it = iid ? env.idents[iid] : null, sa = it && it.sa, keypad = null, timer = null, wtimer = null;
+    var names = sa ? [sa.first, sa.last] : (it ? [it.name.split(' ')[0], it.name.split(' ').slice(1).join(' ')] : ['', '']);
+    var s = { iid: iid || 0, email: it ? it.email : '', first: names[0] || '', last: names[1] || '', mode: sa ? sa.mode : 'smtp', host: sa ? sa.host : '',
+      port: sa ? sa.port : 465, security: sa ? sa.security : 'ssl', username: sa ? sa.username : '', password: '', cfg: null, serverOk: false, isDefault: false };
+    var editServer = !!(sa && sa.verified_at); // same verified address: only the server changes, no new code
+    var steps = editServer ? ['server'] : ['details', 'server', 'code', 'finish'], i = 0;
+
+    var box = byId('sendasModal');
+    if (!box) { box = doc.createElement('div'); box.id = 'sendasModal'; box.className = 'sa-modal'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); doc.body.appendChild(box); }
+    function close() { cleanup(); box.classList.remove('open'); box.innerHTML = ''; doc.removeEventListener('keydown', onEsc); }
+    function onEsc(e) { if (e.key == 'Escape' && !keypad) close(); }
+    doc.addEventListener('keydown', onEsc);
+    function cleanup() { if (keypad) { keypad.destroy(); keypad = null; } if (timer) { clearInterval(timer); timer = null; } if (wtimer) { clearInterval(wtimer); wtimer = null; } }
+    function domain() { return s.email.slice(s.email.lastIndexOf('@') + 1); }
+    function say(text, ok) { var m = byId('saMessage'); if (m) { m.textContent = text || ''; m.classList.toggle('ok', !!ok); } }
+    function busy(on, label) {
+      box.querySelectorAll('button, input, select, textarea').forEach(function (el) { if (!el.closest('.pin-pad')) el.disabled = on; });
+      var n = byId('saNext'); if (n && label) n.textContent = label;
+    }
+    function frame(title, body, nextLabel) {
+      cleanup();
+      box.innerHTML = '<section class="sec-card sec-wizard sa-panel"><button type="button" class="sa-close" aria-label="' + esc(rc.gettext('close')) + '"><i data-lucide="x"></i></button>'
+        + (steps.length > 1 ? '<div class="sec-steps">' + steps.map(function (x, n) { return '<i class="' + (n < i ? 'done' : n == i ? 'on' : '') + '"></i>'; }).join('') + '</div>' : '')
+        + '<div class="reader-kicker">' + esc(t(editServer ? 'sa_kicker_edit' : 'sa_kicker')) + '</div><h2>' + esc(title) + '</h2>'
+        + '<div class="sa-body">' + body + '</div><p class="pin-message sa-message" id="saMessage" role="alert"></p>'
+        + '<div class="sec-actions"><button type="button" class="ghost-btn" id="saBack">' + esc(t(i && steps[i] != 'finish' ? 'back_caps' : 'cancel_caps')) + '</button><span class="spacer"></span>'
+        + (nextLabel ? '<button type="button" class="solid-btn" id="saNext">' + esc(nextLabel) + '</button>' : '') + '</div></section>';
+      box.classList.add('open');
+      box.querySelector('.sa-close').onclick = close;
+      byId('saBack').onclick = function () { if (i && steps[i] != 'finish') { i--; show(); } else close(); };
+      icons();
+    }
+    function field(id, label, value, attrs) {
+      return '<label class="sec-field"><span>' + esc(label) + '</span><input type="text" id="' + id + '" value="' + esc(value) + '" ' + (attrs || '') + '></label>';
+    }
+    function err(res) {
+      if (wtimer) { clearInterval(wtimer); wtimer = null; }
+      // "please wait N seconds": count down live and keep the button off until the wait is over
+      if (res && res.wait > 0 && (res.error == 'slow' || res.error == 'wait') && res.message) {
+        var left = res.wait;
+        var tick = function () {
+          var b = byId('saNext');
+          if (left <= 0) { clearInterval(wtimer); wtimer = null; say(''); if (b) b.disabled = false; return; }
+          say(res.message.replace(/\d+/, left)); if (b) b.disabled = true; left--;
+        };
+        tick(); wtimer = setInterval(tick, 1000);
+        return;
+      }
+      say(res && res.message ? res.message : t('connectionerror'));
+    }
+    function show() {
+      var step = steps[i];
+      if (step == 'details') {
+        frame(t('sa_step1'), '<div class="settings-form sec-form"><p class="sec-note">' + esc(t('sa_step1_note')) + '</p><div class="sa-row">'
+          + field('saFirst', t('sa_first'), s.first, 'maxlength="64" autocomplete="given-name"') + field('saLast', t('sa_last'), s.last, 'maxlength="64" autocomplete="family-name"') + '</div>'
+          + field('saEmail', t('sa_email'), s.email, 'maxlength="128" inputmode="email" autocomplete="email" spellcheck="false" dir="ltr"') + '</div>', t('continue_caps'));
+        (s.first ? byId('saEmail') : byId('saFirst')).focus();
+        box.querySelectorAll('input').forEach(function (el) { el.onkeydown = function (e) { if (e.key == 'Enter') byId('saNext').click(); }; });
+        byId('saNext').onclick = function () {
+          s.first = byId('saFirst').value.trim(); s.last = byId('saLast').value.trim(); s.email = byId('saEmail').value.trim().toLowerCase();
+          if (!s.first) return say(t('sa_err_name'));
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.email)) return say(t('sa_err_email'));
+          detect();
+        };
+      } else if (step == 'server') {
+        serverStep();
+      } else if (step == 'code') {
+        codeStep();
+      } else if (step == 'finish') {
+        frame(t('sa_step4'), '<div class="settings-form sec-form"><label class="sec-field"><span>' + esc(t('sa_signature')) + '</span><textarea id="saSig" rows="4" maxlength="4000"></textarea></label>'
+          + '<label class="sa-check"><input type="checkbox" id="saDefault"> <span>' + esc(t('sa_makedefault')) + '</span></label></div>', t('sa_finish'));
+        byId('saBack').hidden = true; // the address is saved already: only finish (or close) is left
+        byId('saSig').value = s.first + (s.last ? ' ' + s.last : '');
+        byId('saNext').onclick = function () {
+          busy(true);
+          api('sendas-finish', { _iid: s.iid, _signature: byId('saSig').value, _default: byId('saDefault').checked ? 1 : 0 }, token).then(function (r) {
+            if (!r.ok) { busy(false); return err(r); }
+            done(t('sa_done', { email: s.email }));
+          }, function () { busy(false); err(); });
+        };
+      }
+    }
+    function done(message) { close(); toast(message, 'confirmation'); setTimeout(function () { location.reload(); }, 900); }
+    function detect() {
+      busy(true); say(t('sa_looking', { domain: domain() }), true);
+      api('sendas-detect', { _email: s.email, _iid: s.iid }, token).then(function (r) {
+        busy(false);
+        if (!r.ok) return err(r);
+        s.cfg = r.config; s.serverOk = r.server_ok; s.serverName = r.server_name;
+        if (!(sa && sa.host)) { s.host = r.config.host; s.port = r.config.port; s.security = r.config.security; s.username = r.config.username; }
+        if (!s.serverOk) s.mode = 'smtp';
+        if (!editServer) i++;
+        show();
+      }, function () { busy(false); err(); });
+    }
+    function serverStep() {
+      var c = s.cfg, p = c && c.provider;
+      var src = !c ? '' : t('sa_src_' + c.source, { domain: domain(), name: p ? p.name : '' });
+      var body = '<div class="settings-form sec-form">'
+        + (src ? '<p class="sa-source' + (c.confirm ? ' warn' : '') + '"><i data-lucide="' + (c.confirm ? 'circle-help' : 'circle-check') + '"></i><span>' + esc(src) + '</span></p>' : '')
+        + (s.serverOk ? '<div class="sec-choice sa-modes"><button type="button" data-mode="smtp"><b>' + esc(t('sa_mode_smtp')) + '</b><small>' + esc(t('sa_mode_smtp_note')) + '</small></button>'
+          + '<button type="button" data-mode="server"><b>' + esc(t('sa_mode_server')) + '</b><small>' + esc(t('sa_mode_server_note')) + '</small></button></div>' : '')
+        + '<div id="saSmtp">'
+        + (p ? '<p class="sa-tip"><i data-lucide="info"></i><span>' + esc(t('sa_tip_' + p.tip)) + (p.link ? ' <a href="' + esc(p.link) + '" target="_blank" rel="noopener noreferrer">' + esc(t('sa_tip_link')) + '</a>' : '') + '</span></p>' : '')
+        + field('saHost', t('sa_host'), s.host, 'maxlength="255" spellcheck="false" autocapitalize="off" dir="ltr"')
+        + '<div class="sa-row"><label class="sec-field"><span>' + esc(t('sa_port')) + '</span><select class="synapse-select" id="saPort">'
+        + env.ports.map(function (n) { return '<option value="' + n + '"' + (n == s.port ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>'
+        + '<label class="sec-field"><span>' + esc(t('sa_security')) + '</span><select class="synapse-select" id="saSecurity"><option value="ssl">' + esc(t('sa_ssl')) + '</option><option value="starttls">' + esc(t('sa_starttls')) + '</option></select></label></div>'
+        + field('saUser', t('sa_username_caps'), s.username, 'maxlength="255" spellcheck="false" autocapitalize="off" autocomplete="off" dir="ltr"')
+        + '<label class="sec-field"><span>' + esc(t('sa_password_caps')) + '</span><input type="password" id="saPass" autocomplete="new-password" data-lpignore="true" dir="ltr"' + (sa && sa.mode == 'smtp' ? ' placeholder="' + esc(t('sa_password_keep')) + '"' : '') + '></label>'
+        + '</div><div class="sa-certs" id="saCerts"></div></div>';
+      frame(editServer ? t('sa_server_section') : t('sa_step2'), body, t(editServer ? 'sa_test_save' : 'sa_test'));
+      byId('saSecurity').value = s.security;
+      // the port follows the security choice until the user picks a port
+      byId('saSecurity').onchange = function () { var v = this.value, pt = byId('saPort'); if ((v == 'ssl' && pt.value == '587') || (v == 'starttls' && pt.value == '465')) pt.value = v == 'ssl' ? '465' : '587'; };
+      var setMode = function (m) {
+        s.mode = m; byId('saSmtp').hidden = m == 'server';
+        box.querySelectorAll('[data-mode]').forEach(function (b) { b.classList.toggle('active', b.dataset.mode == m); });
+      };
+      box.querySelectorAll('[data-mode]').forEach(function (b) { b.onclick = function () { setMode(b.dataset.mode); }; });
+      setMode(s.serverOk ? s.mode : 'smtp');
+      box.querySelectorAll('#saSmtp input').forEach(function (el) { el.onkeydown = function (e) { if (e.key == 'Enter') byId('saNext').click(); }; });
+      (s.mode == 'smtp' ? byId(s.host ? 'saPass' : 'saHost') : byId('saNext')).focus();
+      byId('saNext').onclick = test;
+    }
+    function test() {
+      s.host = byId('saHost').value.trim().toLowerCase(); s.port = +byId('saPort').value; s.security = byId('saSecurity').value;
+      s.username = byId('saUser').value.trim(); s.password = byId('saPass').value;
+      byId('saCerts').innerHTML = '';
+      var label = byId('saNext').textContent;
+      busy(true, t('sa_testing')); say('');
+      api('sendas-test', { _iid: s.iid, _email: s.email, _first: s.first, _last: s.last, _mode: s.mode, _host: s.host, _port: s.port, _security: s.security,
+        _username: s.username, _password: s.password }, token).then(function (r) {
+        busy(false, label);
+        if (!r.ok) {
+          err(r);
+          // certificate made for another name: offer that name
+          if (r.names && r.names.length) {
+            byId('saCerts').innerHTML = r.names.map(function (n) { return '<button type="button" class="ghost-btn" data-host="' + esc(n) + '">' + esc(t('sa_usecert', { name: n })) + '</button>'; }).join('');
+            byId('saCerts').querySelectorAll('[data-host]').forEach(function (b) { b.onclick = function () { byId('saHost').value = b.dataset.host; test(); }; });
+          }
+          return;
+        }
+        s.password = ''; byId('saPass').value = '';
+        if (r.done) return done(t('sa_saved'));
+        s.demo = r.demo; s.resend = r.resend;
+        i++; show();
+      }, function () { busy(false, label); err(); });
+    }
+    function codeStep() {
+      frame(t('sa_step3'), '<p>' + esc(t('sa_codesent', { email: s.email })) + '</p>' + (s.demo ? '<p class="sec-note">' + esc(t('sa_codedemo')) + '</p>' : '')
+        + '<div class="sec-pad" id="saPad"></div><p class="sec-note">' + esc(t('sa_codehelp')) + '</p>'
+        + '<div class="sa-resend"><button type="button" class="ghost-btn" id="saResend"></button><button type="button" class="ghost-btn" id="saChange">' + esc(t('sa_change')) + '</button></div>');
+      byId('saBack').textContent = t('cancel_caps'); byId('saBack').onclick = close;
+      byId('saChange').onclick = function () { i = 0; show(); };
+      var left = s.resend || 60, rb = byId('saResend');
+      var tick = function () {
+        rb.disabled = left > 0; rb.textContent = left > 0 ? t('sa_resend_in', { n: left }) : t('sa_resend');
+        if (left-- <= 0 && timer) { clearInterval(timer); timer = null; }
+      };
+      timer = setInterval(tick, 1000); tick();
+      rb.onclick = function () {
+        rb.disabled = true;
+        api('sendas-resend', {}, token).then(function (r) {
+          if (!r.ok) { rb.disabled = false; return err(r); }
+          say(t('sa_codesentagain'), true); left = r.resend || 60; if (!timer) timer = setInterval(tick, 1000); tick();
+        }, function () { rb.disabled = false; err(); });
+      };
+      keypad = createKeypad(byId('saPad'), { len: 6, label: t('sa_step3'), onChange: function () { say(''); }, onComplete: function (code) {
+        keypad.setBusy(true);
+        api('sendas-verify', { _code: code }, token).then(function (r) {
+          if (!r.ok) {
+            keypad.shake(); keypad.reset(); err(r);
+            if (r.restart) setTimeout(function () { i = 0; show(); say(r.message); }, 1200);
+            return;
+          }
+          s.iid = r.iid; i++; show();
+        }, function () { keypad.reset(); err(); });
+      } });
+      keypad.focus();
+    }
+    if (editServer) { frame(t('sa_server_section'), '', ''); detect(); } else show();
+    return false;
+  }
+
   /* ---------- settings: grouped navigation + preference sections in the content frame ---------- */
   function initSettings() {
     var nav = doc.querySelector('.settings-nav'); if (!nav) return;
@@ -1753,7 +1974,7 @@ var UI = (function () {
       if (rc.env.task == 'mail' && (rc.env.action == 'show' || rc.env.action == 'preview')) initPreview();
       initCompose();
       decorateFolders();
-      if (rc.env.task == 'settings') { initSettings(); initSecurity(); }
+      if (rc.env.task == 'settings') { initSettings(); initSecurity(); initSendAs(); }
       if (rc.env.task == 'mail') initPinPrompt();
       initDetailPane();
       if (rc.env.task == 'addressbook') {
@@ -1791,6 +2012,6 @@ var UI = (function () {
     toast: toast, applyTheme: applyTheme, palette: function () { openPalette(); return false; }, about: about,
     openReader: openReader, closeReader: closeReader, openCompose: openCompose, closeCompose: closeCompose, composeReady: composeReady, popOut: popOut,
     closeMenus: closeMenus, toggleMenu: toggleMenu, listOptions: listOptions, saveListOptions: saveListOptions,
-    search: search, confirm: confirmBox, frameCommand: frameCommand, icons: icons, decorateFolders: decorateFolders
+    search: search, confirm: confirmBox, frameCommand: frameCommand, icons: icons, decorateFolders: decorateFolders, sendAs: sendAs
   };
 })();

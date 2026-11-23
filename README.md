@@ -8,15 +8,16 @@
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.2-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.3-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
+![Send As](https://img.shields.io/badge/Send%20As-any%20SMTP-e0a030)
 ![Mobile](https://img.shields.io/badge/mobile-ready-ff8c42)
 ![RTL](https://img.shields.io/badge/RTL-Persian%20%7C%20Arabic-9b59b6)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -46,8 +47,8 @@ many teams need today: **stronger sign-in security, a modern interface that work
 installer and a private admin panel.**
 
 > 💡 **It is not just a theme.** A theme only changes colours. SynapseMail adds a passcode lock, two-factor
-> authentication, brute-force protection, device trust, a server check before install, an admin panel with
-> backups and signed updates, and a new editor for left-to-right and right-to-left email.
+> authentication, brute-force protection, device trust, **Send As for your other addresses**, a server check before
+> install, an admin panel with backups and signed updates, and a new editor for left-to-right and right-to-left email.
 
 > ⚠️ **Please read: what 2FA covers today.** The passcode and 2FA protect **the SynapseMail webmail**. They do not
 > change your mail server. **IMAP, POP3 and SMTP** (Outlook, Thunderbird, the phone mail app) and **other webmail
@@ -66,6 +67,7 @@ installer and a private admin panel.**
 | 🔢 Passcode lock after the password | ❌ | ✅ |
 | 📱 Two-factor authentication (TOTP) + recovery codes | plugin needed | ✅ **built in** |
 | 🧱 Brute-force lockout for passcode and 2FA | ❌ | ✅ |
+| 📤 Send As other addresses, each through **its own SMTP server**, verified with a code | ➖ one server only | ✅ **like Gmail** |
 | 🧷 "Remember this device" with automatic idle sign-out | ➖ | ✅ |
 | ✍️ Editor with LTR + RTL in the same email | ➖ | ✅ |
 | 🧙 Web installer that checks your hosting panel | basic | ✅ **with fix steps per panel** |
@@ -147,6 +149,31 @@ and work toward protecting the other doors too. See the [roadmap](#roadmap).
 
 ---
 
+<a id="send-as"></a>
+
+## 📤 Send As: send from all your addresses
+
+Do you have more than one address, for example `you@company.com`, `sales@shop.com` and a Gmail address? With
+**Send As** you write from all of them in one place, like Gmail's "Send mail as".
+
+- 🧙 **A simple wizard**: type the address and SynapseMail **finds the server settings** for you (known
+  providers, the domain's own settings file, DNS and the mail server). You can change every setting.
+- 🔢 **Verified with a code**: a 6-digit code is sent to the new address **through its own server**. So the
+  password works, and you really own the address.
+- 📮 **Each address sends through its own SMTP server**, so your mail passes SPF, DKIM and DMARC and **does not go to
+  spam**. Addresses of your own server can also use this server.
+- ✍️ **A name and a signature for each address**, and one **default address**.
+- ↩️ **Replies** come from the address the message was sent to (or always from your default, you choose).
+- 🔐 **Safe by design**: passwords are encrypted, the password is **only sent over TLS**, certificates are checked,
+  and private network addresses are blocked.
+- 💡 **Helpful tips**: for example "Gmail needs an App Password" or "Microsoft 365 needs SMTP AUTH".
+
+> 📰 **Why now?** Google is ending Gmail's "Send mail as" for addresses from other providers in **January 2027**
+> ([Google Help](https://support.google.com/mail/answer/17101213)). With SynapseMail you keep this feature on your
+> own server. 📖 [Send As guide](docs/SEND_AS.md)
+
+---
+
 <a id="mobile"></a>
 
 ## 📱 Made for phones too
@@ -178,6 +205,8 @@ The admin panel lives at a **private address** (`/admin/<secret-key>`). People w
 - 🩺 **Health checks**: PHP, folders, HTTPS, mail server connections, hosting panel
 - 👥 **Users**: reset a passcode or 2FA, end sessions
 - 🔐 **Security policy**: for example, make 2FA required
+- 📤 **Send As settings**: turn it on or off, set the number of addresses, and check that your host allows
+  outgoing mail connections
 - 📊 **Deliverability score**: MX, PTR, SPF, DKIM, DMARC, TLS and blacklist checks for your domains
 - 💾 **Encrypted backup and restore**
 - ⬆️ **Signed update checks**: a new version is shown only if its Ed25519 signature is valid
@@ -261,6 +290,10 @@ Yes. Persian and Arabic are included, and one email can mix LTR and RTL paragrap
 Yes, free to use and share. It is source-available under CC BY-NC-ND 4.0: you cannot sell it or publish
 changed versions. See [License](#license).
 
+**Gmail is ending "Send mail as" for other addresses. Can SynapseMail do it?**
+Yes. Settings › Send As adds any address with its own SMTP server, a code check, its own name and signature, and a
+default address. See the [Send As guide](docs/SEND_AS.md).
+
 **Do I need MySQL?**
 No. SynapseMail uses SQLite, so there is nothing extra to set up.
 
@@ -275,6 +308,7 @@ step, together with the people who use it. 💪
 
 ### ✅ Already here
 - Passcode lock, 2FA with recovery codes, lockouts, device trust and idle sign-out
+- 📤 Send As: other addresses with their own SMTP server, a setup wizard and a code check
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
 - Web installer with hosting panel detection, and an admin panel with signed updates
 
@@ -288,6 +322,7 @@ step, together with the people who use it. 💪
 ### 💭 Ideas we are exploring
 - 🔐 Ways to protect **IMAP and SMTP** as well, together with the mail server
 - 🗝️ Passkeys and more sign-in options
+- 🔑 OAuth sign-in for Send As with Gmail and Microsoft (no App Password needed)
 - 🌍 More languages
 
 Have an idea or a need? [Open an issue](../../issues) and tell us. ⭐ **Star the repository** to follow the journey.

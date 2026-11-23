@@ -20,6 +20,8 @@ connection to IMAP or SMTP is ever made.
 - The **admin panel is read-only** and shows sample data from its own showcase database (`db/admin-demo.db`) and
   sample logs. It never shows real visitors.
 - A notice at the top of every page says it is a demo.
+- **Send As:** every visitor has one sample address (`hello@studio.example`). The wizard works with the
+  built-in provider list only, the server test is simulated and the code is always `123456`.
 
 The demo plugin and its switches are **never** part of the release zip (the release build checks this).
 
