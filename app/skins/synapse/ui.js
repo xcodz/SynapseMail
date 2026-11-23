@@ -1886,6 +1886,57 @@ var UI = (function () {
   }
 
   /* ---------- compose form helpers (drawer frame or standalone page) ---------- */
+  // recipient autocomplete searches on every key press: its "Searching..." and "type N letters" notes would be
+  // a new toast for each character, so they stay quiet (the suggestion list itself is the feedback)
+  function quietAutocomplete() {
+    var search = rc.ksearch_get_results; if (!search) return;
+    rc.ksearch_get_results = function () {
+      var show = rc.display_message;
+      rc.display_message = function (msg, type) { return !type || type == 'loading' || type == 'notice' ? 0 : show.apply(rc, arguments); };
+      try { return search.apply(rc, arguments); } finally { rc.display_message = show; }
+    };
+  }
+
+  // Tab goes From → To → Subject → message → footer (like Gmail). Cc / Bcc: Ctrl/Cmd+Shift+C / B instead of two extra stops.
+  function composeKeyboard() {
+    var mac = /Mac|iP(hone|ad)/.test(navigator.platform);
+    $('.compose-addons [data-key]').each(function () { this.title = this.textContent.trim() + ' (' + (mac ? '⌘' : 'Ctrl') + '+Shift+' + this.dataset.key + ')'; });
+    doc.addEventListener('keydown', function (e) {
+      if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
+      var h = { c: 'cc', b: 'bcc' }[String(e.key).toLowerCase()]; if (!h || !byId('compose_' + h)) return;
+      e.preventDefault(); toggleHeader(h, true); $('#compose_' + h).find('textarea, input').first().focus();
+    });
+    // Subject → message text directly; Shift+Tab from the text still reaches the toolbar
+    $('#compose-subject').on('keydown', function (e) {
+      var body = doc.querySelector('.lx-content[contenteditable="true"]') || byId('composebody');
+      if (e.key == 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && body && body.offsetParent !== null) { e.preventDefault(); body.focus(); }
+    });
+    // the editor toolbar is one Tab stop; arrow keys move between its buttons (toolbar pattern)
+    var tries = 0;
+    (function roving() {
+      var bar = doc.querySelector('.lx-toolbar');
+      if (!bar) { if (tries++ < 40) setTimeout(roving, 250); return; }
+      bar.setAttribute('role', 'toolbar');
+      var items = function () { return Array.prototype.filter.call(bar.querySelectorAll('button'), function (b) { return b.offsetParent !== null && !b.disabled; }); };
+      var current = null;
+      var apply = function () {
+        var list = items(); if (!list.length) return;
+        if (list.indexOf(current) < 0) current = list[0];
+        list.forEach(function (b) { var v = b === current ? '0' : '-1'; if (b.getAttribute('tabindex') !== v) b.setAttribute('tabindex', v); });
+      };
+      apply();
+      new MutationObserver(apply).observe(bar, { childList: true, subtree: true });
+      bar.addEventListener('focusin', function (e) { if (e.target.tagName == 'BUTTON') { current = e.target; apply(); } });
+      bar.addEventListener('keydown', function (e) {
+        var list = items(), i = list.indexOf(doc.activeElement); if (i < 0) return;
+        if (e.target.getAttribute('aria-expanded') == 'true') return; // an open dropdown uses the arrows itself
+        var rtl = getComputedStyle(bar).direction == 'rtl';
+        var next = { ArrowRight: rtl ? i - 1 : i + 1, ArrowLeft: rtl ? i + 1 : i - 1, Home: 0, End: list.length - 1 }[e.key];
+        if (next === undefined) return;
+        e.preventDefault(); next = (next + list.length) % list.length; current = list[next]; apply(); current.focus();
+      });
+    })();
+  }
   function initComposeForm() {
     ['cc', 'bcc', 'replyto', 'followupto'].forEach(function (h) {
       var input = byId('_' + h);
@@ -1961,7 +2012,7 @@ var UI = (function () {
     applyTheme(accountTheme || themeCookie() || store('synapsemail-theme2') || 'agency');
     if (accountTheme) persistTheme(accountTheme); // the login page shows the account's theme next time
     if (rc.env.task == 'login' || rc.env.task == 'logout') { icons(); initLogin(); return; }
-    if (rc.env.action == 'compose') initComposeForm();
+    if (rc.env.action == 'compose') { initComposeForm(); composeKeyboard(); quietAutocomplete(); }
     if (framed) {
       initFramed();
       if (rc.env.task == 'mail' && (rc.env.action == 'preview' || rc.env.action == 'show')) initPreview();

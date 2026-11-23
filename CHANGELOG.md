@@ -1,5 +1,15 @@
 # SynapseMail changelog
 
+## 3.4
+- **Compose: keyboard order like Gmail.** Tab goes From → To → Subject → message text → attachments and Send. Before,
+  every field had `tabindex="1"`, so after Subject the Tab key jumped back to the drawer buttons and through 13 editor
+  buttons before the message text.
+- **Cc and Bcc shortcuts:** Ctrl+Shift+C and Ctrl+Shift+B (⌘+Shift on Mac) open the field and put the cursor in it
+  (shown in the button tooltips). The Cc / Bcc / Reply-To buttons are no longer extra Tab stops.
+- **Editor toolbar** is one Tab stop (Shift+Tab from the message text); the arrow keys move between its buttons.
+- **Recipient autocomplete is quiet:** typing an address no longer shows a "Searching..." toast for every letter.
+  The suggestion list is the feedback.
+
 ## 3.3
 - **Send As** (Settings › Send As, was "Identities"): send from other addresses, each with its own SMTP server,
   name, signature and a default address, like Gmail's "Send mail as". See `docs/SEND_AS.md`.

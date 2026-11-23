@@ -1,22 +1,22 @@
 <roundcube:object name="composeFormHead" class="compose-form-head" />
 <div class="compose-scroll" id="composeScroll">
 	<roundcube:object name="composeObjects" id="compose-objects" />
-	<label id="compose_from"><span><roundcube:label name="from" /></span><roundcube:object name="composeHeaders" part="from" id="_from" form="form" tabindex="1" class="compose-select" /></label>
+	<label id="compose_from"><span><roundcube:label name="from" /></span><roundcube:object name="composeHeaders" part="from" id="_from" form="form" class="compose-select" /></label>
 	<label id="compose_to"><span><roundcube:label name="to" /></span>
-		<span class="compose-field"><roundcube:object name="composeHeaders" part="to" id="_to" form="form" tabindex="1" aria-required="true" placeholder="name@example.com" />
+		<span class="compose-field"><roundcube:object name="composeHeaders" part="to" id="_to" form="form" aria-required="true" placeholder="name@example.com" />
 			<span class="compose-addons">
-				<button type="button" data-header="cc" onclick="return SynapseCompose.toggle('cc')"><roundcube:label name="synapse_core.cc_caps" /></button><button type="button" data-header="bcc" onclick="return SynapseCompose.toggle('bcc')"><roundcube:label name="synapse_core.bcc_caps" /></button><button type="button" data-header="replyto" onclick="return SynapseCompose.toggle('replyto')"><roundcube:label name="synapse_core.replyto_caps" /></button>
+				<button type="button" tabindex="-1" data-header="cc" data-key="C" aria-keyshortcuts="Control+Shift+C Meta+Shift+C" onclick="return SynapseCompose.toggle('cc')"><roundcube:label name="synapse_core.cc_caps" /></button><button type="button" tabindex="-1" data-header="bcc" data-key="B" aria-keyshortcuts="Control+Shift+B Meta+Shift+B" onclick="return SynapseCompose.toggle('bcc')"><roundcube:label name="synapse_core.bcc_caps" /></button><button type="button" tabindex="-1" data-header="replyto" onclick="return SynapseCompose.toggle('replyto')"><roundcube:label name="synapse_core.replyto_caps" /></button>
 			</span>
 		</span>
 	</label>
-	<label id="compose_cc" class="hidden"><span><roundcube:label name="cc" /></span><roundcube:object name="composeHeaders" part="cc" id="_cc" form="form" tabindex="1" /></label>
-	<label id="compose_bcc" class="hidden"><span><roundcube:label name="bcc" /></span><roundcube:object name="composeHeaders" part="bcc" id="_bcc" form="form" tabindex="1" /></label>
-	<label id="compose_replyto" class="hidden"><span><roundcube:label name="replyto" /></span><roundcube:object name="composeHeaders" part="replyto" id="_replyto" form="form" tabindex="1" /></label>
-	<label id="compose_followupto" class="hidden"><span><roundcube:label name="followupto" /></span><roundcube:object name="composeHeaders" part="followupto" id="_followupto" form="form" tabindex="1" /></label>
-	<label id="compose_subject"><span><roundcube:label name="subject" /></span><roundcube:object name="composeSubject" id="compose-subject" form="form" tabindex="1" placeholder="Email subject" /></label>
+	<label id="compose_cc" class="hidden"><span><roundcube:label name="cc" /></span><roundcube:object name="composeHeaders" part="cc" id="_cc" form="form" /></label>
+	<label id="compose_bcc" class="hidden"><span><roundcube:label name="bcc" /></span><roundcube:object name="composeHeaders" part="bcc" id="_bcc" form="form" /></label>
+	<label id="compose_replyto" class="hidden"><span><roundcube:label name="replyto" /></span><roundcube:object name="composeHeaders" part="replyto" id="_replyto" form="form" /></label>
+	<label id="compose_followupto" class="hidden"><span><roundcube:label name="followupto" /></span><roundcube:object name="composeHeaders" part="followupto" id="_followupto" form="form" /></label>
+	<label id="compose_subject"><span><roundcube:label name="subject" /></span><roundcube:object name="composeSubject" id="compose-subject" form="form" placeholder="Email subject" /></label>
 
 	<div class="compose-body" id="composebodycontainer">
-		<roundcube:object name="composeBody" id="composebody" form="form" cols="70" rows="12" tabindex="1" placeholder="Write your message…" />
+		<roundcube:object name="composeBody" id="composebody" form="form" cols="70" rows="12" placeholder="Write your message…" />
 	</div>
 
 	<div class="compose-attachments" id="compose-attachments">
