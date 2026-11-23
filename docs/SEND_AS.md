@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 SynapseCyber.io · Developed by Milad Ahmadipour · CC BY-NC-ND 4.0
 
-Send As lets you write email from your **other addresses** in SynapseMail, like Gmail's "Send mail as". Each
+Send As lets you write email from **all your addresses** in SynapseMail. Each
 address has its own **name**, **signature** and **mail server (SMTP)**. One address is your **default**.
 
 ## ➕ Add an address
@@ -50,9 +50,6 @@ Click the address in the list:
 
 **Microsoft 365:** Microsoft turns SMTP AUTH (password sign-in) **off by default at the end of December 2026**.
 Your Microsoft 365 admin can turn it on again for a mailbox. OAuth sign-in is planned for a later version.
-
-**Gmail:** Google is ending "Send mail as" for addresses from other providers in Gmail in January 2027. This does
-not affect SynapseMail: here each address uses its own server.
 
 ## 🛡️ How it is protected
 

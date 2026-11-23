@@ -1,7 +1,7 @@
 # SynapseMail changelog
 
 ## 3.4
-- **Compose: keyboard order like Gmail.** Tab goes From → To → Subject → message text → attachments and Send. Before,
+- **Compose: a natural keyboard order.** Tab goes From → To → Subject → message text → attachments and Send. Before,
   every field had `tabindex="1"`, so after Subject the Tab key jumped back to the drawer buttons and through 13 editor
   buttons before the message text.
 - **Cc and Bcc shortcuts:** Ctrl+Shift+C and Ctrl+Shift+B (⌘+Shift on Mac) open the field and put the cursor in it
@@ -12,7 +12,7 @@
 
 ## 3.3
 - **Send As** (Settings › Send As, was "Identities"): send from other addresses, each with its own SMTP server,
-  name, signature and a default address, like Gmail's "Send mail as". See `docs/SEND_AS.md`.
+  name, signature and a default address. See `docs/SEND_AS.md`.
 - **Setup wizard:** finds the SMTP settings (known providers, Mail Autoconfig, Thunderbird ISPDB, DNS SRV, MX, a
   guess) and shows where they came from; every setting can be changed. Tips for Gmail/Yahoo App Passwords,
   Microsoft 365 SMTP AUTH and Outlook.com (OAuth, not supported yet).
@@ -64,7 +64,8 @@
 ## 3.0 (first public release)
 - **Public repository** with the complete package under `app/`, the editor source under `editor/` and the build
   tools under `tools/`. `app/SYNAPSEMAIL-FILES.txt` lists every SynapseMail file and every change to Roundcube.
-- **Updates** are checked by default against `https://repo.synapsecyber.io/synapsemail/release.json` (signed).
+- **Update check support** in the code: a signed `release.json` (the public update server is not live yet;
+  new versions are published on GitHub Releases).
 - **Security wording:** the passcode and 2FA are described as protecting this webmail. Mail apps that use
   IMAP/POP/SMTP still sign in with the mailbox password alone.
 - **Removed:** the development debug log collector (`synapse_debug_collect`, `debug.js`).

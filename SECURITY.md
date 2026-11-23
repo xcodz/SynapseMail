@@ -11,8 +11,8 @@ can ship the fixed core.
 
 ## Supported versions
 
-Only the latest 3.x release receives fixes. Updates are announced through the signed update check in the admin
-panel.
+Only the latest 3.x release receives fixes. New versions are published on GitHub Releases
+(https://github.com/xcodz/SynapseMail/releases).
 
 ## Security design
 

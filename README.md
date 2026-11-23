@@ -4,11 +4,11 @@
 
 # SynapseMail
 
-### 🔐 Secure, self-hosted webmail with 2FA, a passcode lock and a mobile-first design
+### 🔐 Secure, self-hosted webmail with 2FA, a passcode lock, Send As and a mobile-first design
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.3-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.4-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
@@ -47,8 +47,8 @@ many teams need today: **stronger sign-in security, a modern interface that work
 installer and a private admin panel.**
 
 > 💡 **It is not just a theme.** A theme only changes colours. SynapseMail adds a passcode lock, two-factor
-> authentication, brute-force protection, device trust, **Send As for your other addresses**, a server check before
-> install, an admin panel with backups and signed updates, and a new editor for left-to-right and right-to-left email.
+> authentication, brute-force protection, device trust, **Send As for all your addresses**, a server check before
+> install, an admin panel with backups, and a new editor for left-to-right and right-to-left email.
 
 > ⚠️ **Please read: what 2FA covers today.** The passcode and 2FA protect **the SynapseMail webmail**. They do not
 > change your mail server. **IMAP, POP3 and SMTP** (Outlook, Thunderbird, the phone mail app) and **other webmail
@@ -67,13 +67,12 @@ installer and a private admin panel.**
 | 🔢 Passcode lock after the password | ❌ | ✅ |
 | 📱 Two-factor authentication (TOTP) + recovery codes | plugin needed | ✅ **built in** |
 | 🧱 Brute-force lockout for passcode and 2FA | ❌ | ✅ |
-| 📤 Send As other addresses, each through **its own SMTP server**, verified with a code | ➖ one server only | ✅ **like Gmail** |
+| 📤 **Send As**: every address with **its own SMTP server**, proven with a code | ➖ one server only | ✅ **built in** |
 | 🧷 "Remember this device" with automatic idle sign-out | ➖ | ✅ |
 | ✍️ Editor with LTR + RTL in the same email | ➖ | ✅ |
 | 🧙 Web installer that checks your hosting panel | basic | ✅ **with fix steps per panel** |
 | 🧑‍💼 Admin panel (users, policy, backups, updates) | ❌ | ✅ |
 | 📊 Email deliverability score (SPF, DKIM, DMARC...) | ❌ | ✅ |
-| ✍️ Signed updates (Ed25519) | ❌ | ✅ |
 | 🌐 No third-party requests (fonts and icons included) | ✅ | ✅ |
 
 ---
@@ -151,26 +150,27 @@ and work toward protecting the other doors too. See the [roadmap](#roadmap).
 
 <a id="send-as"></a>
 
-## 📤 Send As: send from all your addresses
+## 📤 Send As: one webmail for all your addresses
 
-Do you have more than one address, for example `you@company.com`, `sales@shop.com` and a Gmail address? With
-**Send As** you write from all of them in one place, like Gmail's "Send mail as".
+Most people have more than one email address: a work address, a shop or project address, a personal address.
+With **Send As** you write from **all of them in SynapseMail**. No more switching between apps and accounts.
 
-- 🧙 **A simple wizard**: type the address and SynapseMail **finds the server settings** for you (known
-  providers, the domain's own settings file, DNS and the mail server). You can change every setting.
-- 🔢 **Verified with a code**: a 6-digit code is sent to the new address **through its own server**. So the
-  password works, and you really own the address.
-- 📮 **Each address sends through its own SMTP server**, so your mail passes SPF, DKIM and DMARC and **does not go to
-  spam**. Addresses of your own server can also use this server.
+- 🧙 **Smart setup wizard**: type the address, and SynapseMail **finds the server settings by itself**. It knows the
+  popular mail providers and reads the settings that a domain publishes. You can still change every setting.
+- 🔢 **Proven with a code**: a 6-digit code goes to the new address **through its own server**. Only the real owner
+  can add an address, so nobody can send email in somebody else's name.
+- 📮 **The right server for every address**: each address sends through **its own SMTP server**, so SPF, DKIM and
+  DMARC pass and your email lands in the **inbox, not in spam**.
 - ✍️ **A name and a signature for each address**, and one **default address**.
-- ↩️ **Replies** come from the address the message was sent to (or always from your default, you choose).
-- 🔐 **Safe by design**: passwords are encrypted, the password is **only sent over TLS**, certificates are checked,
-  and private network addresses are blocked.
-- 💡 **Helpful tips**: for example "Gmail needs an App Password" or "Microsoft 365 needs SMTP AUTH".
+- ↩️ **Smart replies**: a reply comes from the address the message was sent to (or always from your default).
+- 🔐 **Built like a security product**: passwords are encrypted with your install key, they are **only sent over
+  TLS**, certificates are checked, private networks are blocked, and every change is logged.
+- 🧱 **Clear help when something is wrong**: wrong password, App Password needed, a certificate for another name,
+  or a hosting firewall that blocks outgoing mail. SynapseMail tells you what happened and **how to fix it**.
+- 🏠 **On your own server**: your addresses, passwords and settings stay with you, not with an outside service.
 
-> 📰 **Why now?** Google is ending Gmail's "Send mail as" for addresses from other providers in **January 2027**
-> ([Google Help](https://support.google.com/mail/answer/17101213)). With SynapseMail you keep this feature on your
-> own server. 📖 [Send As guide](docs/SEND_AS.md)
+Works with **any SMTP server**: your hosting mail (cPanel, Plesk, DirectAdmin...), your company mail server and
+popular mail providers (App Passwords supported). 📖 [Send As guide](docs/SEND_AS.md)
 
 ---
 
@@ -209,7 +209,6 @@ The admin panel lives at a **private address** (`/admin/<secret-key>`). People w
   outgoing mail connections
 - 📊 **Deliverability score**: MX, PTR, SPF, DKIM, DMARC, TLS and blacklist checks for your domains
 - 💾 **Encrypted backup and restore**
-- ⬆️ **Signed update checks**: a new version is shown only if its Ed25519 signature is valid
 - 📜 **Logs** for sign-ins and admin actions
 
 ---
@@ -290,9 +289,9 @@ Yes. Persian and Arabic are included, and one email can mix LTR and RTL paragrap
 Yes, free to use and share. It is source-available under CC BY-NC-ND 4.0: you cannot sell it or publish
 changed versions. See [License](#license).
 
-**Gmail is ending "Send mail as" for other addresses. Can SynapseMail do it?**
-Yes. Settings › Send As adds any address with its own SMTP server, a code check, its own name and signature, and a
-default address. See the [Send As guide](docs/SEND_AS.md).
+**Can I send from my other email addresses?**
+Yes. Settings › Send As adds any address with its own SMTP server. The wizard finds the settings, a code proves
+the address, and each address has its own name and signature. See the [Send As guide](docs/SEND_AS.md).
 
 **Do I need MySQL?**
 No. SynapseMail uses SQLite, so there is nothing extra to set up.
@@ -310,9 +309,10 @@ step, together with the people who use it. 💪
 - Passcode lock, 2FA with recovery codes, lockouts, device trust and idle sign-out
 - 📤 Send As: other addresses with their own SMTP server, a setup wizard and a code check
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
-- Web installer with hosting panel detection, and an admin panel with signed updates
+- Web installer with hosting panel detection, and a private admin panel with health checks and backups
 
 ### 🛠️ Next steps (planned)
+- ⬆️ **Signed updates** shown in the admin panel when a new version is out
 - ⚡ **One-command installer** for Linux servers and SSH accounts, with signature checks and a terminal interface
 - 🖥️ **Server edition for WHM**: install once for the whole server and manage it from WHM, with the option to make
   SynapseMail the only webmail on the server
@@ -322,7 +322,7 @@ step, together with the people who use it. 💪
 ### 💭 Ideas we are exploring
 - 🔐 Ways to protect **IMAP and SMTP** as well, together with the mail server
 - 🗝️ Passkeys and more sign-in options
-- 🔑 OAuth sign-in for Send As with Gmail and Microsoft (no App Password needed)
+- 🔑 OAuth sign-in for Send As (no App Password needed)
 - 🌍 More languages
 
 Have an idea or a need? [Open an issue](../../issues) and tell us. ⭐ **Star the repository** to follow the journey.
@@ -331,8 +331,11 @@ Have an idea or a need? [Open an issue](../../issues) and tell us. ⭐ **Star th
 
 ## 🔄 Updating
 
-Extract the new zip over your install folder. Your settings and data are kept. The admin panel tells you when a
-new **signed** version is available. See the [changelog](CHANGELOG.md).
+1. Download the new `SynapseMail_v<version>.zip` from [Releases](../../releases).
+2. Extract it over your install folder. Your settings and data are kept.
+
+👀 Tip: on GitHub, choose **Watch › Custom › Releases** to get a message when a new version is out. See the
+[changelog](CHANGELOG.md).
 
 ---
 
@@ -342,8 +345,6 @@ new **signed** version is available. See the [changelog](CHANGELOG.md).
 |---|---|
 | `app/` | 📦 the complete package: Roundcube 1.7.5 + SynapseMail ([file list](app/SYNAPSEMAIL-FILES.txt)) |
 | `editor/` | ✍️ source code of the email editor (Lexical) |
-| `installer/` | ⚡ the one-command installer (next release) |
-| `repo-site/` | 🌐 the download website |
 | `tools/` | 🛠️ release build and helper scripts |
 | `docs/` | 📖 help, troubleshooting and screenshots |
 
@@ -359,7 +360,7 @@ Self-test: `php app/plugins/synapse_core/tests/selftest.php`
 SynapseMail is **source-available, not open source**.
 
 - 🟦 **SynapseMail parts** (`skins/synapse`, `plugins/synapse_*`, the installer and admin pages,
-  `config/config.inc.php`, `editor/`, `installer/`, `repo-site/`, `tools/`):
+  `config/config.inc.php`, `editor/`, `tools/`):
   [Creative Commons BY-NC-ND 4.0](LICENSE-SYNAPSEMAIL.txt).
   ✅ Use and share it for free, with credit. ❌ Do not sell it or share changed versions.
 - 🟩 **Roundcube files** keep their GPL-3.0 license. See [app/README-ROUNDCUBE.md](app/README-ROUNDCUBE.md).
@@ -387,6 +388,7 @@ Copyright © 2026 SynapseCyber.io
 
 <sub>Keywords: secure webmail, self-hosted webmail, Roundcube alternative, Roundcube 2FA, webmail two-factor authentication,
 TOTP, passcode, cPanel webmail, Plesk webmail, DirectAdmin webmail, mobile webmail, responsive webmail, RTL email,
-Persian email client, Arabic email client, PHP webmail, IMAP client</sub>
+Persian email client, Arabic email client, PHP webmail, IMAP client, send as, multiple email addresses, SMTP per
+identity, email aliases</sub>
 
 </div>
