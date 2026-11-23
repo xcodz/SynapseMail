@@ -1,5 +1,12 @@
 # SynapseMail changelog
 
+## 3.5.1
+- **All inboxes.** Your inbox now shows the mail of all your addresses together, newest first, with a small label
+  on mail that came to another address. Nothing is copied: each message stays on its own server, and reading,
+  replying (from the right address), flags and delete work there. The mailbox menu still switches to a single
+  inbox: All inboxes, only your own mailbox, or one of your addresses. If one inbox cannot be reached, the others
+  are still listed and you see which one is missing.
+
 ## 3.5
 - **Read the inboxes of your Send As addresses.** Open any of your addresses from the new mailbox menu above the
   folders and read its mail on that address's own server (IMAP over TLS, port 993). Nothing is imported or copied

@@ -1,5 +1,5 @@
 <div class="reader-body" id="readerBody">
-	<div class="reader-kicker" id="readerChannel"><roundcube:exp expression="strtoupper(rcmail_action::localize_foldername(env:mailbox ?: 'INBOX', false, true))" /> // EMAIL-<roundcube:exp expression="str_pad(env:uid, 4, '0', STR_PAD_LEFT)" /></div>
+	<div class="reader-kicker" id="readerChannel"><roundcube:exp expression="strtoupper(env:synapse_box_name ?: rcmail_action::localize_foldername(env:mailbox ?: 'INBOX', false, true))" /> // EMAIL-<roundcube:exp expression="str_pad(env:uid, 4, '0', STR_PAD_LEFT)" /></div>
 	<h1 id="readerSubject"><roundcube:object name="messageHeaders" valueOf="subject" /></h1>
 	<div class="reader-meta">
 		<div class="reader-avatar" id="readerAvatar">SM</div>

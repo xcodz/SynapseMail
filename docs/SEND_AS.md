@@ -45,13 +45,19 @@ address's mailbox **on its own server**, and your main mailbox stays as it is.
 3. Keep "Use the password this address sends with" (App Passwords work for IMAP too), or enter another password.
 4. **Test and turn on** signs in once and shows how many messages are unread.
 
-On the mail screen, the **mailbox menu above the folders** lists your own mailbox and every inbox with its unread
-count. While another inbox is open, a bar says which one, with **Back to my inbox**. Its own folders are used (Sent,
-Drafts and Trash are found automatically), and new mail and replies come from that address. Gmail and Microsoft
-keep their own copy of sent mail, so SynapseMail does not add a second one there.
+Your **Inbox shows all inboxes together** (All inboxes), newest first. Mail that came to another address has a
+small label with that address. Each message stays on its own server: opening it, replying (from that address),
+flags and delete work there, and a deleted message goes to the Trash of that inbox.
+
+The **mailbox menu above the folders** switches the view: **All inboxes**, only your own mailbox, or one address
+with its own folders (Sent, Drafts and Trash are found automatically). While one other inbox is open, a bar says
+which one, with **Back to all inboxes**, and new mail and replies come from that address. Gmail and Microsoft keep
+their own copy of sent mail, so SynapseMail does not add a second one there.
 
 - Only **IMAP over TLS on port 993** is used, the certificate is checked and private networks are blocked.
 - Settings, contacts and filters always belong to your own account.
+- In All inboxes, an inbox that cannot be reached is left out of the list and a message says which one.
+  Search there covers your own mailbox; open one address from the menu to search its mail.
 - If the password of that inbox changes, SynapseMail returns to your own inbox and tells you. Enter the new password
   under Inbox in the address settings. **Turn off inbox** removes it (the mail stays on its server).
 - Hosting firewalls must allow outgoing port **993** (CSF: add 993 to `TCP_OUT`).

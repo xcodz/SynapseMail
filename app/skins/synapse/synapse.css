@@ -976,6 +976,8 @@ html.iframe body.action-preview .reader-body { height: 100%; }
 
 /* ---------- 3.5 other inboxes: mailbox switcher, "viewing" bar ---------- */
 .ib-switch { position: relative; margin: 0 5px 14px; }
+/* All inboxes: mail that came to another address */
+.channel-badge.ib-badge { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); font: 500 10px/1.3 Inter, system-ui, sans-serif; letter-spacing: 0; }
 .ib-current { display: grid; grid-template-columns: 32px minmax(0, 1fr) 16px; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 7px 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 80%, transparent); color: var(--text); text-align: left; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
 .ib-current:hover { border-color: var(--line-strong); }
 .ib-current:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }

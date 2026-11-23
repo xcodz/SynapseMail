@@ -28,6 +28,8 @@ class rcube_demo extends rcube_storage
     protected $search_set = null;
     protected $search_sort_field = null;
     protected $parsed = [];
+    /** @var string|null sample mailbox folder of an other inbox listed in All inboxes */
+    public $dir = null;
 
     /* ---------------- connection ---------------- */
 
@@ -102,7 +104,7 @@ class rcube_demo extends rcube_storage
     {
         if (empty($_SESSION['synapse_demo_box'])) {
             // another inbox (Send As address) open: its own sample mailbox
-            $_SESSION['synapse_demo_box'] = self::fresh_box(empty($_SESSION['synapse_inbox']) ? 'mail' : 'mail-studio');
+            $_SESSION['synapse_demo_box'] = self::fresh_box($this->dir ?: (empty($_SESSION['synapse_inbox']) ? 'mail' : 'mail-studio'));
         }
 
         return $_SESSION['synapse_demo_box'];

@@ -925,7 +925,9 @@ var UI = (function () {
     if (row.style) $.extend(tr.style, row.style);
     if (message.replied) flags.push('replied');
     if (message.forwarded) flags.push('forwarded');
-    if (folder) badge = '<span class="channel-badge">' + folder + '</span>';
+    var inbox = ((rc.env.synapse_inbox || {}).names || {})[message.mbox]; // All inboxes: mail of another address
+    if (inbox) badge = '<span class="channel-badge ib-badge" title="' + esc(t('ib_sent_to', { email: inbox })) + '">' + esc(inbox) + '</span>';
+    else if (folder) badge = '<span class="channel-badge">' + folder + '</span>';
     else if (message.prio && message.prio < 3) badge = '<span class="channel-badge CYBER">' + esc(t('badge_urgent')) + '</span>';
     else if (message.replied) badge = '<span class="channel-badge">' + esc(t('badge_replied')) + '</span>';
     else if (message.forwarded) badge = '<span class="channel-badge COMMAND">' + esc(t('badge_fwd')) + '</span>';
@@ -1775,22 +1777,23 @@ var UI = (function () {
     var button = byId('inboxButton');
     var render = function () {
       var cur = data.inboxes.filter(function (x) { return x.iid == data.active; })[0] || data.inboxes[0];
+      var avatar = function (x) { return x.all ? '<i data-lucide="inbox"></i>' : esc(initials(x.name || x.email)); };
       byId('inboxCurrent').textContent = cur.email;
-      var who = doc.querySelector('#quotaCard small'); if (who && data.active) who.textContent = cur.email; // storage card: the open mailbox
-      host.querySelector('.ib-avatar').textContent = initials(cur.name || cur.email);
+      var who = doc.querySelector('#quotaCard small'); if (who && data.active > 0) who.textContent = cur.email; // storage card: the open mailbox
+      host.querySelector('.ib-avatar').innerHTML = avatar(cur);
       menu.innerHTML = '<div class="ib-menu-h">' + esc(t('ib_menu_title')) + '</div>' + data.inboxes.map(function (x) {
         var on = x.iid == data.active;
         return '<button type="button" role="menuitemradio" aria-checked="' + on + '" class="ib-item' + (on ? ' active' : '') + '" data-iid="' + x.iid + '">'
-          + '<span class="ib-avatar" aria-hidden="true">' + esc(initials(x.name || x.email)) + '</span><span class="ib-text"><b>' + esc(x.email) + '</b><small>'
-          + esc(x.iid ? t('ib_other_note') : t('ib_own_note')) + '</small></span>'
+          + '<span class="ib-avatar" aria-hidden="true">' + avatar(x) + '</span><span class="ib-text"><b>' + esc(x.email) + '</b><small>'
+          + esc(t(x.all ? 'ib_all_note' : x.own ? 'ib_own_note' : 'ib_other_note')) + '</small></span>'
           + (x.unseen ? '<em class="ib-count" aria-label="' + esc(t('ib_unread', { n: x.unseen })) + '">' + x.unseen + '</em>' : '') + (on ? '<i data-lucide="check"></i>' : '') + '</button>';
       }).join('') + '<a class="ib-manage" href="./?_task=settings&_action=identities"><i data-lucide="settings-2"></i><span>' + esc(t('ib_manage')) + '</span></a>';
       menu.querySelectorAll('[data-iid]').forEach(function (b) { b.onclick = function () { open(+b.dataset.iid); }; });
-      var others = data.inboxes.filter(function (x) { return x.iid != data.active && x.unseen; }).length;
+      var others = data.active ? data.inboxes.filter(function (x) { return x.iid != data.active && !x.all && x.unseen; }).length : 0;
       button.classList.toggle('has-new', others > 0);
       if (bar) {
-        bar.hidden = !data.active;
-        if (data.active) {
+        bar.hidden = !(data.active > 0);
+        if (data.active > 0) {
           bar.innerHTML = '<i data-lucide="inbox"></i><p>' + esc(t('ib_bar', { email: cur.email })) + '</p><button type="button" class="ghost-btn" data-back>' + esc(t('ib_back')) + '</button>';
           bar.querySelector('[data-back]').onclick = function () { open(0); };
         }
@@ -2103,7 +2106,7 @@ var UI = (function () {
     byId('readerEmail').textContent = email && email != name ? '<' + email + '>' : '';
     byId('readerAvatar').textContent = initials(name || email);
     byId('toggleHeaders').addEventListener('click', function () { var h = byId('readerHeaders'); h.hidden = !h.hidden; });
-    var cls = t(rc.env.is_draft ? 'draft_caps' : 'encryptedemail') + ' // ' + (rc.env.mailbox || 'INBOX').toUpperCase();
+    var cls = t(rc.env.is_draft ? 'draft_caps' : 'encryptedemail') + ' // ' + (rc.env.synapse_box_name || rc.env.mailbox || 'INBOX').toUpperCase();
     var tui = topUI();
     var inWindow = false;
     try { inWindow = !!(window.frameElement && window.frameElement.classList.contains('msg-window-frame')); } catch (e) { }

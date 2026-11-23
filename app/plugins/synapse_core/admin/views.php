@@ -531,7 +531,8 @@ function view_updates($RC, $A)
         . code_input()
         . '<div class="adm-form-actions">' . button('Upload and install', ['icon' => 'upload', 'attrs' => ['data-busy' => 'Installing…']]) . '</div></form>');
 
-    $server = section('Update server', 'SynapseMail reads <code>release.json</code> and its signature from here once a day and when you click "Check now".',
+    // hidden for now (internal); the update_url action and setting still work
+    $server = ''; if (false) $server = section('Update server', 'SynapseMail reads <code>release.json</code> and its signature from here once a day and when you click "Check now".',
         form('update_url', input('Manifest address', 'url', ['value' => (string) synapse_core::setting('update_url'), 'class' => 'adm-mono-input', 'hint' => 'Empty uses the default: ' . $RC->config->get('synapse_update_url'), 'attrs' => ['type' => 'url', 'spellcheck' => 'false', 'placeholder' => (string) $RC->config->get('synapse_update_url')]])
         . '<div class="adm-form-actions">' . button('Save', ['tone' => 'ghost', 'icon' => 'save']) . '</div>', 'adm-form'));
 

@@ -18,6 +18,8 @@
  *
  * Session: synapse_inbox = identity id of the open inbox (0/none = own mailbox). The IMAP caches core keeps in the
  * session (namespace, folders, capabilities, current folder, search) are swapped per mailbox.
+ * All inboxes (the default when a user has other inboxes): the own INBOX also lists their mail, see synapse_router.
+ * synapse_inbox_mine = true when the user chose to see the own mailbox only.
  */
 class synapse_inbox
 {
@@ -31,6 +33,10 @@ class synapse_inbox
 
     private $plugin;
     private static $failed = null;
+    /** @var array other inboxes of this request (identity id => row) while the own mailbox is open */
+    public static $others = [];
+    /** @var bool the own INBOX lists the other inboxes too */
+    public static $all = false;
 
     public function __construct(rcube_plugin $plugin)
     {
@@ -48,8 +54,41 @@ class synapse_inbox
         $p->add_hook('identity_delete', [$this, 'identity_delete']);
 
         $iid = self::active();
-        if ($rcmail->task === 'mail' && !empty($rcmail->output) && $rcmail->output->type === 'html' && $rcmail->user && $rcmail->user->ID) {
-            $rcmail->output->set_env('synapse_inbox', ['on' => self::enabled() && (bool) self::rows($rcmail->user->ID), 'active' => $iid]);
+        $user = $rcmail->task === 'mail' && $rcmail->user && $rcmail->user->ID;
+        if ($user && !$iid && self::enabled()) {
+            self::$others = self::rows($rcmail->user->ID);
+            $driver = $rcmail->config->get('storage_driver', 'imap');
+            if (self::$others && in_array($driver, ['imap', 'demo'], true)) {
+                // own mailbox open: storage that also reaches the other inboxes (All inboxes, and their messages in it)
+                self::$all = empty($_SESSION['synapse_inbox_mine']);
+                spl_autoload_register(static function ($class) {
+                    if ($class === 'rcube_synapse' || $class === 'rcube_demo_all') {
+                        require_once __DIR__ . '/synapse_router.php';
+                    }
+                });
+                $rcmail->config->set('storage_driver', $driver === 'demo' ? 'demo_all' : 'synapse');
+                if (self::$all) {
+                    $p->add_hook('render_response', [$this, 'render_response']);
+                    $p->add_hook('message_read', [$this, 'message_read']);
+                }
+            } else {
+                self::$others = [];
+            }
+        }
+        if (self::$others && !empty($rcmail->output) && ($v = self::parse_folder(rcube_utils::get_input_string('_mbox', rcube_utils::INPUT_GPC, true)))) {
+            // a message of another inbox: its address instead of the internal folder name
+            $rcmail->output->set_env('synapse_box_name', rcube_utils::idn_to_utf8(self::$others[$v[0]]['email'] ?? ''));
+        }
+        if ($user && !self::$others && strncmp((string) ($_SESSION['mbox'] ?? ''), '@sm#', 4) === 0) {
+            $_SESSION['mbox'] = 'INBOX'; // a message of another inbox was open when that inbox was turned off
+        }
+        if ($user && !empty($rcmail->output) && $rcmail->output->type === 'html') {
+            $names = [];
+            foreach (self::$others as $id => $r) {
+                $names[self::folder_of($id)] = rcube_utils::idn_to_utf8($r['email']);
+            }
+            // names: the message list marks mail of other inboxes with their address
+            $rcmail->output->set_env('synapse_inbox', ['on' => self::enabled() && (bool) self::rows($rcmail->user->ID), 'active' => $iid, 'all' => self::$all, 'names' => $names]);
         }
         if (!$iid) {
             return;
@@ -150,7 +189,7 @@ class synapse_inbox
     }
 
     /** Password of an inbox: its own, or (empty) the one the address sends with */
-    private static function password(array $row)
+    public static function password(array $row)
     {
         if ($row['password'] !== '') {
             return synapse_secret::decrypt($row['password'], self::key());
@@ -251,6 +290,99 @@ class synapse_inbox
         return $args;
     }
 
+    /** Folder name of another inbox's folder in the own mailbox view */
+    public static function folder_of($iid, $folder = 'INBOX')
+    {
+        return '@sm#' . (int) $iid . ':' . $folder;
+    }
+
+    /** [identity id, real folder] of a folder name of another inbox ("@sm#<id>:<folder>"), null for own folders */
+    public static function parse_folder($folder)
+    {
+        return is_string($folder) && strncmp($folder, '@sm#', 4) === 0 && preg_match('/^@sm#(\d+):(.+)$/s', $folder, $m) ? [(int) $m[1], $m[2]] : null;
+    }
+
+    /** Connected IMAP storage of another inbox for All inboxes, or null */
+    public static function kid_imap($iid)
+    {
+        $rcmail = rcmail::get_instance();
+        $row = self::$others[$iid] ?? null;
+        $pw = $row ? self::password($row) : null;
+        $o = $pw ? self::conn_options($row['host']) : 'failed';
+        if (is_string($o)) {
+            return null;
+        }
+        $kid = new rcube_imap();
+        $kid->set_options(['socket_options' => $o['socket_options'], 'timeout' => $o['timeout'], 'auth_type' => null, 'skip_deleted' => $rcmail->config->get('skip_deleted')]);
+        $kid->set_caching(false);
+        $kid->set_messages_caching(false);
+        $kid->set_charset($rcmail->config->get('default_charset', RCUBE_CHARSET));
+
+        return $kid->connect($o['host'], $row['username'], $pw, self::PORT, 'ssl') ? $kid : null;
+    }
+
+    /** Run $fn with the session caches of another inbox (its namespace, folder stats, capabilities), then put the own ones back */
+    public static function in_bag($iid, callable $fn)
+    {
+        $keys = self::SESSION_KEYS;
+        foreach (array_keys($_SESSION) as $k) {
+            if (strpos($k, 'STORAGE_') === 0) {
+                $keys[] = $k;
+            }
+        }
+        $own = [];
+        foreach ($keys as $k) {
+            $own[$k] = $_SESSION[$k] ?? null;
+            $_SESSION[$k] = null;
+        }
+        foreach ($_SESSION['synapse_inbox_bags'][$iid] ?? [] as $k => $v) {
+            $_SESSION[$k] = $v;
+        }
+        try {
+            return $fn();
+        } finally {
+            foreach (array_keys($_SESSION) as $k) {
+                if (strpos($k, 'STORAGE_') === 0 && !in_array($k, $keys, true)) {
+                    $keys[] = $k;
+                }
+            }
+            $bag = [];
+            foreach ($keys as $k) {
+                if (isset($_SESSION[$k])) {
+                    $bag[$k] = $_SESSION[$k];
+                }
+                $_SESSION[$k] = $own[$k] ?? null;
+            }
+            $_SESSION['synapse_inbox_bags'][$iid] = $bag;
+        }
+    }
+
+    /** Trash, Junk or Archive of another inbox (found once per session) */
+    public static function special_of($iid, $kid, $type)
+    {
+        if (!isset($_SESSION['synapse_inbox_special'][$iid])) {
+            if (!$kid) {
+                return null;
+            }
+            $_SESSION['synapse_inbox_special'][$iid] = self::demo() ? ['drafts' => 'Drafts', 'sent' => 'Sent', 'trash' => 'Trash', 'junk' => 'Junk']
+                : self::in_bag($iid, static function () use ($kid, $iid) { return self::special_folders($kid, self::$others[$iid]['host'] ?? ''); });
+        }
+
+        return $_SESSION['synapse_inbox_special'][$iid][$type] ?? null;
+    }
+
+    /** All inboxes could not reach one of the inboxes: say so once on the list */
+    public static function unreachable($iid)
+    {
+        static $said = [];
+        $rcmail = rcmail::get_instance();
+        if (isset($said[$iid]) || empty($rcmail->output) || $rcmail->action !== 'list') {
+            return;
+        }
+        $said[$iid] = true;
+        $rcmail->output->show_message($rcmail->gettext(['name' => 'ib_unreachable', 'vars' => ['email' => rcube_utils::idn_to_utf8(self::$others[$iid]['email'] ?? '')]], 'synapse_core'), 'warning');
+    }
+
     /** Swap core's per-mailbox session caches and open another mailbox (0 = own) */
     private static function swap($iid)
     {
@@ -285,10 +417,12 @@ class synapse_inbox
     {
         $found = [];
         $rcmail = rcmail::get_instance();
-        foreach (['drafts', 'sent', 'junk', 'trash', 'archive'] as $type) {
-            $rcmail->config->set($type . '_mbox', null);
+        $keep = [];
+        foreach (['drafts', 'sent', 'junk', 'trash', 'archive', 'lock_special_folders'] as $type) {
+            $key = $type === 'lock_special_folders' ? $type : $type . '_mbox';
+            $keep[$key] = $rcmail->config->get($key);
+            $rcmail->config->set($key, $type === 'lock_special_folders' ? false : null);
         }
-        $rcmail->config->set('lock_special_folders', false);
         foreach ($storage->get_special_folders(true) as $type => $folder) {
             $found[$type] = $folder;
         }
@@ -304,6 +438,9 @@ class synapse_inbox
         // the provider already keeps sent mail (it would be there twice)
         if (preg_match(self::SAVES_SENT, strtolower($host))) {
             unset($found['sent']);
+        }
+        foreach ($keep as $key => $value) {
+            $rcmail->config->set($key, $value);
         }
 
         return $found;
@@ -321,6 +458,32 @@ class synapse_inbox
                     $args['selected'] = $i;
                 }
             }
+        }
+
+        return $args;
+    }
+
+    /** All inboxes: when the unread count of another inbox changed, the Inbox count (their sum) changed too */
+    public function render_response($args)
+    {
+        $exec = (string) ($args['response']['exec'] ?? '');
+        if (strpos($exec, 'set_unread_count("@sm#') !== false && strpos($exec, 'set_unread_count("INBOX"') === false) {
+            $n = (int) rcmail::get_instance()->get_storage()->count('INBOX', 'UNSEEN', true);
+            rcmail_action_mail_index::set_unseen_count('INBOX', $n);
+            $args['response']['exec'] = $exec . 'this.set_unread_count("INBOX",' . $n . ',true,"");';
+        }
+
+        return $args;
+    }
+
+    /** All inboxes: a message of another inbox opened in the preview lowers the Inbox count (core sets SEEN right after) */
+    public function message_read($args)
+    {
+        $rcmail = rcmail::get_instance();
+        if (self::parse_folder($args['mailbox'] ?? '') && $rcmail->action === 'preview') {
+            $n = max(0, (int) $rcmail->get_storage()->count('INBOX', 'UNSEEN', true) - 1);
+            rcmail_action_mail_index::set_unseen_count('INBOX', $n);
+            $rcmail->output->command('parent.set_unread_count', 'INBOX', $n, true);
         }
 
         return $args;
@@ -355,6 +518,7 @@ class synapse_inbox
         $rcmail = rcmail::get_instance();
         $uid = (int) $rcmail->user->ID;
         $active = (int) ($_SESSION['synapse_inbox'] ?? 0);
+        $mode = $active ?: (empty($_SESSION['synapse_inbox_mine']) ? 0 : -1);
         $rows = self::enabled() ? self::rows($uid) : [];
         $cache = $_SESSION['synapse_inbox_counts'] ?? [];
         $fresh = !empty($_POST['_fresh']) || ($cache['time'] ?? 0) < time() - self::COUNTS_TTL || array_keys($cache['n'] ?? []) != array_merge([0], array_keys($rows));
@@ -377,16 +541,25 @@ class synapse_inbox
                 }
                 if ($active) {
                     $n[0] = self::own_unseen();
+                } else {
+                    $storage = $rcmail->get_storage();
+                    $n[0] = method_exists($storage, 'sm_own_count') ? $storage->sm_own_count() : $storage->count('INBOX', 'UNSEEN');
                 }
             }
             $cache = ['time' => time(), 'n' => $n];
             $_SESSION['synapse_inbox_counts'] = $cache;
         }
-        $list = [['iid' => 0, 'email' => self::own_email(), 'name' => (string) ($rcmail->user->get_identity()['name'] ?? ''), 'unseen' => $cache['n'][0] ?? null]];
+        $list = [];
+        if ($rows) {
+            // All inboxes first: the default view
+            $known = array_filter($cache['n'], 'is_int');
+            $list[] = ['iid' => 0, 'all' => true, 'email' => $this->plugin->gettext('ib_all'), 'name' => '', 'unseen' => count($known) === count($cache['n']) ? array_sum($known) : null];
+        }
+        $list[] = ['iid' => $rows ? -1 : 0, 'own' => true, 'email' => self::own_email(), 'name' => (string) ($rcmail->user->get_identity()['name'] ?? ''), 'unseen' => $cache['n'][0] ?? null];
         foreach ($rows as $iid => $r) {
             $list[] = ['iid' => $iid, 'email' => rcube_utils::idn_to_utf8($r['email']), 'name' => $r['name'], 'unseen' => $cache['n'][$iid] ?? null];
         }
-        $this->plugin->json(['ok' => true, 'active' => $active, 'inboxes' => $list]);
+        $this->plugin->json(['ok' => true, 'active' => $rows ? $mode : $active, 'inboxes' => $list]);
     }
 
     private static function own_email()
@@ -412,18 +585,26 @@ class synapse_inbox
         return is_array($st) ? (int) ($st['UNSEEN'] ?? 0) : null;
     }
 
-    /** Open another inbox (or the own one with _iid=0); the browser reloads the mail screen */
+    /** Open another inbox (_iid = identity id), All inboxes (0) or only the own mailbox (-1); the browser reloads the mail screen */
     public function action_switch()
     {
         $this->plugin->require_post();
         $rcmail = rcmail::get_instance();
         $iid = (int) $this->input('iid');
         $rows = self::rows($rcmail->user->ID);
-        if ($iid && (!self::enabled() || !isset($rows[$iid]))) {
+        if ($iid > 0 && (!self::enabled() || !isset($rows[$iid]))) {
             $this->fail('notfound');
         }
+        $mine = $iid < 0;
+        $iid = max(0, $iid);
         $prev = (int) ($_SESSION['synapse_inbox'] ?? 0);
+        $_SESSION['synapse_inbox_mine'] = $mine ?: null;
+        $_SESSION['synapse_inbox_counts'] = null;
+        $_SESSION['unseen_count'] = null; // the Inbox count means something else in each view
         if ($iid === $prev) {
+            if (strncmp((string) ($_SESSION['mbox'] ?? ''), '@sm#', 4) === 0) {
+                $_SESSION['mbox'] = 'INBOX';
+            }
             $this->plugin->json(['ok' => true]);
         }
         self::swap($iid);
@@ -451,7 +632,7 @@ class synapse_inbox
             }
         }
         $_SESSION['synapse_inbox_counts'] = null;
-        synapse_core::security_log('user ' . $rcmail->get_user_name() . ' opened ' . ($iid ? 'the inbox of ' . $rows[$iid]['email'] : 'the own inbox'));
+        synapse_core::security_log('user ' . $rcmail->get_user_name() . ' opened ' . ($iid ? 'the inbox of ' . $rows[$iid]['email'] : ($mine ? 'the own inbox' : 'all inboxes')));
         $this->plugin->json(['ok' => true]);
     }
 

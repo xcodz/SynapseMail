@@ -224,6 +224,15 @@ $check(strpos($src, "'verify_peer' => true, 'verify_peer_name' => true") !== fal
 $check(strpos($inbox, 'public const PORT = 993;') !== false && strpos($inbox, "'ssl_mode' => 'ssl'") !== false, 'other inboxes use IMAP over TLS on port 993 only');
 $check(strpos($inbox, "'verify_peer' => true, 'verify_peer_name' => true") !== false && strpos($inbox, 'synapse_sendas::resolve($host)') !== false, 'other inboxes check certificates and block private addresses');
 $check(strpos($inbox, "\$rcmail->task === 'mail'") !== false, 'other inboxes only replace the mailbox on the mail screens');
+// All inboxes: folder names of other inboxes, and every message call routed to the right server
+require_once __DIR__ . '/../lib/synapse_inbox.php';
+$check(synapse_inbox::parse_folder(synapse_inbox::folder_of(12, 'Sent Items')) === [12, 'Sent Items'] && synapse_inbox::parse_folder('INBOX') === null
+    && synapse_inbox::parse_folder('@sm#x:INBOX') === null && synapse_inbox::parse_folder('@sm#3:') === null, 'all inboxes: folder names of other inboxes round-trip, own folders stay own');
+$router = (string) file_get_contents(__DIR__ . '/../lib/synapse_router.php');
+$routed = ['count', 'list_messages', 'get_message_headers', 'get_message', 'get_message_part', 'get_raw_body', 'get_raw_headers', 'print_raw_body', 'set_flag',
+    'move_message', 'copy_message', 'delete_message', 'expunge_message', 'list_flags', 'index', 'folder_status', 'folder_info', 'folder_data', 'folder_exists'];
+$check(!array_filter($routed, static function ($f) use ($router) { return strpos($router, "public function {$f}(") === false; }), 'all inboxes: every message call of another inbox goes to its own server');
+$check(strpos($router, 'isset(synapse_inbox::$others[$iid])') !== false && strpos($inbox, 'self::rows($rcmail->user->ID)') !== false, 'all inboxes: only the signed-in user\'s own inboxes can be opened');
 
 // the public demo switches stay off in a normal install (only the demo build turns them on)
 $cfg = (string) file_get_contents(__DIR__ . '/../../../config/config.inc.php');

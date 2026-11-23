@@ -8,7 +8,7 @@
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.5-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.5.1-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
@@ -19,7 +19,7 @@
 ![RTL](https://img.shields.io/badge/RTL-Persian%20%7C%20Arabic-9b59b6)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5](#new) · [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.1](#new) · [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -40,15 +40,15 @@ Sample data only. No mail server is connected and nothing is sent.
 
 <a id="new"></a>
 
-## ✨ New in 3.5: send **and read** from every address
+## ✨ New in 3.5.1: send **and read** from every address
 
-| 📥 Switch between your inboxes | 👀 Read another address, nothing imported |
+| 📥 All your addresses in one inbox | 🔀 Or open one inbox at a time |
 |:---:|:---:|
-| <img src="docs/screenshots/inbox-menu.webp" alt="SynapseMail mailbox menu: switch between your own inbox and the inboxes of your Send As addresses" width="100%"> | <img src="docs/screenshots/other-inbox.webp" alt="SynapseMail reading the inbox of another address over IMAP, with a Back to my inbox bar" width="100%"> |
+| <img src="docs/screenshots/all-inboxes.webp" alt="SynapseMail All inboxes: mail of every address in one list, labeled with the address it came to, read on its own server" width="100%"> | <img src="docs/screenshots/inbox-menu.webp" alt="SynapseMail mailbox menu: All inboxes, your own mailbox, or one of your Send As addresses" width="100%"> |
 
-- 📥 **Other inboxes, one click away.** Open the inbox of any of your Send As addresses from the menu above the
-  folders. The mail stays **on that address's own server**: nothing is copied into your main mailbox, and
-  **"Back to my inbox"** brings you home. Unread counts for every mailbox, and replies come from the right address.
+- 📥 **All inboxes in one list.** Your inbox shows the mail of all your Send As addresses together, each message
+  labeled with the address it came to. The mail stays **on that address's own server**: nothing is copied into your
+  main mailbox. Replies come from the right address, and the menu above the folders still opens one inbox at a time.
 - ⬆️ **Updates from the admin panel.** Check and install a new version with one click, or upload the release zip.
   Every release is **signed by SynapseCyber**: changed, unsigned or older zips are refused, your settings and data
   are never touched, and the replaced files are kept as a rollback copy.
@@ -97,7 +97,7 @@ installer and a private admin panel.**
 | 📱 Two-factor authentication (TOTP) + recovery codes | plugin needed | ✅ **built in** |
 | 🧱 Brute-force lockout for passcode and 2FA | ❌ | ✅ |
 | 📤 **Send As**: every address with **its own SMTP server**, proven with a code | ➖ one server only | ✅ **built in** |
-| 📥 **Read the inboxes** of your other addresses, without importing them | ❌ | ✅ |
+| 📥 **All inboxes in one list**: read your other addresses without importing them | ❌ | ✅ |
 | 🧷 "Remember this device" with automatic idle sign-out | ➖ | ✅ |
 | ✍️ Editor with LTR + RTL in the same email | ➖ | ✅ |
 | 🧙 Web installer that checks your hosting panel | basic | ✅ **with fix steps per panel** |
@@ -198,9 +198,9 @@ With **Send As** you write from **all of them in SynapseMail**. No more switchin
   DMARC pass and your email lands in the **inbox, not in spam**.
 - ✍️ **A name and a signature for each address**, and one **default address**.
 - ↩️ **Smart replies**: a reply comes from the address the message was sent to (or always from your default).
-- 📥 **Read their inboxes too**: open the mailbox of any of your addresses from the menu above the folders.
-  SynapseMail reads it **on that address's own server** (IMAP over TLS): nothing is copied into your main
-  mailbox, and one click brings you back. Replies come from the right address automatically.
+- 📥 **Read their inboxes too**: your inbox shows the mail of all your addresses together, or open one of them from
+  the menu above the folders. SynapseMail reads each message **on that address's own server** (IMAP over TLS):
+  nothing is copied into your main mailbox, and replies come from the right address automatically.
 - 🔐 **Built like a security product**: passwords are encrypted with your install key, they are **only sent over
   TLS**, certificates are checked, private networks are blocked, and every change is logged.
 - 🧱 **Clear help when something is wrong**: wrong password, App Password needed, a certificate for another name,
@@ -360,7 +360,7 @@ step, together with the people who use it. 💪
 ### ✅ Already here
 - Passcode lock, 2FA with recovery codes, lockouts, device trust and idle sign-out
 - 📤 Send As: other addresses with their own SMTP server, a setup wizard and a code check
-- 📥 Read the inboxes of those addresses in SynapseMail, without importing them
+- 📥 All inboxes in one list: read those addresses in SynapseMail, without importing them
 - ⬆️ Signed updates installed from the admin panel
 - 🎨 Appearance settings and the Soft Light theme
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
