@@ -1,5 +1,10 @@
 # SynapseMail changelog
 
+## 3.5.2
+- **Fix: "Connection to storage server failed" with All inboxes.** On servers where SynapseMail reaches its own mail
+  server as `ssl://localhost:993` (common on cPanel), turning on another inbox made the own mailbox skip its IMAP
+  connection settings, so the certificate check failed. The own mailbox now always uses its configured settings.
+
 ## 3.5.1
 - **All inboxes.** Your inbox now shows the mail of all your addresses together, newest first, with a small label
   on mail that came to another address. Nothing is copied: each message stays on its own server, and reading,

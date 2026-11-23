@@ -389,7 +389,7 @@ trait synapse_router
     }
 }
 
-/** IMAP storage with All inboxes ($config['storage_driver'] = 'synapse', set by synapse_inbox) */
+/** IMAP storage with All inboxes: put in place of rcube_imap by synapse_inbox::storage_init (storage_driver stays 'imap') */
 class rcube_synapse extends rcube_imap
 {
     use synapse_router;

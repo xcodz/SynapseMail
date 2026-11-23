@@ -61,12 +61,8 @@ class synapse_inbox
             if (self::$others && in_array($driver, ['imap', 'demo'], true)) {
                 // own mailbox open: storage that also reaches the other inboxes (All inboxes, and their messages in it)
                 self::$all = empty($_SESSION['synapse_inbox_mine']);
-                spl_autoload_register(static function ($class) {
-                    if ($class === 'rcube_synapse' || $class === 'rcube_demo_all') {
-                        require_once __DIR__ . '/synapse_router.php';
-                    }
-                });
-                $rcmail->config->set('storage_driver', $driver === 'demo' ? 'demo_all' : 'synapse');
+                // storage_driver stays as it is: core reads the connection settings by driver name (imap_conn_options...)
+                $p->add_hook('storage_init', [$this, 'storage_init']);
                 if (self::$all) {
                     $p->add_hook('render_response', [$this, 'render_response']);
                     $p->add_hook('message_read', [$this, 'message_read']);
@@ -458,6 +454,19 @@ class synapse_inbox
                     $args['selected'] = $i;
                 }
             }
+        }
+
+        return $args;
+    }
+
+    /** Core's storage_init hook: the same storage with All inboxes; core applies the imap_* (or demo) options right after */
+    public function storage_init($args)
+    {
+        $rcmail = rcmail::get_instance();
+        $class = $rcmail->storage ? get_class($rcmail->storage) : '';
+        if (self::$others && ($class === 'rcube_imap' || $class === 'rcube_demo')) {
+            require_once __DIR__ . '/synapse_router.php';
+            $rcmail->storage = $class === 'rcube_demo' ? new rcube_demo_all() : new rcube_synapse();
         }
 
         return $args;

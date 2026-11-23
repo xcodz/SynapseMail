@@ -232,6 +232,8 @@ $router = (string) file_get_contents(__DIR__ . '/../lib/synapse_router.php');
 $routed = ['count', 'list_messages', 'get_message_headers', 'get_message', 'get_message_part', 'get_raw_body', 'get_raw_headers', 'print_raw_body', 'set_flag',
     'move_message', 'copy_message', 'delete_message', 'expunge_message', 'list_flags', 'index', 'folder_status', 'folder_info', 'folder_data', 'folder_exists'];
 $check(!array_filter($routed, static function ($f) use ($router) { return strpos($router, "public function {$f}(") === false; }), 'all inboxes: every message call of another inbox goes to its own server');
+// core reads the connection settings by driver name (imap_conn_options, imap_auth_type...): the driver name must not change
+$check(strpos($inbox, "config->set('storage_driver'") === false && strpos($inbox, "add_hook('storage_init'") !== false, 'all inboxes: own mailbox keeps the imap_* connection settings');
 $check(strpos($router, 'isset(synapse_inbox::$others[$iid])') !== false && strpos($inbox, 'self::rows($rcmail->user->ID)') !== false, 'all inboxes: only the signed-in user\'s own inboxes can be opened');
 
 // the public demo switches stay off in a normal install (only the demo build turns them on)
