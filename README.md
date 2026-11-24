@@ -40,7 +40,7 @@ Sample data only. No mail server is connected and nothing is sent.
 
 <a id="new"></a>
 
-## ✨ New in 3.5.1: send **and read** from every address
+## ✨ New in 3.5.3: send **and read** from every address
 
 | 📥 All your addresses in one inbox | 🔀 Or open one inbox at a time |
 |:---:|:---:|
