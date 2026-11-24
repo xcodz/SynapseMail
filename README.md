@@ -19,7 +19,7 @@
 ![RTL](https://img.shields.io/badge/RTL-Persian%20%7C%20Arabic-9b59b6)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.1](#new) · [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.3](#new) · [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
