@@ -109,8 +109,9 @@ var UI = (function () {
   }
 
   /* ---------- appearance (Settings > Appearance): motion, effects, density, text size, contrast, links ---------- */
-  var UI_DEFAULTS = { motion: 'system', effects: 'on', density: 'comfortable', text: 'normal', contrast: 'normal', links: 'plain' };
-  var UI_VALUES = { motion: ['system', 'reduce', 'off'], effects: ['on', 'off'], density: ['comfortable', 'compact'], text: ['small', 'normal', 'large', 'larger'], contrast: ['normal', 'more'], links: ['plain', 'underline'] };
+  // open: what a double-click (or Enter) on a message does on wide screens
+  var UI_DEFAULTS = { motion: 'system', effects: 'on', density: 'comfortable', text: 'normal', contrast: 'normal', links: 'plain', open: 'full' };
+  var UI_VALUES = { motion: ['system', 'reduce', 'off'], effects: ['on', 'off'], density: ['comfortable', 'compact'], text: ['small', 'normal', 'large', 'larger'], contrast: ['normal', 'more'], links: ['plain', 'underline'], open: ['full', 'split', 'window'] };
   function uiPrefs(str) {
     var p = {}; Object.keys(UI_DEFAULTS).forEach(function (k) { p[k] = UI_DEFAULTS[k]; });
     String(str || '').split('.').forEach(function (kv) { kv = kv.split('-'); if (UI_VALUES[kv[0]] && UI_VALUES[kv[0]].indexOf(kv[1]) > -1) p[kv[0]] = kv[1]; });
@@ -1112,17 +1113,51 @@ var UI = (function () {
       popOut(uid);
       closeReader();
     });
-    // desktop: double-click opens the message in its own window instead of the full page view
+    // desktop: a click, double-click or Enter opens the message as set in Settings › Appearance › Reading:
+    // full view (the reader maximized, the default), split view (reader beside the list) or its own window
+    var openMode = function () { return uiPrefs(rc.env.synapse_ui != null ? rc.env.synapse_ui : uiCookie()).open; };
+    var ml = byId('messagelist'), clickAt = 0;
+    // a mouse click on a row (not its checkbox, star or read toggle); arrow keys only select in window mode
+    if (ml) ml.addEventListener('mousedown', function (e) { clickAt = e.target.closest('.row-check, .star-btn, .pin-btn') ? 0 : Date.now(); }, true);
+    var preview = rc.msglist_get_preview;
+    rc.msglist_get_preview = function () {
+      var uid = rc.get_single_uid(), stage = byId('mailStage');
+      if (desktop() && uid && rc.env.contentframe && !rc.drag_active) {
+        var mode = openMode();
+        if (mode == 'window' && rc.get_message_mailbox(uid) != rc.env.drafts_mailbox) {
+          if (stage) stage.classList.remove('reader-active', 'reader-max');
+          rc.show_contentframe(false);
+          if (Date.now() - clickAt < 2000) popOut(uid);
+          return;
+        }
+        readerMaximize(mode == 'full');
+      }
+      return preview.apply(rc, arguments);
+    };
     var dbl = rc.msglist_dbl_click;
     rc.msglist_dbl_click = function (list) {
       var uid = list.get_single_selection();
       if (desktop() && uid && rc.get_message_mailbox(uid) != rc.env.drafts_mailbox) {
         if (rc.preview_timer) clearTimeout(rc.preview_timer);
-        popOut(uid);
+        var mode = openMode();
+        if (mode == 'window' || !rc.env.contentframe) { popOut(uid); return; }
+        if (rc.preview_id != uid || !readerOpen()) rc.show_message(uid, false, true);
+        readerMaximize(mode == 'full');
+        openReader();
         return;
       }
       return dbl.apply(rc, arguments);
     };
+    // Enter on a selected message opens it the same way (core only previews it when a reading pane exists)
+    // (not when a button, link or field outside the list has the focus: Enter belongs to it)
+    var keypress = rc.msglist_keypress;
+    rc.msglist_keypress = function (list) {
+      var ae = doc.activeElement, control = ae && ae !== doc.body && !(ml && ml.contains(ae)) && ae.matches('button, a, input, select, textarea, [contenteditable]');
+      if (list.key_pressed == list.ENTER_KEY && desktop() && list.get_single_selection() && !control) return rc.msglist_dbl_click(list);
+      return keypress.apply(rc, arguments);
+    };
+    // core cancels mousedown on rows, so the focus would stay on the last button (e.g. Back to inbox): release it
+    if (ml) ml.addEventListener('mousedown', function () { var ae = doc.activeElement; if (ae && ae !== doc.body && !ml.contains(ae) && ae.blur) ae.blur(); }, true);
   }
 
   function composeWindow() { var f = byId('composeFrame'); try { return f && f.contentWindow; } catch (e) { return null; } }
@@ -1242,6 +1277,13 @@ var UI = (function () {
       else rc.command('toggle_status', uid);
     });
 
+    // core only skips its own row click for <input> targets: the drawn checkbox, star and read toggle would also select
+    // (and open) the row, and the checkbox's own toggle then undid that selection
+    var ownTarget = list.is_event_target;
+    list.is_event_target = function (e) {
+      var target = rcube_event.get_target(e);
+      return target && target.closest && target.closest('.row-check, .star-btn, .pin-btn') ? false : ownTarget.apply(list, arguments);
+    };
     list.addEventListener('select', function () { updateBulk(); });
     rc.addEventListener('listupdate', function () { updateBulk(); updateRange(); icons(); });
     rc.addEventListener('insertrow', function () { clearTimeout(initMailList.t); initMailList.t = setTimeout(icons, 30); });
@@ -1918,6 +1960,8 @@ var UI = (function () {
       + '<section class="ap-section"><h2>' + esc(t('ap_access')) + '</h2>'
       + sw('contrast', p.contrast == 'more', t('ap_contrast'), t('ap_contrast_help'))
       + sw('links', p.links == 'underline', t('ap_links'), t('ap_links_help')) + '</section>'
+      + '<section class="ap-section"><h2>' + esc(t('ap_reading')) + '</h2>'
+      + seg('open', t('ap_open'), t('ap_open_help'), [['full', 'ap_open_full'], ['split', 'ap_open_split'], ['window', 'ap_open_window']]) + '</section>'
       + '<div class="ap-foot"><button type="button" class="ghost-btn" id="apReset">' + esc(t('ap_reset')) + '</button><span class="ap-saved" id="apSaved" role="status" aria-live="polite"></span></div>';
     var saved = byId('apSaved'), timer = null;
     var flash = function () { saved.textContent = t('ap_saved'); clearTimeout(timer); timer = setTimeout(function () { saved.textContent = ''; }, 2200); };

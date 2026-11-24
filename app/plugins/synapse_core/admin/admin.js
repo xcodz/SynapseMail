@@ -27,6 +27,15 @@
     }
   });
 
+  // a file over PHP's upload limit would arrive as an empty form: refuse it here with the real reason
+  all('input[type=file][data-max]').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      inp.setCustomValidity(f && f.size > +inp.dataset.max ? inp.dataset.maxMsg : '');
+      if (f && f.size > +inp.dataset.max) inp.reportValidity();
+    });
+  });
+
   // light / dark for this admin browser (cookie read by the server, so the first paint is right)
   all('[data-admin-theme]').forEach(function (b) {
     b.addEventListener('click', function () {

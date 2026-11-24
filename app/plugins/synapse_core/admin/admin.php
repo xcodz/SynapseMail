@@ -97,6 +97,13 @@ $ip = \rcube_utils::remote_ip();
 /* ---------------- actions (POST only, CSRF checked) ---------------- */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // a request larger than post_max_size arrives with an empty $_POST (no csrf either): name the real cause
+    if (!$_POST && !$_FILES && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        $to = isset(VIEWS[$_GET['view'] ?? '']) ? $_GET['view'] : null;
+        flash('fail', 'That file is larger than PHP accepts on this server (' . upload_limit()[1] . '). Raise upload_max_filesize and post_max_size'
+            . ' in cPanel › MultiPHP INI Editor (Plesk: PHP Settings)' . ($to === 'updates' ? ', or use "Check now" to install from the update server.' : '.'));
+        back($to);
+    }
     if (!hash_equals($A['csrf'], (string) ($_POST['csrf'] ?? ''))) {
         flash('fail', 'The form expired. Please try again.');
         back();
@@ -253,7 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!db_file($RC)) {
                 flash('fail', 'Restore works with the SQLite database of the shared edition only.');
             } elseif (!$up || $up['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'])) {
-                flash('fail', 'Upload failed' . ($up && in_array($up['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? ': the file is larger than PHP allows (upload_max_filesize).' : '.'));
+                flash('fail', 'Upload failed' . ($up && in_array($up['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? ': the file is larger than PHP allows here (' . upload_limit()[1] . ').' : '.'));
             } else {
                 $db->query("UPDATE {$admins} SET `totp_last_step` = ? WHERE `id` = ?", $step, $row['id']);
                 try {
@@ -306,7 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $up = $_FILES['file'] ?? null;
                     if (!$up || $up['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'])) {
                         throw new RuntimeException('Upload failed' . ($up && in_array($up['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
-                            ? ': the zip is larger than PHP allows here (upload_max_filesize ' . ini_get('upload_max_filesize') . '). Raise it in cPanel > MultiPHP INI Editor, or use "Install update".' : '.'));
+                            ? ': the zip is larger than PHP allows here (' . upload_limit()[1] . '). Raise it in cPanel › MultiPHP INI Editor, or use "Check now" to install from the update server.' : '.'));
                     }
                     $file = INSTALL_PATH . 'temp/sm-upload-' . bin2hex(random_bytes(6)) . '.zip';
                     if (!move_uploaded_file($up['tmp_name'], $file)) {
@@ -534,6 +541,20 @@ function end_sessions($db, $uid)
 function update_url($RC)
 {
     return (string) (synapse_core::setting('update_url') ?: $RC->config->get('synapse_update_url'));
+}
+
+/** Largest file a form can upload here: the smaller of upload_max_filesize and post_max_size (0 = no limit). [bytes, label] */
+function upload_limit()
+{
+    $bytes = static function ($v) {
+        $v = trim((string) $v);
+
+        return (int) ((float) $v * (['K' => 1024, 'M' => 1048576, 'G' => 1073741824][strtoupper(substr($v, -1))] ?? 1));
+    };
+    $up = $bytes(ini_get('upload_max_filesize'));
+    $post = $bytes(ini_get('post_max_size'));
+
+    return $post > 0 && ($up <= 0 || $post < $up) ? [$post, 'post_max_size ' . ini_get('post_max_size')] : [$up, 'upload_max_filesize ' . ini_get('upload_max_filesize')];
 }
 
 /** Install a release zip (signature, newer version and every file checked by synapse_update) */

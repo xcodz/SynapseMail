@@ -21,7 +21,7 @@ require_once __DIR__ . '/lib/synapse_secret.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.5.2';
+    public const VERSION = '3.5.3';
     public const THEMES = ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'];
 
     // "remember this device": sliding window, renewed while the account is used
@@ -112,7 +112,7 @@ class synapse_core extends rcube_plugin
             }
             // appearance settings: only known keys and values reach the page (ui.js whitelists them again)
             $ui = (string) $rcmail->config->get('synapse_ui', '');
-            if (preg_match('/^((motion-(reduce|off)|effects-off|density-compact|text-(small|large|larger)|contrast-more|links-underline)(\.|$))*$/', $ui)) {
+            if (preg_match('/^((motion-(reduce|off)|effects-off|density-compact|text-(small|large|larger)|contrast-more|links-underline|open-(split|window))(\.|$))*$/', $ui)) {
                 $rcmail->output->set_env('synapse_ui', $ui);
             }
             if ($prompt = $this->prompt_state()) {

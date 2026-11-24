@@ -484,12 +484,20 @@ function view_backup($A)
     }
     $restore = section('Restore', 'Replaces all app data with a backup and signs everyone out. The current data is saved first as <code>db/before-restore-….db</code>; this install\'s mail server settings are kept.',
         '<form method="post" enctype="multipart/form-data" class="adm-form"><input type="hidden" name="csrf" value="' . h($A['csrf']) . '"><input type="hidden" name="do" value="restore">'
-        . '<label class="adm-field"><span>Backup file (.smbk)</span><input class="adm-input adm-file" name="file" type="file" accept=".smbk" required><small>Largest upload PHP allows here: ' . h(ini_get('upload_max_filesize')) . '</small></label>'
+        . '<label class="adm-field"><span>Backup file (.smbk)</span><input class="adm-input adm-file" name="file" type="file" accept=".smbk" required' . file_limit_attrs() . '><small>Largest upload PHP allows here: ' . h(upload_limit()[0] > 0 ? size(upload_limit()[0]) . ' (' . upload_limit()[1] . ')' : 'no limit') . '</small></label>'
         . input('Backup key', 'key', ['class' => 'adm-mono-input', 'attrs' => ['required' => true, 'autocomplete' => 'off', 'spellcheck' => 'false', 'placeholder' => 'XXXX XXXX XXXX …']])
         . code_input('Your authenticator code')
         . '<div class="adm-form-actions">' . button('Restore', ['tone' => 'danger', 'icon' => 'history', 'attrs' => ['data-confirm' => 'Replace all SynapseMail data with this backup and sign everyone out?']]) . '</div></form>');
 
     return '<div class="adm-sections">' . $create . $restore . '</div>';
+}
+
+/** File input attributes so the browser refuses a file PHP would drop (it would come back as an expired form) */
+function file_limit_attrs()
+{
+    [$max, $what] = upload_limit();
+
+    return $max > 0 ? ' data-max="' . $max . '" data-max-msg="' . h('This file is larger than PHP accepts on this server (' . size($max) . ', ' . $what . '). Raise upload_max_filesize and post_max_size in cPanel › MultiPHP INI Editor (Plesk: PHP Settings).') . '"' : '';
 }
 
 function view_updates($RC, $A)
@@ -503,8 +511,8 @@ function view_updates($RC, $A)
         function_exists('sodium_crypto_sign_verify_detached') ? null : 'the PHP sodium extension',
         is_writable(INSTALL_PATH . 'program') && is_writable(INSTALL_PATH . 'plugins/synapse_core') ? null : 'write access to the SynapseMail folder for PHP',
     ]);
-    $limit = ini_get('upload_max_filesize');
-    $limit_bytes = (int) $limit * (['K' => 1024, 'M' => 1048576, 'G' => 1073741824][strtoupper(substr(trim($limit), -1))] ?? 1);
+    [$limit_bytes, $limit_what] = upload_limit();
+    $limit = $limit_bytes > 0 ? size($limit_bytes) . ' (' . $limit_what . ')' : 'no limit';
 
     $state = !$last ? ['off', 'Not checked yet', 'circle-dashed']
         : (!empty($last['error']) ? ['warn', $last['error'], 'triangle-alert']
@@ -526,8 +534,8 @@ function view_updates($RC, $A)
 
     $upload = section('Upload an update', 'Use a SynapseMail zip from GitHub Releases or the update server. Zips that are not signed, or that were changed, are refused.',
         '<form method="post" enctype="multipart/form-data" class="adm-form"><input type="hidden" name="csrf" value="' . h($A['csrf']) . '"><input type="hidden" name="do" value="update_upload">'
-        . '<label class="adm-field"><span>Release zip</span><input class="adm-input adm-file" name="file" type="file" accept=".zip,application/zip" required>'
-        . '<small>Largest upload PHP allows here: ' . h($limit) . ($limit_bytes && $limit_bytes < 16 * 1048576 ? '. A release is about 10 MB: raise upload_max_filesize and post_max_size in cPanel › MultiPHP INI Editor, or use "Check now" and install from the update server.' : '.') . '</small></label>'
+        . '<label class="adm-field"><span>Release zip</span><input class="adm-input adm-file" name="file" type="file" accept=".zip,application/zip" required' . file_limit_attrs() . '>'
+        . '<small>Largest upload PHP allows here: ' . h($limit) . ($limit_bytes && $limit_bytes < 16 * 1048576 ? '. A release is about 10 MB: raise upload_max_filesize and post_max_size to 16M or more in cPanel › MultiPHP INI Editor (Plesk: PHP Settings), or use "Check now" and install from the update server.' : '.') . '</small></label>'
         . code_input()
         . '<div class="adm-form-actions">' . button('Upload and install', ['icon' => 'upload', 'attrs' => ['data-busy' => 'Installing…']]) . '</div></form>');
 

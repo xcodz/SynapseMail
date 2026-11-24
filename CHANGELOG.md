@@ -1,5 +1,20 @@
 # SynapseMail changelog
 
+## 3.5.3
+- **Choose how a message opens.** New in Settings › Appearance › Reading: **Full view** (the reading pane fills the
+  mail area, the new default), **Split view** (next to the message list) or **Window** (a separate window you can
+  move). It applies to a click, a double-click and Enter. In Window mode the arrow keys only select, so moving
+  through the list does not open a window for every message. On phones and small screens a message still opens full
+  screen.
+- After a click on a message, the Enter key no longer goes to the last button you used (for example Back to inbox).
+- **Message list checkboxes work again.** Ticking a message's checkbox selected the row and then undid it, so the
+  selection stayed empty. Ticking several messages now selects them for bulk actions, and the star and read toggle no
+  longer select or open the message.
+- **Admin › Updates and Backup: clear message when a file is too big for PHP.** A zip larger than `post_max_size`
+  reached the panel as an empty form and showed "The form expired". The panel now names the limit (the smaller of
+  `upload_max_filesize` and `post_max_size`), the browser refuses such a file before uploading, and the page shows
+  the real limit.
+
 ## 3.5.2
 - **Fix: "Connection to storage server failed" with All inboxes.** On servers where SynapseMail reaches its own mail
   server as `ssl://localhost:993` (common on cPanel), turning on another inbox made the own mailbox skip its IMAP

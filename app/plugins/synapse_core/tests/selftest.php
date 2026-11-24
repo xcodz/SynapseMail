@@ -236,6 +236,11 @@ $check(!array_filter($routed, static function ($f) use ($router) { return strpos
 $check(strpos($inbox, "config->set('storage_driver'") === false && strpos($inbox, "add_hook('storage_init'") !== false, 'all inboxes: own mailbox keeps the imap_* connection settings');
 $check(strpos($router, 'isset(synapse_inbox::$others[$iid])') !== false && strpos($inbox, 'self::rows($rcmail->user->ID)') !== false, 'all inboxes: only the signed-in user\'s own inboxes can be opened');
 
+// appearance preferences: the reading choice (double-click) passes the server check, unknown values do not
+$core_src = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
+$ui_re = preg_match("/preg_match\('(\/\^\(\(motion[^']+)'/", $core_src, $mm) ? $mm[1] : null;
+$check($ui_re && preg_match($ui_re, 'open-split') && preg_match($ui_re, 'motion-off.open-window') && !preg_match($ui_re, 'open-full') && !preg_match($ui_re, 'open-popup'), 'appearance: double-click choice is validated (full view is the default)');
+
 // the public demo switches stay off in a normal install (only the demo build turns them on)
 $cfg = (string) file_get_contents(__DIR__ . '/../../../config/config.inc.php');
 $check(!preg_match('/synapse_demo|storage_driver/', $cfg), 'config.inc.php does not enable the demo');
