@@ -8,24 +8,43 @@ DIST=/usr/local/share/synapsemail
 D=/data
 V=$(cat "$DIST/VERSION")
 
-mkdir -p "$D/config" "$D/db" "$D/logs" "$D/temp"
-# shipped config files come from the image on every start (an image update updates them);
-# per-install files (synapse.inc.php, config.local.inc.php, installed.lock, ADMIN-URL.txt) are never touched
-cp -a "$DIST/config/." "$D/config/"
-chown www-data:www-data "$D"
-chmod 750 "$D"
-chown www-data:www-data "$D/config" "$D/db" "$D/logs" "$D/temp"
+# This script runs as root on data the web server (www-data) can write: it never follows a link there.
+# /data itself belongs to root, so www-data cannot put links next to config/, db/, logs/, temp/ or setup.key.
+chown -h root:root "$D"
+chmod 755 "$D"
+for d in config db logs temp; do
+  if [[ -L $D/$d || ( -e $D/$d && ! -d $D/$d ) ]]; then
+    echo "synapsemail: $D/$d is not a folder (a link or a file): refusing to start. Check the volume." >&2
+    exit 1
+  fi
+  mkdir -p "$D/$d"
+done
+[[ -L $D/setup.key ]] && rm -f "$D/setup.key"
+# shipped config files come from the image on every start (an image update updates them); a link in their place is
+# replaced, not followed. Per-install files (synapse.inc.php, config.local.inc.php, installed.lock, ADMIN-URL.txt)
+# are never touched.
+cp -a --remove-destination "$DIST/config/." "$D/config/"
+chown -h www-data:www-data "$D/config" "$D/db" "$D/logs" "$D/temp"
 chmod 750 "$D/config" "$D/db" "$D/logs" "$D/temp"
-chown -R www-data:www-data "$D/db" "$D/logs" "$D/temp"
-find "$D/config" -mindepth 1 -maxdepth 1 ! -name '.htaccess' ! -name 'config.inc.php' ! -name 'defaults.inc.php' \
-  ! -name 'mimetypes.php' ! -name 'config.inc.php.sample' -exec chown www-data:www-data {} +
+chown -R -h www-data:www-data "$D/db" "$D/logs" "$D/temp"
+find "$D/config" -mindepth 1 -maxdepth 1 ! -type l ! -name '.htaccess' ! -name 'config.inc.php' ! -name 'defaults.inc.php' \
+  ! -name 'mimetypes.php' ! -name 'config.inc.php.sample' -exec chown -h www-data:www-data {} +
 
 installed=0
 [[ -e $D/config/installed.lock || -e $D/config/synapse.inc.php ]] && installed=1
 
 # Reverse proxy: trust X-Forwarded-For / X-Forwarded-Proto only from these addresses, then drop the headers,
 # so PHP sees the real client address and HTTPS, and clients cannot set them.
+# "gateway" (the default) is the container's default gateway: a proxy on the Docker host reaches a published port
+# from there. Other private addresses are not trusted unless listed.
 proxies=${SYNAPSEMAIL_TRUSTED_PROXIES:-}
+if [[ " $proxies " == *" gateway "* ]]; then
+  g=$(awk '$2 == "00000000" { print $3; exit }' /proc/net/route)
+  gw=""
+  [[ $g =~ ^[0-9A-Fa-f]{8}$ ]] && gw=$(printf '%d.%d.%d.%d' "0x${g:6:2}" "0x${g:4:2}" "0x${g:2:2}" "0x${g:0:2}")
+  proxies=$(echo " $proxies " | sed "s/ gateway / $gw /g" | xargs)
+  echo "synapsemail: trusted reverse proxy: ${proxies:-none}"
+fi
 conf=/etc/apache2/conf-enabled/synapsemail-proxy.conf
 {
   echo "# written by synapsemail-entrypoint from SYNAPSEMAIL_TRUSTED_PROXIES"

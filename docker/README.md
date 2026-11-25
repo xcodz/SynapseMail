@@ -72,10 +72,24 @@ and logs therefore see the real visitor, and nobody else can set them.
 
 | Variable | Default | |
 |---|---|---|
-| `SYNAPSEMAIL_TRUSTED_PROXIES` | `10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7` | addresses or ranges of your proxy, separated by spaces; `none` when nothing is in front |
+| `SYNAPSEMAIL_TRUSTED_PROXIES` | `gateway` | addresses or ranges of your proxy, separated by spaces; `gateway` is the container's Docker gateway; `none` when nothing is in front |
 
-When the proxy runs on the same server and the port is published, the proxy reaches the container from the Docker
-network (`172.16.0.0/12`), which the default covers.
+When the proxy runs on the same server and reaches the published port, it connects from the Docker gateway, which
+the default covers. When the proxy runs in another container on the same Docker network, set its address, for
+example `SYNAPSEMAIL_TRUSTED_PROXIES=172.20.0.5`. Other addresses are never trusted. The proxy must replace the
+`X-Forwarded-For` header it receives from the visitor (nginx `$proxy_add_x_forwarded_for` and Caddy do).
+
+## Hardening
+
+[compose.yaml](compose.yaml) starts the container with only the rights Apache and the start script need
+(`cap_drop: [ALL]` plus seven capabilities) and with `no-new-privileges`. With `docker run`, add:
+
+```bash
+--cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID --cap-add NET_BIND_SERVICE --cap-add KILL --security-opt no-new-privileges:true
+```
+
+The app files in the image are read-only for the web server, and `/data` belongs to root: the web server can only
+write inside `config/`, `db/`, `logs/` and `temp/`. The start script refuses to run when one of them is a link.
 
 ## Mail server
 

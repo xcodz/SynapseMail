@@ -12,6 +12,9 @@ if [ -e /data/config/installed.lock ] || [ -e /data/config/synapse.inc.php ]; th
   echo "SynapseMail is already installed: no setup key needed." >&2
   exit 1
 fi
-printf '%s\n' "$code" > /data/setup.key
-chmod 644 /data/setup.key
+# written next to it and renamed: a link in its place is replaced, never followed
+tmp=$(mktemp /data/.setup.key.XXXXXX)
+printf '%s\n' "$code" > "$tmp"
+chmod 644 "$tmp"
+mv -f "$tmp" /data/setup.key
 echo "setup.key saved. Click CONTINUE on the installer page."

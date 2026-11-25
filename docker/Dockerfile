@@ -66,7 +66,7 @@ RUN set -eux; \
 COPY --chmod=755 entrypoint.sh /usr/local/bin/synapsemail-entrypoint
 COPY --chmod=755 setup-key.sh /usr/local/bin/setup-key
 
-ENV SYNAPSEMAIL_TRUSTED_PROXIES="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 fc00::/7"
+ENV SYNAPSEMAIL_TRUSTED_PROXIES="gateway"
 VOLUME /data
 EXPOSE 80
 WORKDIR /var/www/synapsemail

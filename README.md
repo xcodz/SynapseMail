@@ -44,7 +44,8 @@ Sample data only. No mail server is connected and nothing is sent.
 
 ## ✨ New in 3.5.5: security update
 
-- 🛡️ **Security fixes** for sign-in, Send As, backups and updates. Please update every copy of SynapseMail.
+- 🛡️ **Security fixes** for sign-in, Send As, backups, updates and the Docker image. Please update every copy of
+  SynapseMail.
 - 🧩 **Roundcube core 1.7.7**, with all security fixes of Roundcube 1.7.6 and 1.7.7.
 - 📮 **Send As:** the 6-digit code now always comes from your own mail server, and sending only works from your own
   addresses.

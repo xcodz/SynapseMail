@@ -7,6 +7,9 @@
   address to or from "Send through this mail server" needs a new code.
 - Sending refuses a From address that is not one of your addresses. Add other addresses with Settings › Send As.
 - Updates are downloaded over https only.
+- **Docker:** hardened data folder and start script. The container trusts only the Docker gateway as a reverse proxy
+  by default; a proxy in another container needs its address in `SYNAPSEMAIL_TRUSTED_PROXIES`. The compose file
+  drops the capabilities the container does not need.
 
 ## 3.5.4
 - **Installer: the ownership check can no longer be skipped.** Each installer step now needs the steps before it

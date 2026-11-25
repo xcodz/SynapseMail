@@ -11,9 +11,14 @@ services:
       - "127.0.0.1:8080:80"
     volumes:
       - synapsemail-data:/data
+    # only what Apache and the start script need; nothing in the container can gain more rights
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, NET_BIND_SERVICE, KILL]
+    security_opt:
+      - no-new-privileges:true
     # environment:
-    #   addresses of your reverse proxy (default: private ranges); "none" when nothing is in front
-    #   SYNAPSEMAIL_TRUSTED_PROXIES: "172.16.0.0/12"
+    #   addresses of your reverse proxy (default "gateway": a proxy on this server); "none" when nothing is in front
+    #   SYNAPSEMAIL_TRUSTED_PROXIES: "172.20.0.5"
 
 volumes:
   synapsemail-data:
