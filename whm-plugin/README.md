@@ -14,6 +14,8 @@ bash <(curl -fsSL https://repo.synapsecyber.io/synapsemail/whm-plugin-only/insta
 
 Options: `--url https://example.com/mail`, `-y` (no questions), `--plain` (no full-screen view), `NO_COLOR=1`.
 
+<img src="../docs/screenshots/whm-install.gif" alt="SynapseMail WHM plugin installer in the terminal" width="100%">
+
 ## WHM page
 
 After the install, **WHM >> Plugins >> SynapseMail Webmail** shows the status and has buttons for: check now,
@@ -23,6 +25,10 @@ the bottom): it lists what will be removed, offers "turn the redirect off" inste
 `uninstall`. Only WHM users with the `all` privilege
 (root) can open it. Buttons are POST only, from a fixed list, with a same-origin check on top of WHM's session
 token, and they run `smwhmplugin` in the background (so a cpsrvd restart cannot cut them off).
+
+<img src="../docs/screenshots/whm-page.webp" alt="SynapseMail WHM plugin page" width="100%">
+
+<img src="../docs/screenshots/whm-uninstall.webp" alt="SynapseMail WHM plugin uninstall step" width="100%">
 
 ## Commands
 

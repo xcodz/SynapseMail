@@ -333,6 +333,8 @@ bash <(curl -fsSL https://repo.synapsecyber.io/synapsemail/whm-plugin-only/insta
 
 Run it as root on the WHM server. It asks for your SynapseMail address (for example `https://example.com/mail`).
 
+<img src="docs/screenshots/whm-install.gif" alt="SynapseMail WHM plugin installer in the terminal: address question, progress with checks, summary" width="100%">
+
 - ➡️ **Every Webmail door:** ports 2095/2096, `webmail.<domain>` and `/webmail` on every site open SynapseMail.
 - ✅ **cPanel and WHM logins stay as they are**, and cPanel's own files are never edited.
 - 🩺 **Checked before it counts:** after switching, it loads the Webmail, cPanel and WHM logins on the server. If
@@ -356,6 +358,10 @@ sites. ⚠️ It is a redirect, not a wall: the *Check Email* button inside cPan
 signed in still open cPanel's Webmail, and IMAP, POP3 and SMTP are not changed (see the
 [security model](#security-model)).
 📖 [WHM plugin guide](whm-plugin/README.md)
+
+| 🧑‍💼 WHM › Plugins › SynapseMail Webmail | 🗑️ Uninstall is a separate step you confirm |
+|:---:|:---:|
+| <img src="docs/screenshots/whm-page.webp" alt="SynapseMail WHM plugin page: redirect status, the Webmail entry points flowing to the SynapseMail address, login health, quick actions and updates" width="100%"> | <img src="docs/screenshots/whm-uninstall.webp" alt="SynapseMail WHM plugin uninstall step: what will be removed, turn the redirect off instead, type uninstall to confirm" width="100%"> |
 
 ---
 
