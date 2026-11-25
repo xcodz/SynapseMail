@@ -12,7 +12,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.7-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
-![Send As](https://img.shields.io/badge/Send%20As-any%20SMTP-e0a030)
+![Send As](https://img.shields.io/badge/Send%20As-VERIFIED%20SMTP-e0a030)
 ![Inboxes](https://img.shields.io/badge/other%20inboxes-IMAP%20over%20TLS-1f68bc)
 ![Updates](https://img.shields.io/badge/updates-signed%20Ed25519-2ea44f)
 ![Mobile](https://img.shields.io/badge/mobile-ready-ff8c42)
