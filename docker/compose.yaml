@@ -1,0 +1,19 @@
+# SynapseMail with Docker Compose. Copyright (c) 2026 SynapseCyber.io. Licensed under CC BY-NC-ND 4.0.
+#   docker compose up -d
+# then open http://localhost:8080/ on this server (or your HTTPS address, see docker/README.md) and follow the installer.
+services:
+  synapsemail:
+    image: ghcr.io/xcodz/synapsemail:latest
+    container_name: synapsemail
+    restart: unless-stopped
+    ports:
+      # only this server can reach it; put your HTTPS reverse proxy in front (or use "8080:80" on a private network)
+      - "127.0.0.1:8080:80"
+    volumes:
+      - synapsemail-data:/data
+    # environment:
+    #   addresses of your reverse proxy (default: private ranges); "none" when nothing is in front
+    #   SYNAPSEMAIL_TRUSTED_PROXIES: "172.16.0.0/12"
+
+volumes:
+  synapsemail-data:

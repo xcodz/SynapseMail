@@ -115,8 +115,13 @@ if (($_GET['ajax'] ?? '') === 'probe') {
 /* ---------------- POST actions ---------------- */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // each action needs its step reached in this session, so no step (above all Ownership) can be skipped
+    $needs = ['env' => 'env', 'mail' => 'mail', 'admin' => 'admin', 'totp' => 'admin', 'admin_reset' => 'admin', 'recovery' => 'admin', 'install' => 'done'];
+    $need = $needs[$_POST['do'] ?? ''] ?? null;
     if (!hash_equals($S['csrf'], (string) ($_POST['csrf'] ?? ''))) {
         $error = 'The form expired. Please try again.';
+    } elseif ($need !== null && array_search($need, array_keys(STEPS), true) > $reached) {
+        $error = 'Complete the steps in order.';
     } else {
         switch ($_POST['do'] ?? '') {
             case 'own':

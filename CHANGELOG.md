@@ -1,5 +1,11 @@
 # SynapseMail changelog
 
+## 3.5.4
+- **Installer: the ownership check can no longer be skipped.** Each installer step now needs the steps before it
+  in the same browser session. Before, a visitor who opened the installer of a copy that was not installed yet could
+  send the later steps directly and finish the install without the `setup.key` code. Installed copies are not
+  affected (the installer locks itself after the install), but install new copies with 3.5.4.
+
 ## 3.5.3
 - **Choose how a message opens.** New in Settings › Appearance › Reading: **Full view** (the reading pane fills the
   mail area, the new default), **Split view** (next to the message list) or **Window** (a separate window you can

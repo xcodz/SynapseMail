@@ -21,7 +21,7 @@ require_once __DIR__ . '/lib/synapse_secret.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.5.3';
+    public const VERSION = '3.5.4';
     public const THEMES = ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'];
 
     // "remember this device": sliding window, renewed while the account is used

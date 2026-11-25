@@ -18,9 +18,10 @@
 ![Mobile](https://img.shields.io/badge/mobile-ready-ff8c42)
 ![RTL](https://img.shields.io/badge/RTL-Persian%20%7C%20Arabic-9b59b6)
 ![WHM plugin](https://img.shields.io/badge/WHM-plugin-ff6c2c)
+![Docker](https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-2496ed)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.3](#new) · [🚀 Install](#install) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.3](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -292,6 +293,21 @@ The installer:
 
 Full steps: [app/INSTALL-SYNAPSEMAIL.txt](app/INSTALL-SYNAPSEMAIL.txt)
 
+<a id="docker"></a>
+
+### 🐳 Docker (any Linux server, amd64 and arm64)
+
+```bash
+docker run -d --name synapsemail --restart unless-stopped -p 127.0.0.1:8080:80 -v synapsemail-data:/data ghcr.io/xcodz/synapsemail:latest
+```
+
+Open it (put your HTTPS reverse proxy in front of port 8080), and when the installer shows its code, save it with
+`docker exec synapsemail setup-key SM-XXXX-XXXX-XXXX`. Everything else is the same installer. Settings, users and
+the admin account live in the `/data` volume; updates are `docker pull` and a new container.
+
+The image is built from the signed release zip: the build checks the signature and every file first. Compose file,
+HTTPS, backups and updates: [Docker guide](docker/README.md).
+
 ### ✅ Requirements
 
 | Needed | Details |
@@ -398,6 +414,9 @@ the address, and each address has its own name and signature. See the [Send As g
 **Do I need MySQL?**
 No. SynapseMail uses SQLite, so there is nothing extra to set up.
 
+**Is there a Docker image?**
+Yes: `ghcr.io/xcodz/synapsemail` for amd64 and arm64, built from the signed release zip. See [Docker](#docker).
+
 **Can cPanel's Webmail open SynapseMail instead of Roundcube?**
 Yes, on a WHM server. The optional [WHM plugin](#whm) sends the Webmail login (ports 2095/2096,
 `webmail.<domain>` and `/webmail`) to your SynapseMail address, and you can roll it back with one command.
@@ -420,6 +439,7 @@ step, together with the people who use it. 💪
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
 - Web installer with hosting panel detection, and a private admin panel with health checks and backups
 - 🖥️ WHM plugin: cPanel's Webmail logins open SynapseMail, with a WHM page, rollback and uninstall
+- 🐳 Docker image for amd64 and arm64, built from the signed release
 
 ### 🛠️ Next steps (planned)
 - ⚡ **One-command installer** for Linux servers and SSH accounts, with signature checks and a terminal interface
@@ -447,6 +467,9 @@ before it writes anything, keeps your settings and data, and saves the files it 
 **By hand:** download the zip from [Releases](../../releases) and extract it over your install folder. Your
 settings and data are kept.
 
+**Docker:** `docker compose pull && docker compose up -d` (or pull `ghcr.io/xcodz/synapsemail:latest` and start a
+new container with the same volume). See the [Docker guide](docker/README.md#updates).
+
 **Coming from 3.4 or older?** Those versions have no Updates page yet, so install 3.5 by hand once. From then on,
 updates come from the admin panel.
 
@@ -462,6 +485,7 @@ updates come from the admin panel.
 | `app/` | 📦 the complete package: Roundcube 1.7.5 + SynapseMail ([file list](app/SYNAPSEMAIL-FILES.txt)) |
 | `editor/` | ✍️ source code of the email editor (Lexical) |
 | `whm-plugin/` | 🖥️ the WHM plugin (`smwhmplugin`): [guide](whm-plugin/README.md) |
+| `docker/` | 🐳 the Docker image (`Dockerfile`, `compose.yaml`): [guide](docker/README.md) |
 | `tools/` | 🛠️ release build and helper scripts |
 | `docs/` | 📖 help, troubleshooting and screenshots |
 
