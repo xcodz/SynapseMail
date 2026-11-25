@@ -8,7 +8,7 @@
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.5.1-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.5.4-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
