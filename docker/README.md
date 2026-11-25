@@ -5,7 +5,7 @@ SMTP server (it is webmail, not a mail server). All data stays in one volume, `/
 
 ```
 ghcr.io/xcodz/synapsemail:latest     the newest release
-ghcr.io/xcodz/synapsemail:3.5.4      one version (also :3.5 for the newest 3.5.x)
+ghcr.io/xcodz/synapsemail:3.5.5      one version (also :3.5 for the newest 3.5.x)
 ```
 
 The image is built by [GitHub Actions](../.github/workflows/docker.yml) from the release zip on
@@ -116,8 +116,8 @@ Mail stays on your mail server, so the volume is small.
 ## Build it yourself
 
 ```bash
-docker build --build-arg SYNAPSEMAIL_VERSION=3.5.4 -t synapsemail docker/
+docker build --build-arg SYNAPSEMAIL_VERSION=3.5.5 -t synapsemail docker/
 ```
 
-The build downloads `SynapseMail_v3.5.4.zip` from GitHub Releases and stops if the signature or any file does not
+The build downloads `SynapseMail_v3.5.5.zip` from GitHub Releases and stops if the signature or any file does not
 match.

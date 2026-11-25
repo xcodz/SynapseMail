@@ -61,7 +61,7 @@ class rcmail_action_contacts_export extends rcmail_action_contacts_index
             }
 
             // sort the records
-            ksort($records, \SORT_LOCALE_STRING);
+            rcube_utils::ksort($records);
 
             // create resultset object
             $count = count($records);
@@ -92,7 +92,7 @@ class rcmail_action_contacts_export extends rcmail_action_contacts_index
                 }
             }
 
-            ksort($records, \SORT_LOCALE_STRING);
+            rcube_utils::ksort($records);
 
             // create resultset object
             $count = count($records);
@@ -152,12 +152,12 @@ class rcmail_action_contacts_export extends rcmail_action_contacts_index
                 [$field, $section] = rcube_utils::explode(':', $key);
                 // avoid unwanted casting of DateTime objects to an array
                 // (same as in rcube_contacts::convert_save_data())
-                if (is_object($values) && is_a($values, 'DateTime')) {
+                if ($values instanceof \DateTime) {
                     $values = [$values];
                 }
 
                 foreach ((array) $values as $value) {
-                    if (is_array($value) || is_a($value, 'DateTime') || @strlen($value)) {
+                    if (is_array($value) || $value instanceof \DateTime || @strlen($value)) {
                         $vcard->set($field, $value, $section ? strtoupper($section) : '');
                     }
                 }

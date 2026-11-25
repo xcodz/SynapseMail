@@ -1,4 +1,4 @@
-# SynapseMail files on top of Roundcube Webmail 1.7.5 (complete package)
+# SynapseMail files on top of Roundcube Webmail 1.7.7 (complete package)
 # Everything not listed here is unmodified Roundcube (GPL-3.0, see README-ROUNDCUBE.md and docs/LICENSE.md).
 # Used to build the overlay and WHM editions. Regenerate: tools/synapsemail-files.py <pristine roundcube dir>
 

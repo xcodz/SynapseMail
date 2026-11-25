@@ -15,7 +15,7 @@
  * Updates: a signed release manifest on the update server (release.json + release.json.sig) says which version is
  * newest, and every release zip carries a signed list of its files (SYNAPSEMAIL-RELEASE.json + .sig, Ed25519 via
  * libsodium). An update, downloaded or uploaded by the admin, is installed only when that signature is valid, the
- * version is newer and every file matches its hash. The signature protects the files, so the server may use http.
+ * version is newer and every file matches its hash. Everything is fetched over https only, redirects included.
  */
 class synapse_update
 {
@@ -33,7 +33,7 @@ class synapse_update
     /** @return array ['latest' => manifest, 'newer' => bool] or ['error' => text] */
     public static function check($url, $current)
     {
-        if (!preg_match('#^https?://[^/\s]+/#i', (string) $url)) {
+        if (!preg_match('#^https://[^/\s]+/#i', (string) $url)) {
             return ['error' => 'Update server not set.'];
         }
         if (!function_exists('sodium_crypto_sign_verify_detached')) {
@@ -60,7 +60,7 @@ class synapse_update
         }
         $m = json_decode((string) $json, true);
         if (!is_array($m) || ($m['product'] ?? '') !== 'SynapseMail' || !preg_match('/^\d+\.\d+(\.\d+)?$/', (string) ($m['version'] ?? ''))
-            || !preg_match('#^https?://#', (string) ($m['url'] ?? '')) || !preg_match('/^[0-9a-f]{64}$/', (string) ($m['sha256'] ?? ''))) {
+            || !preg_match('#^https://#', (string) ($m['url'] ?? '')) || !preg_match('/^[0-9a-f]{64}$/', (string) ($m['sha256'] ?? ''))) {
             return null;
         }
 
@@ -76,19 +76,39 @@ class synapse_update
             && sodium_crypto_sign_verify_detached($sig, (string) $data, (string) $pub);
     }
 
-    /** Small GET with certificate checks (https) */
+    /** Small GET with certificate checks; https only, and redirects are followed here so none can lead to http */
     private static function fetch($url, $max = 65536, $timeout = 6, $to = null)
     {
         $ctx = stream_context_create([
-            'http' => ['timeout' => $timeout, 'follow_location' => 1, 'max_redirects' => 3, 'header' => "User-Agent: SynapseMail-update\r\n", 'ignore_errors' => false],
+            'http' => ['timeout' => $timeout, 'follow_location' => 0, 'header' => "User-Agent: SynapseMail-update\r\n", 'ignore_errors' => true],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
+        for ($hop = 0, $in = false; $hop <= 3; $hop++) {
+            if (!preg_match('#^https://#i', (string) $url) || !($in = @fopen($url, 'rb', false, $ctx))) {
+                return null;
+            }
+            $head = stream_get_meta_data($in)['wrapper_data'] ?? [];
+            $status = preg_match('#^HTTP/\S+\s+(\d{3})#', (string) ($head[0] ?? ''), $m) ? (int) $m[1] : 0;
+            if ($status === 200) {
+                break;
+            }
+            fclose($in);
+            $in = false;
+            $next = preg_grep('/^Location:/i', $head);
+            if (!in_array($status, [301, 302, 303, 307, 308], true) || !$next) {
+                return null;
+            }
+            $url = trim(substr((string) reset($next), 9));
+        }
+        if (!$in) {
+            return null;
+        }
         if ($to === null) {
-            $data = @file_get_contents($url, false, $ctx, 0, $max);
+            $data = stream_get_contents($in, $max);
+            fclose($in);
 
             return $data === false ? null : $data;
         }
-        $in = @fopen($url, 'rb', false, $ctx);
         $out = $in ? @fopen($to, 'wb') : false;
         $n = $in && $out ? stream_copy_to_stream($in, $out, $max + 1) : false;
         $in && fclose($in);

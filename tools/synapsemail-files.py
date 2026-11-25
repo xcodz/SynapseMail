@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SynapseMail: writes app/SYNAPSEMAIL-FILES.txt by diffing app/ against a pristine Roundcube "complete" tree.
-# Usage: tools/synapsemail-files.py /path/to/roundcubemail-1.7.5
+# Usage: tools/synapsemail-files.py /path/to/roundcubemail-1.7.7
 import re, subprocess, sys, os
 if len(sys.argv) != 2:
     sys.exit('usage: synapsemail-files.py <pristine roundcube dir>')

@@ -21,7 +21,7 @@ require_once __DIR__ . '/lib/synapse_secret.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.5.4';
+    public const VERSION = '3.5.5';
     public const THEMES = ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'];
 
     // "remember this device": sliding window, renewed while the account is used
@@ -185,7 +185,7 @@ class synapse_core extends rcube_plugin
     public function login_after($args)
     {
         $rcmail = rcmail::get_instance();
-        $this->rl_clear('uip', mb_strtolower((string) $rcmail->get_user_name()) . '|' . rcube_utils::remote_ip());
+        $this->rl_clear('uip', mb_strtolower((string) $rcmail->get_user_name()) . '|' . rcube_utils::remote_addr());
 
         if (rcube_utils::get_input_string('_remember', rcube_utils::INPUT_POST) === '1') {
             $_SESSION['synapse_remember'] = time() + self::REMEMBER_SECONDS;
@@ -228,8 +228,13 @@ class synapse_core extends rcube_plugin
     {
         $rcmail = rcmail::get_instance();
 
-        if (empty($_SESSION['user_id']) || in_array($args['task'], ['login', 'logout'])) {
+        // logout ends the session before any action runs; the login task only signs in or shows the form
+        if (empty($_SESSION['user_id']) || $args['task'] === 'logout' || ($args['task'] === 'login' && in_array($args['action'], ['', 'login'], true))) {
             return $args;
+        }
+        // any other action under _task=login would skip core's auth cookie check and this gate
+        if ($args['task'] === 'login') {
+            $args['task'] = 'mail';
         }
 
         // password change (password plugin): limit attempts per account and log them
@@ -299,7 +304,7 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => empty($_SESSION['synapse_pin_state']), 'state' => $_SESSION['synapse_pin_state'] ?? null]);
         }
 
-        $ip = rcube_utils::remote_ip();
+        $ip = rcube_utils::remote_addr();
         if ($this->rl_blocked(['pinip' => $ip])) {
             $rcmail->kill_session();
             $this->json(['ok' => false, 'signedout' => true, 'message' => $this->gettext('pin_netlimit')]);
@@ -412,7 +417,7 @@ class synapse_core extends rcube_plugin
         $interval = (string) rcube_utils::get_input_string('_interval', rcube_utils::INPUT_POST);
 
         // changing an existing passcode (or only its settings) needs the current one
-        if ($current && !password_verify((string) rcube_utils::get_input_string('_current', rcube_utils::INPUT_POST), $current['hash'])) {
+        if ($current && !$this->current_pin_ok($current)) {
             $this->json(['ok' => false, 'message' => $this->gettext('pin_current')]);
         }
         if (!in_array($interval, self::PIN_INTERVALS, true)) {
@@ -444,11 +449,37 @@ class synapse_core extends rcube_plugin
     {
         $this->require_post();
         $current = $this->pin();
-        if (!$current || !password_verify((string) rcube_utils::get_input_string('_current', rcube_utils::INPUT_POST), $current['hash'])) {
+        if (!$current || !$this->current_pin_ok($current)) {
             $this->json(['ok' => false, 'message' => $this->gettext('pin_current')]);
         }
         $this->save_prefs(['synapse_pin' => null, 'synapse_pin_prompt' => ['skips' => 0, 'next' => time() + self::PROMPT_EVERY_SECONDS, 'off' => false]]);
         $this->json(['ok' => true]);
+    }
+
+    /** Settings: the current passcode (_current), counted like gate attempts so it cannot be guessed here instead */
+    private function current_pin_ok(array $pin)
+    {
+        $rcmail = rcmail::get_instance();
+        $ip = rcube_utils::remote_addr();
+        if ($this->rl_blocked(['pinip' => $ip])) {
+            $this->json(['ok' => false, 'message' => $this->gettext('pin_netlimit')]);
+        }
+        if (password_verify((string) rcube_utils::get_input_string('_current', rcube_utils::INPUT_POST), $pin['hash'])) {
+            return true;
+        }
+
+        $this->rl_fail(['pinip' => $ip]);
+        $fails = (int) $rcmail->config->get('synapse_pin_fails', 0) + 1;
+        if ($fails < self::PIN_FAILS_BEFORE_LOCK) {
+            $this->save_prefs(['synapse_pin_fails' => $fails]);
+
+            return false;
+        }
+        $until = time() + self::PIN_FAIL_LOCK_SECONDS;
+        $this->save_prefs(['synapse_pin_fails' => 0, 'synapse_pin_lock' => $until]);
+        $this->security_log('passcode locked after wrong current passcodes in Settings for ' . $rcmail->get_user_name());
+        $rcmail->kill_session();
+        $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $until, 'message' => $this->gettext('pin_locked')]);
     }
 
     /* ---------------- recommendation widget ---------------- */
@@ -572,7 +603,7 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => empty($_SESSION['synapse_otp_state']), 'next' => $this->next_gate()]);
         }
 
-        $ip = rcube_utils::remote_ip();
+        $ip = rcube_utils::remote_addr();
         if ($this->rl_blocked(['otpip' => $ip])) {
             $rcmail->kill_session();
             $this->json(['ok' => false, 'signedout' => true, 'message' => $this->gettext('otp_netlimit')]);
@@ -633,7 +664,7 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => true, 'secret' => $secret, 'uri' => synapse_totp::uri('SynapseMail', (string) $rcmail->get_user_name(), $secret)]);
         }
 
-        $ip = rcube_utils::remote_ip();
+        $ip = rcube_utils::remote_addr();
         if ($this->rl_blocked(['otpip' => $ip])) {
             $this->json(['ok' => false, 'message' => $this->gettext('otp_netlimit')]);
         }
@@ -668,7 +699,7 @@ class synapse_core extends rcube_plugin
         $otp = $this->otp_settings_guard();
         $used = false;
         if (!($new = $this->otp_check($otp, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used))) {
-            $this->rl_fail(['otpip' => rcube_utils::remote_ip()]);
+            $this->rl_fail(['otpip' => rcube_utils::remote_addr()]);
             $this->json(['ok' => false, 'message' => $this->gettext('otp_invalid')]);
         }
         $codes = synapse_totp::recovery_codes();
@@ -686,7 +717,7 @@ class synapse_core extends rcube_plugin
         }
         $used = false;
         if (!$this->otp_check($otp, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used)) {
-            $this->rl_fail(['otpip' => rcube_utils::remote_ip()]);
+            $this->rl_fail(['otpip' => rcube_utils::remote_addr()]);
             $this->json(['ok' => false, 'message' => $this->gettext('otp_invalid')]);
         }
         $this->save_prefs(['synapse_otp' => null, 'synapse_otp_fails' => 0]);
@@ -702,7 +733,7 @@ class synapse_core extends rcube_plugin
         if (!($otp = $this->otp())) {
             $this->json(['ok' => false, 'message' => $this->gettext('otp_notenabled')]);
         }
-        if ($this->rl_blocked(['otpip' => rcube_utils::remote_ip()])) {
+        if ($this->rl_blocked(['otpip' => rcube_utils::remote_addr()])) {
             $this->json(['ok' => false, 'message' => $this->gettext('otp_netlimit')]);
         }
 
@@ -850,7 +881,7 @@ class synapse_core extends rcube_plugin
     private function rl_login_keys($user)
     {
         $user = mb_strtolower(trim((string) $user));
-        $ip = rcube_utils::remote_ip();
+        $ip = rcube_utils::remote_addr();
         $keys = ['ip' => $ip];
         if ($user !== '') {
             $keys['uip'] = $user . '|' . $ip;

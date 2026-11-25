@@ -87,6 +87,33 @@ $check((int) $pdo->query('SELECT COUNT(*) FROM session')->fetchColumn() === 0, '
 $cfg = file_get_contents("$dir/b.cfg");
 $check(strpos($cfg, 'AAAAAAAAAAAAAAAAAAAAAAAA') !== false && strpos($cfg, "'keep'") !== false, 'restore takes des_key, keeps mail settings');
 $check(count(glob("$dir/before-restore-*.db")) === 1, 'snapshot taken before restore');
+// a crafted backup: extra SQL in its schema, an unknown table, a PHP object in the settings
+$mk("$dir/c.db", 'carol@example.com');
+$pdo = new PDO("sqlite:$dir/c.db");
+$pdo->exec('ALTER TABLE users ADD COLUMN preferences TEXT');
+$pdo->exec("CREATE TABLE evil (x TEXT)");
+$pdo->exec("INSERT INTO evil VALUES ('<?php echo 1;')");
+$pdo = null;
+[$file, $key] = synapse_backup::create("$dir/c.db", "$dir/a.cfg", 'test');
+$data = synapse_backup::open($file, $key);
+sleep(1); // the before-restore snapshot is named by the second
+synapse_backup::restore($data, "$dir/b.db", "$dir/b.cfg");
+$pdo = new PDO("sqlite:$dir/b.db");
+$check(!in_array('evil', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true), 'restore skips tables this server does not have');
+$check($pdo->query('SELECT group_concat(username) FROM users')->fetchColumn() === 'carol@example.com', 'restore copies shared columns');
+$pdo->exec('ALTER TABLE users ADD COLUMN preferences TEXT');
+$pdo = null;
+$pdo = new PDO("sqlite:$dir/c.db");
+$pdo->exec("UPDATE users SET preferences = " . $pdo->quote(serialize(['x' => new ArrayObject()])));
+$pdo = null;
+[$file, $key] = synapse_backup::create("$dir/c.db", "$dir/a.cfg", 'test');
+$refused = false;
+sleep(1);
+try { synapse_backup::restore(synapse_backup::open($file, $key), "$dir/b.db", "$dir/b.cfg"); } catch (RuntimeException $e) { $refused = true; }
+$pdo = new PDO("sqlite:$dir/b.db");
+$check($refused && $pdo->query('SELECT group_concat(username) FROM users')->fetchColumn() === 'carol@example.com', 'backup with PHP objects in settings refused, data unchanged');
+$pdo = null;
+$check(!synapse_backup::plain_serialized(serialize(new ArrayObject())) && synapse_backup::plain_serialized(serialize(['a' => [1, 'b']])), 'settings may hold arrays, not objects');
 array_map('unlink', glob("$dir/*"));
 rmdir($dir);
 
@@ -99,6 +126,8 @@ $check(synapse_update::verify($man, $sig, $pub)['version'] === '9.1', 'signed ma
 $check(synapse_update::verify(str_replace('9.1', '9.2', $man), $sig, $pub) === null, 'altered manifest refused');
 $check(synapse_update::verify($man, $sig, synapse_update::PUBLIC_KEY) === null, 'manifest signed by another key refused');
 $check(!empty(synapse_update::check('file:///etc/passwd', '1.0')['error']), 'non-web update URL refused');
+$check(!empty(synapse_update::check('http://example.com/release.json', '1.0')['error']), 'http update URL refused');
+$check(synapse_update::verify(str_replace('https:', 'http:', $man), base64_encode(sodium_crypto_sign_detached(str_replace('https:', 'http:', $man), sodium_crypto_sign_secretkey($kp))), $pub) === null, 'signed manifest with an http download refused');
 
 // signed release zips: install, keep per-install files, refuse tampering
 $sk = sodium_crypto_sign_secretkey($kp);

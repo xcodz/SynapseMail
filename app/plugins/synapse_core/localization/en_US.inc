@@ -657,6 +657,7 @@ $labels['sa_mail_note'] = 'The code is valid for $minutes minutes. If you did no
 $labels['sa_mail_body'] = "Someone asked to send email as \$email from \$service.\n\nYour verification code: \$code\n\nThe code is valid for \$minutes minutes. If you did not ask for this, you can ignore this email: nothing will change.";
 $messages['sa_senderr'] = 'Could not send as $email: $reason You can fix it in Settings > Send As.';
 $messages['sa_usewizard'] = 'To send from another address, use Settings > Send As > Add another address.';
+$messages['sa_fromdenied'] = 'You can only send from your own addresses. To add another one, use Settings > Send As > Add another address.';
 $messages['sa_err_off'] = 'Adding addresses is turned off on this server.';
 $messages['sa_err_email'] = 'Please enter a valid email address.';
 $messages['sa_err_exists'] = 'This address is already in your list.';

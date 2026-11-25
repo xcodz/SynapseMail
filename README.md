@@ -8,9 +8,9 @@
 
 **Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.5.4-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.5.5-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
-![Roundcube](https://img.shields.io/badge/Roundcube-1.7.5-37beff)
+![Roundcube](https://img.shields.io/badge/Roundcube-1.7.7-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
 ![Send As](https://img.shields.io/badge/Send%20As-any%20SMTP-e0a030)
 ![Inboxes](https://img.shields.io/badge/other%20inboxes-IMAP%20over%20TLS-1f68bc)
@@ -21,7 +21,7 @@
 ![Docker](https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-2496ed)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.4](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.5](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -42,17 +42,14 @@ Sample data only. No mail server is connected and nothing is sent.
 
 <a id="new"></a>
 
-## ✨ New in 3.5.4: SynapseMail on Docker
+## ✨ New in 3.5.5: security update
 
-- 🐳 **Official Docker image** for **amd64 and arm64**: `ghcr.io/xcodz/synapsemail`. One command starts it, and all
-  settings and data stay in one volume.
-- 🔐 **Built from the signed release.** GitHub Actions builds every image from the release zip and stops if the
-  SynapseCyber signature or any file does not match.
-- ⬆️ **Simple updates.** Pull the new image and start it again: your settings, users and admin account are kept,
-  and the database is updated on start.
+- 🛡️ **Security fixes** for sign-in, Send As, backups and updates. Please update every copy of SynapseMail.
+- 🧩 **Roundcube core 1.7.7**, with all security fixes of Roundcube 1.7.6 and 1.7.7.
+- 📮 **Send As:** the 6-digit code now always comes from your own mail server, and sending only works from your own
+  addresses.
 
-See [🐳 Docker](#docker) to start it.
-
+<a id="new-354"></a>
 <a id="new-353"></a>
 
 ## ✨ New in 3.5.4: send **and read** from every address
@@ -61,6 +58,12 @@ See [🐳 Docker](#docker) to start it.
 |:---:|:---:|
 | <img src="docs/screenshots/all-inboxes.webp" alt="SynapseMail All inboxes: mail of every address in one list, labeled with the address it came to, read on its own server" width="100%"> | <img src="docs/screenshots/inbox-menu.webp" alt="SynapseMail mailbox menu: All inboxes, your own mailbox, or one of your Send As addresses" width="100%"> |
 
+- 🐳 **Official Docker image** for **amd64 and arm64**: `ghcr.io/xcodz/synapsemail`. One command starts it
+  ([🐳 Docker](#docker)), and all settings and data stay in one volume.
+- 🔐 **Built from the signed release.** GitHub Actions builds every image from the release zip and stops if the
+  SynapseCyber signature or any file does not match.
+- 🔄 **Simple Docker updates.** Pull the new image and start it again: your settings, users and admin account are kept,
+  and the database is updated on start.
 - 📥 **All inboxes in one list.** Your inbox shows the mail of all your Send As addresses together, each message
   labeled with the address it came to. The mail stays **on that address's own server**: nothing is copied into your
   main mailbox. Replies come from the right address, and the menu above the folders still opens one inbox at a time.
@@ -209,8 +212,8 @@ With **Send As** you write from **all of them in SynapseMail**. No more switchin
 
 - 🧙 **Smart setup wizard**: type the address, and SynapseMail **finds the server settings by itself**. It knows the
   popular mail providers and reads the settings that a domain publishes. You can still change every setting.
-- 🔢 **Proven with a code**: a 6-digit code goes to the new address **through its own server**. Only the real owner
-  can add an address, so nobody can send email in somebody else's name.
+- 🔢 **Proven with a code**: your mail server sends a 6-digit code to the new address. Only the real owner can read
+  it and add the address, so nobody can send email in somebody else's name.
 - 📮 **The right server for every address**: each address sends through **its own SMTP server**, so SPF, DKIM and
   DMARC pass and your email lands in the **inbox, not in spam**.
 - ✍️ **A name and a signature for each address**, and one **default address**.
@@ -400,7 +403,7 @@ signed in still open cPanel's Webmail, and IMAP, POP3 and SMTP are not changed (
 
 **Is SynapseMail a Roundcube skin or theme?**
 No. It includes a new design, but it also adds security features (passcode, 2FA, lockouts, device trust), a web
-installer, an admin panel and a new editor. It ships as a complete package based on Roundcube 1.7.5.
+installer, an admin panel and a new editor. It ships as a complete package based on Roundcube 1.7.7.
 
 **Does it work with cPanel webmail?**
 Yes. Install it in a folder of your cPanel account. It connects to the cPanel mail server and can change mailbox
@@ -495,7 +498,7 @@ updates come from the admin panel.
 
 | Folder | What is inside |
 |---|---|
-| `app/` | 📦 the complete package: Roundcube 1.7.5 + SynapseMail ([file list](app/SYNAPSEMAIL-FILES.txt)) |
+| `app/` | 📦 the complete package: Roundcube 1.7.7 + SynapseMail ([file list](app/SYNAPSEMAIL-FILES.txt)) |
 | `editor/` | ✍️ source code of the email editor (Lexical) |
 | `whm-plugin/` | 🖥️ the WHM plugin (`smwhmplugin`): [guide](whm-plugin/README.md) |
 | `docker/` | 🐳 the Docker image (`Dockerfile`, `compose.yaml`): [guide](docker/README.md) |

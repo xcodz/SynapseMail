@@ -1,5 +1,13 @@
 # SynapseMail changelog
 
+## 3.5.5
+- **Security fixes.** Several fixes for sign-in, Send As, backups and updates. Update every copy.
+- **Roundcube core 1.7.7**, with the security fixes of Roundcube 1.7.6 and 1.7.7.
+- Send As: the 6-digit code now always comes from your own mail server, sent from your sign-in address. Moving an
+  address to or from "Send through this mail server" needs a new code.
+- Sending refuses a From address that is not one of your addresses. Add other addresses with Settings › Send As.
+- Updates are downloaded over https only.
+
 ## 3.5.4
 - **Installer: the ownership check can no longer be skipped.** Each installer step now needs the steps before it
   in the same browser session. Before, a visitor who opened the installer of a copy that was not installed yet could

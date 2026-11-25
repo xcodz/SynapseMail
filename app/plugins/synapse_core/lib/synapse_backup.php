@@ -102,29 +102,47 @@ class synapse_backup
                     $pdo->exec('DELETE FROM main."' . $t . '"');
                 }
             }
-            foreach (self::tables($pdo, 'r') as $t) {
-                if (!in_array($t, $live, true)) {
-                    $sql = $pdo->query("SELECT sql FROM r.sqlite_master WHERE type = 'table' AND name = " . $pdo->quote($t))->fetchColumn();
-                    $pdo->exec(preg_replace('/^CREATE TABLE\s+("?' . preg_quote($t, '/') . '"?)/i', 'CREATE TABLE main.$1', $sql));
+            // never run SQL from the backup: only tables and columns this server already has, with plain names, are copied
+            foreach (array_intersect(self::tables($pdo, 'r'), $live) as $t) {
+                if (in_array($t, self::SKIP_TABLES, true) || !preg_match('/^[a-z_]+$/', $t)) {
+                    continue;
                 }
                 $cols = array_values(array_intersect(self::columns($pdo, 'main', $t), self::columns($pdo, 'r', $t)));
+                $cols = array_values(array_filter($cols, static function ($c) { return (bool) preg_match('/^[a-z_]+$/', $c); }));
                 if ($cols) {
                     $list = '"' . implode('", "', $cols) . '"';
                     $pdo->exec("INSERT INTO main.\"{$t}\" ({$list}) SELECT {$list} FROM r.\"{$t}\"");
+                }
+            }
+            // core unserialize()s these columns with classes allowed: a backup must not smuggle PHP objects in
+            foreach (['users' => 'preferences', 'searches' => 'data'] as $t => $c) {
+                if (!in_array($t, $live, true) || !in_array($c, self::columns($pdo, 'main', $t), true)) {
+                    continue;
+                }
+                foreach ($pdo->query("SELECT \"{$c}\" FROM main.\"{$t}\"")->fetchAll(PDO::FETCH_COLUMN) as $v) {
+                    if (!self::plain_serialized($v)) {
+                        throw new RuntimeException('The backup contains settings this server does not accept. Nothing was changed.');
+                    }
                 }
             }
             $pdo->exec('DELETE FROM main."session"'); // everyone signs in again under the restored data
             $pdo->commit();
             $pdo->exec('DETACH DATABASE r');
             $pdo = null;
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e instanceof RuntimeException ? $e : new RuntimeException('The backup could not be restored. Nothing was changed.');
         } finally {
+            $pdo = null;
             @unlink($src);
         }
 
         // des_key decides whether stored 2FA secrets can be read: take the backup's; keep this server's mail settings
-        if (preg_match('/\$config\[\'des_key\'\]\s*=\s*(\'[^\']*\');/', (string) base64_decode($backup['config']), $m)) {
+        if (preg_match('/\$config\[\'des_key\'\]\s*=\s*(\'[^\'\\\\]*\');/', (string) base64_decode($backup['config']), $m)) {
             $cfg = (string) file_get_contents($cfg_file);
-            $new = preg_replace('/\$config\[\'des_key\'\]\s*=\s*\'[^\']*\';/', '$config[\'des_key\'] = ' . $m[1] . ';', $cfg, 1, $n);
+            $new = preg_replace_callback('/\$config\[\'des_key\'\]\s*=\s*\'[^\']*\';/', static function () use ($m) { return '$config[\'des_key\'] = ' . $m[1] . ';'; }, $cfg, 1, $n);
             $tmp = $cfg_file . '.tmp';
             if ($n !== 1 || file_put_contents($tmp, $new, LOCK_EX) === false || !@chmod($tmp, 0640) || !rename($tmp, $cfg_file)) {
                 @unlink($tmp);
@@ -160,6 +178,24 @@ class synapse_backup
         $key = synapse_totp::base32_decode($b32);
 
         return strlen($key) === 32 ? $key : null;
+    }
+
+    /** true for null/empty or a serialize() string holding only scalars and arrays */
+    public static function plain_serialized($s)
+    {
+        if ($s === null || $s === '') {
+            return true;
+        }
+        $v = @unserialize((string) $s, ['allowed_classes' => false]);
+        if ($v === false && $s !== 'b:0;') {
+            return false;
+        }
+        $ok = true;
+        if (is_array($v)) {
+            array_walk_recursive($v, static function ($x) use (&$ok) { $ok = $ok && !is_object($x); });
+        }
+
+        return $ok && !is_object($v);
     }
 
     private static function tables(PDO $pdo, $schema = 'main')

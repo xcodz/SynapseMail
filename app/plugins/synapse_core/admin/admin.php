@@ -92,7 +92,7 @@ if (!empty($A['id']) && (time() - $A['seen'] > IDLE || time() - $A['since'] > AB
 
 $db = $RC->get_dbh();
 $admins = $db->table_name('synapse_admins', true);
-$ip = \rcube_utils::remote_ip();
+$ip = \rcube_utils::remote_addr(); // honours proxy_whitelist, so a client cannot pick its own rate-limit bucket
 
 /* ---------------- actions (POST only, CSRF checked) ---------------- */
 
@@ -265,6 +265,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->query("UPDATE {$admins} SET `totp_last_step` = ? WHERE `id` = ?", $step, $row['id']);
                 try {
                     $backup = synapse_backup::open(file_get_contents($up['tmp_name']), $_POST['key'] ?? '');
+                    // tables made on first use: create them now, the restore copies only into tables this server has
+                    synapse_sendas::rows(0);
+                    synapse_inbox::rows(0);
+                    synapse_core::setting('service_name');
                     $db->closeConnection();
                     $before = synapse_backup::restore($backup, db_file($RC), INSTALL_PATH . 'config/synapse.inc.php');
                     audit('restored backup from ' . gmdate('Y-m-d H:i', $backup['meta']['created']) . ' UTC (v' . $backup['meta']['version'] . '); previous data saved as db/' . basename($before));
@@ -285,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 'update_url':
             $url = trim((string) ($_POST['url'] ?? ''));
-            if ($url !== '' && (!preg_match('#^https?://[a-z0-9.-]+(:\d+)?/\S*$#i', $url) || strlen($url) > 300)) {
+            if ($url !== '' && (!preg_match('#^https://[a-z0-9.-]+(:\d+)?/\S*$#i', $url) || strlen($url) > 300)) {
                 flash('fail', 'Enter a web address that starts with https:// (or leave it empty for the default).');
                 back('updates');
             }

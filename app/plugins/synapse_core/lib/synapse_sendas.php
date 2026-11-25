@@ -359,6 +359,14 @@ class synapse_sendas
         }
         $rcmail = rcmail::get_instance();
         $from = strtolower((string) $args['from']);
+        if (!self::own_sender($args)) {
+            $args['abort'] = true;
+            $args['result'] = false;
+            $args['error'] = ['label' => 'synapse_core.sa_fromdenied'];
+            synapse_core::security_log('sendas: refused a From address that is not one of the account\'s addresses for ' . $rcmail->get_user_name());
+
+            return $args;
+        }
         $rows = self::rows($rcmail->user->ID);
         // the compose form names the identity; read receipts and redirects only give the address
         $iid = (int) rcube_utils::get_input_string('_from', rcube_utils::INPUT_POST);
@@ -390,6 +398,31 @@ class synapse_sendas
         self::reset_smtp();
 
         return $args;
+    }
+
+    /** Core accepts any typed From: only the sign-in address and the account's own addresses may send */
+    private static function own_sender(array $args)
+    {
+        $rcmail = rcmail::get_instance();
+        $norm = static function ($e) { return strtolower(rcube_utils::idn_to_ascii(trim((string) $e))); };
+        $own = [$norm(self::login_email())];
+        foreach ($rcmail->user->list_emails() as $i) {
+            $own[] = $norm($i['email']);
+        }
+        $headers = is_object($args['message']) ? $args['message']->headers() : [];
+        // a redirect keeps the original From and names the account in Resent-From
+        $header = $headers['Resent-From'] ?? ($headers['From'] ?? '');
+        $list = [$args['from']];
+        foreach (rcube_mime::decode_address_list((string) $header, null, false) as $a) {
+            $list[] = $a['mailto'];
+        }
+        foreach ($list as $e) {
+            if ($norm($e) === '' || !in_array($norm($e), $own, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function sent($args)
@@ -652,7 +685,7 @@ class synapse_sendas
         self::reset_smtp();
         $error = null;
         if ($mail) {
-            $ok = $rcmail->deliver_message($mail, $r['email'], $r['email'], $error);
+            $ok = $rcmail->deliver_message($mail, self::code_sender($r['email']), $r['email'], $error);
             $response = is_object($rcmail->smtp) ? $rcmail->smtp->get_response() : [];
         } else {
             $smtp = new rcube_smtp();
@@ -699,13 +732,14 @@ class synapse_sendas
         $name = trim($st['first'] . ' ' . $st['last']);
         $service = synapse_core::service_name();
         $vars = ['code' => $code, 'service' => $service, 'email' => $st['email'], 'minutes' => self::CODE_TTL / 60];
-        $from = format_email_recipient(rcube_utils::idn_to_ascii($st['email']), $name);
+        $to = format_email_recipient(rcube_utils::idn_to_ascii($st['email']), $name);
+        $from = format_email_recipient(rcube_utils::idn_to_ascii(self::code_sender($st['email'])), $name);
 
         $mime = new Mail_mime("\r\n");
         $mime->headers([
             'Date' => $rcmail->user_date(),
             'From' => $from,
-            'To' => $from,
+            'To' => $to,
             'Subject' => $this->plugin->gettext(['name' => 'sa_mail_subject', 'vars' => $vars]),
             'Message-ID' => $rcmail->gen_message_id($st['email']),
             'Auto-Submitted' => 'auto-generated',
@@ -728,6 +762,14 @@ class synapse_sendas
         return $mime;
     }
 
+    /** The code mail comes from the account's own address (it leaves through this server), else from the claimed one */
+    private static function code_sender($email)
+    {
+        $login = self::login_email();
+
+        return strpos($login, '@') ? $login : $email;
+    }
+
     private static function code_hash($code, $email)
     {
         return hash_hmac('sha256', $code . '|' . strtolower($email), self::key() . '|synapse-sendas-code');
@@ -745,7 +787,16 @@ class synapse_sendas
         $st['code_exp'] = time() + self::CODE_TTL;
         $st['tries'] = 0;
         $st['sent_at'] = time();
-        $res = self::demo() ? ['ok' => true] : $this->try_server($st, self::state_password($st), $this->code_mail($st, $code));
+        if (self::demo()) {
+            $res = ['ok' => true];
+        } else {
+            // the server the user typed in is only tested; the code always goes through this server's normal route, so
+            // only the real mailbox of the address can read it
+            $res = $st['mode'] === 'smtp' ? $this->try_server($st, self::state_password($st)) : ['ok' => true];
+            if ($res['ok']) {
+                $res = $this->try_server(['mode' => 'server'] + $st, '', $this->code_mail($st, $code));
+            }
+        }
         if ($res['ok']) {
             synapse_core::rl_fail(['sacode' => $user]); // counts mails that were really sent (protects the mailbox from floods)
         }
@@ -876,9 +927,10 @@ class synapse_sendas
             $this->fail('slow', ['wait' => $wait]);
         }
 
-        // same verified address, new server or password: a working connection is enough
+        // same verified address, other SMTP server or password: a working connection is enough. Moving it to or
+        // from "this mail server" needs a new code, because then this server sends and signs its mail
         $ident = $iid ? $rcmail->user->get_identity($iid) : null;
-        if ($old && $old['verified_at'] && $ident && strtolower($ident['email']) === $email) {
+        if ($old && $old['verified_at'] && $ident && strtolower($ident['email']) === $email && $old['mode'] === 'smtp' && $st['mode'] === 'smtp') {
             $res = self::demo() ? ['ok' => true] : $this->try_server($st, self::state_password($st));
             if (!$res['ok']) {
                 synapse_core::rl_fail(['satest' => $user]); // only failed tests count: trying ports and modes is normal

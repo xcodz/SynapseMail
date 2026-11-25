@@ -99,6 +99,6 @@ the end of December 2026). **Outlook.com / Hotmail:** only OAuth works, which is
 **"The server certificate is for another name"**: use the name the wizard shows (often the server's host name,
 for example `server12.host.com` instead of `mail.example.com`).
 
-**No code arrives:** look in the spam folder of that address. The code mail is sent from the address to itself.
+**No code arrives:** look in the spam folder of that address. The code mail is sent from your sign-in address to the new address.
 
 More: [Send As guide](SEND_AS.md)

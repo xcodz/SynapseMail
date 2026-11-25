@@ -18,8 +18,8 @@ Open **Settings › Send As** and press **+** (Add another address).
 
    You can change the server, port (465, 587, 25 or 2525), security (SSL/TLS or STARTTLS), user name and password.
    For an address of your own mail server you can also choose **Send through this mail server** (no password).
-3. **Test and send code.** SynapseMail connects, signs in and sends a **6-digit code to the new address, through
-   its own server**. Open that mailbox and type the code. The code is valid for 15 minutes; you can ask for a new
+3. **Test and send code.** SynapseMail connects to that server and signs in, then sends a **6-digit code to the new
+   address through your own mail server**. Open that mailbox and type the code. The code is valid for 15 minutes; you can ask for a new
    one after 60 seconds.
 4. **Finish.** Add a signature (optional) and choose if this is your default address.
 
@@ -29,7 +29,8 @@ Nothing is saved until the code is correct.
 
 Click the address in the list:
 - Change the **name, organization, reply-to, bcc and signature** (rich text) like before.
-- **Change server or password** opens the server step again. A new test is needed, but no new code.
+- **Change server or password** opens the server step again. A new test is needed, but no new code. Moving an
+  address to or from **Send through this mail server** needs a new code.
 - The email address of a verified entry cannot be changed. Add a new address instead.
 - Delete it with the bin icon.
 
