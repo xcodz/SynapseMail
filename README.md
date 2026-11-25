@@ -21,7 +21,7 @@
 ![Docker](https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-2496ed)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.3](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.4](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -41,6 +41,19 @@ Sample data only. No mail server is connected and nothing is sent.
 ---
 
 <a id="new"></a>
+
+## ✨ New in 3.5.4: SynapseMail on Docker
+
+- 🐳 **Official Docker image** for **amd64 and arm64**: `ghcr.io/xcodz/synapsemail`. One command starts it, and all
+  settings and data stay in one volume.
+- 🔐 **Built from the signed release.** GitHub Actions builds every image from the release zip and stops if the
+  SynapseCyber signature or any file does not match.
+- ⬆️ **Simple updates.** Pull the new image and start it again: your settings, users and admin account are kept,
+  and the database is updated on start.
+
+See [🐳 Docker](#docker) to start it.
+
+<a id="new-353"></a>
 
 ## ✨ New in 3.5.3: send **and read** from every address
 
