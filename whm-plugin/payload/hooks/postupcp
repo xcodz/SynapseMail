@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# cPanel Standardized Hook (category System, event upcp, stage post) for the SynapseMail WHM plugin.
+# Registered by smwhmplugin; removed by "smwhmplugin -uninstall". It cannot block or change the update.
+# Copyright (c) 2026 SynapseCyber.io. Licensed under CC BY-NC-ND 4.0.
+#
+cat >/dev/null 2>&1 || true   # the hook data on stdin is not needed
+if [ -x /usr/local/synapsemail-whm/smwhmplugin ]; then
+  msg=$(/usr/local/synapsemail-whm/smwhmplugin -repair --hook </dev/null 2>&1 | tail -n 1)
+  echo "1 SynapseMail WHM plugin: ${msg:-done}"
+else
+  echo "1 SynapseMail WHM plugin is not installed"
+fi
+exit 0

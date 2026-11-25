@@ -1,0 +1,733 @@
+#!/usr/bin/env bash
+if [ -z "${BASH_VERSION:-}" ]; then echo "smwhmplugin needs bash." >&2; exit 1; fi
+#
+# smwhmplugin: SynapseMail WHM plugin. Sends the cPanel Webmail login (ports 2095/2096, webmail.<domain>,
+# /webmail) to your SynapseMail address, and can roll everything back.
+#
+# Copyright (c) 2026 SynapseCyber.io. All rights reserved. Developed by Milad Ahmadipour (https://milad.io).
+# Licensed under CC BY-NC-ND 4.0 (https://creativecommons.org/licenses/by-nc-nd/4.0/).
+#
+# How it works: a copy of the server's current login theme (WHM >> Theme Manager >> Login) with one guarded block
+# at the top of templates/login.tmpl. The block only renders when app_name is "webmaild", so cPanel (2083) and
+# WHM (2087) logins stay as they are. The copy becomes the default login theme (Tweak Settings), a health check
+# confirms all three logins, and any failure switches back to the original theme. A cPanel update hook
+# (System::upcp, post) rebuilds the copy from the updated original after every update.
+# Nothing in /usr/local/cpanel is edited; the plugin only adds its own theme folder there.
+
+SM_VERSION=1.1.3
+SM_NAME='SynapseMail WHM plugin'
+SM_HOME=/usr/local/synapsemail-whm
+SM_ETC=/etc/synapsemail-whm
+SM_VAR=/var/lib/synapsemail-whm
+SM_LOGDIR=/var/log/synapsemail-whm
+SM_LOG=$SM_LOGDIR/smwhmplugin.log
+SM_LINK=/usr/local/sbin/smwhmplugin
+SM_LOCK=/run/lock/smwhmplugin.lock
+SM_THEME=synapsemail
+SM_REPO=${SM_REPO:-https://repo.synapsecyber.io/synapsemail/whm-plugin-only}
+SM_GITHUB=https://github.com/xcodz/SynapseMail
+SM_PUBKEY='__PUBKEY__'   # SynapseCyber release key (raw Ed25519, base64), written in by the build
+CP=/usr/local/cpanel
+UNPROT=$CP/base/unprotected
+WHMAPI=$CP/bin/whmapi1
+HOOKS=$CP/bin/manage_hooks
+CPCONF=/var/cpanel/cpanel.config
+HOOK=$SM_HOME/hooks/postupcp
+WHM_CGI=$CP/whostmgr/docroot/cgi/synapsemail
+WHM_ICON=$CP/whostmgr/docroot/addon_plugins/synapsemail.png
+MARK_THEME='synapsemail-whm:theme'
+MARK_REDIRECT='synapsemail-whm:redirect'
+SM_CHILD=''
+
+# ---------------------------------------------------------------- small helpers
+
+log() { mkdir -p "$SM_LOGDIR" 2>/dev/null && printf '%(%F %T)T  %s\n' -1 "$*" >>"$SM_LOG" 2>/dev/null; return 0; }
+say() { printf '%s\n' "$*"; }
+fail() { # fail "message": stop with a message (after leaving the full-screen UI)
+  log "error: $*"
+  ui_leave
+  printf '\n  %s%s %s%s\n\n' "${C_FAIL:-}" "${G_FAIL:-x}" "$*" "${C_RESET:-}" >&2
+  exit 1
+}
+
+valid_url() { # https only, no query, quotes, brackets or spaces (the URL is written into HTML and JavaScript)
+  [[ $1 =~ ^https://[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(:[0-9]{1,5})?(/[A-Za-z0-9._~%/+-]*)?$ ]] || return 1
+  local host=${1#https://}; host=${host%%/*}; host=${host%%:*}
+  # the target must not be cPanel Webmail itself (redirect loop)
+  [[ $1 =~ :(2095|2096)(/|$) || $host == webmail.* ]] && return 1
+  return 0
+}
+
+conf_get() { # conf_get KEY FILE -> value of KEY=value (no sourcing of files)
+  local k v
+  [[ -f $2 ]] || return 0
+  while IFS='=' read -r k v; do
+    [[ $k == "$1" ]] && { printf '%s' "$v"; return 0; }
+  done <"$2"
+  return 0
+}
+
+state_get() { conf_get "$1" "$SM_VAR/state"; }
+state_set() { # state_set KEY VALUE (rewrites the state file atomically)
+  local tmp k v found=0
+  mkdir -p "$SM_VAR"; chmod 700 "$SM_VAR"
+  tmp=$(mktemp "$SM_VAR/.state.XXXXXX")
+  if [[ -f $SM_VAR/state ]]; then
+    while IFS='=' read -r k v; do
+      [[ -z $k ]] && continue
+      if [[ $k == "$1" ]]; then printf '%s=%s\n' "$k" "$2"; found=1; else printf '%s=%s\n' "$k" "$v"; fi
+    done <"$SM_VAR/state" >"$tmp"
+  fi
+  (( found )) || printf '%s=%s\n' "$1" "$2" >>"$tmp"
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$SM_VAR/state"
+}
+
+target_url() { conf_get URL "$SM_ETC/config"; }
+
+current_theme() { # the default login theme (cpanel when not set)
+  local v
+  v=$(conf_get default_login_theme "$CPCONF")
+  printf '%s' "${v:-cpanel}"
+}
+
+valid_theme_name() { [[ $1 =~ ^[A-Za-z0-9_-]{1,64}$ ]]; }
+
+whm_set_theme() { # whm_set_theme NAME : set the Tweak Setting and confirm it took effect
+  local out
+  valid_theme_name "$1" || return 1
+  out=$("$WHMAPI" --output=json set_tweaksetting key=default_login_theme value="$1" 2>&1) || true
+  log "set_tweaksetting default_login_theme=$1: ${out:0:300}"
+  [[ $out =~ \"result\"[[:space:]]*:[[:space:]]*1 ]] || return 1
+  [[ $(current_theme) == "$1" ]]
+}
+
+restart_cpsrvd() {
+  if [[ -x $CP/scripts/restartsrv_cpsrvd ]]; then
+    "$CP/scripts/restartsrv_cpsrvd" >>"$SM_LOG" 2>&1 || true
+  fi
+}
+
+page() { # page URL -> HTML of a login page served by cpsrvd on this server
+  curl -skL --max-redirs 3 --connect-timeout 8 --max-time 20 -A 'smwhmplugin-healthcheck' "$1" 2>/dev/null || true
+}
+
+# health: webmail shows the redirect, cPanel and WHM show the theme without it. Fills HEALTH_WHY on failure.
+health() {
+  local url=$1 w c m
+  HEALTH_WHY=''
+  w=$(page https://127.0.0.1:2096/)
+  c=$(page https://127.0.0.1:2083/)
+  m=$(page https://127.0.0.1:2087/)
+  log "health: 2096 ${#w} bytes, 2083 ${#c} bytes, 2087 ${#m} bytes"
+  local wok=fail cok=fail mok=fail
+  if [[ $w == *"$MARK_REDIRECT"* && $w == *"$url"* ]]; then wok=ok; fi
+  if [[ $c == *"$MARK_THEME"* && $c != *"$MARK_REDIRECT"* ]]; then cok=ok; fi
+  if [[ $m == *"$MARK_THEME"* && $m != *"$MARK_REDIRECT"* ]]; then mok=ok; fi
+  state_set CHECK_DETAIL "webmail=$wok cpanel=$cok whm=$mok $(date -u +'%F %H:%M UTC')"
+  if [[ $w != *"$MARK_REDIRECT"* || $w != *"$url"* ]]; then HEALTH_WHY='the Webmail login (2096) does not show the redirect'
+  elif [[ $c != *"$MARK_THEME"* || $c == *"$MARK_REDIRECT"* ]]; then HEALTH_WHY='the cPanel login (2083) did not load normally'
+  elif [[ $m != *"$MARK_THEME"* || $m == *"$MARK_REDIRECT"* ]]; then HEALTH_WHY='the WHM login (2087) did not load normally'
+  fi
+  [[ -z $HEALTH_WHY ]]
+}
+
+# ---------------------------------------------------------------- the login theme
+
+redirect_block() { # the block added at the top of login.tmpl (URL already validated: no quotes, no brackets)
+  local u=$1
+  cat <<EOF
+[%# ${MARK_THEME}: SynapseMail WHM plugin (smwhmplugin). Webmail logins open ${u}. Remove with: smwhmplugin -rollback %]<!-- ${MARK_THEME} -->
+[% IF app_name == 'webmaild' %]<!-- ${MARK_REDIRECT} -->
+<meta http-equiv="refresh" content="0;url=${u}">
+<script>window.location.replace("${u}");</script>
+<div style="margin:24px auto;max-width:520px;padding:16px 20px;border:1px solid #c8d1dc;border-radius:8px;font:15px/1.5 system-ui,sans-serif;text-align:center">Webmail has moved to <a href="${u}">${u}</a></div>
+[% END %]
+EOF
+}
+
+theme_build() { # theme_build SOURCE URL : copy the source theme to ours with the redirect block
+  local src=$1 url=$2 new=$UNPROT/.$SM_THEME.new old=$UNPROT/.$SM_THEME.old tpl
+  valid_theme_name "$src" || { log "bad source theme name"; return 1; }
+  [[ $src != "$SM_THEME" ]] || src=cpanel
+  # cPanel 138: main.tmpl at the theme root, templates/login.tmpl (older guides show templates/main.tmpl)
+  if [[ ! -f $UNPROT/$src/templates/login.tmpl ]] || [[ ! -f $UNPROT/$src/main.tmpl && ! -f $UNPROT/$src/templates/main.tmpl ]]; then
+    log "source theme $src has no login templates:"
+    ls -la "$UNPROT/$src" "$UNPROT/$src/templates" >>"$SM_LOG" 2>&1 || true
+    return 1
+  fi
+  rm -rf -- "$new" "$old"
+  cp -a -- "$UNPROT/$src" "$new" || return 1
+  tpl=$new/templates/login.tmpl
+  if grep -q "$MARK_THEME" "$tpl"; then log "source theme $src already contains the plugin block"; rm -rf -- "$new"; return 1; fi
+  { redirect_block "$url"; cat -- "$tpl"; } >"$tpl.sm" || return 1
+  chown --reference="$tpl" "$tpl.sm" 2>/dev/null || true
+  chmod --reference="$tpl" "$tpl.sm" 2>/dev/null || true
+  mv -f -- "$tpl.sm" "$tpl"
+  printf 'This login theme was made by the SynapseMail WHM plugin from "%s".\nIt is rebuilt after cPanel updates. Remove it with: smwhmplugin -rollback\n' "$src" >"$new/SYNAPSEMAIL-README.txt"
+  grep -q "$MARK_REDIRECT" "$tpl" || return 1
+  if [[ -d $UNPROT/$SM_THEME ]]; then mv -- "$UNPROT/$SM_THEME" "$old" || return 1; fi
+  mv -- "$new" "$UNPROT/$SM_THEME" || { [[ -d $old ]] && mv -- "$old" "$UNPROT/$SM_THEME"; return 1; }
+  rm -rf -- "$old"
+  log "theme built from $src for $url"
+}
+
+theme_remove() {
+  rm -rf -- "${UNPROT:?}/$SM_THEME" "$UNPROT/.$SM_THEME.new" "$UNPROT/.$SM_THEME.old"
+}
+
+original_theme() { # the theme to go back to: the saved one if it still exists, else cpanel
+  local o
+  o=$(state_get ORIG_THEME)
+  if valid_theme_name "$o" && [[ $o != "$SM_THEME" && -d $UNPROT/$o ]]; then printf '%s' "$o"; else printf 'cpanel'; fi
+}
+
+# ---------------------------------------------------------------- steps (run in the background by ui_run)
+
+step_check_server() {
+  local v os major
+  [[ $EUID -eq 0 ]] || { echo "must run as root"; return 1; }
+  [[ -x $WHMAPI && -f $CP/version ]] || { echo "cPanel & WHM not found"; return 1; }
+  v=$(<"$CP/version"); major=$(cut -d. -f2 <<<"$v")
+  echo "cPanel $v"
+  if ! [[ $major =~ ^[0-9]+$ ]] || (( major < 110 )); then echo "cPanel 110 or newer is needed (found $v)"; return 1; fi
+  os=$(. /etc/os-release 2>/dev/null; printf '%s %s' "${ID:-?}" "${VERSION_ID:-?}")
+  echo "OS $os"
+  for c in curl cp mv grep cut stat flock; do command -v "$c" >/dev/null || { echo "missing command: $c"; return 1; }; done
+  [[ -d $UNPROT ]] || { echo "$UNPROT not found"; return 1; }
+  if [[ -d /var/cpanel/public_contact ]]; then
+    echo "note: /var/cpanel/public_contact exists, which makes cPanel use the legacy login page"
+  fi
+  return 0
+}
+
+step_install_files() { # copy the payload (SM_SRC) into SM_HOME, link the command, save the URL
+  local new=$SM_HOME.new
+  [[ -n ${SM_SRC:-} && -f $SM_SRC/smwhmplugin ]] || { echo "package folder missing"; return 1; }
+  if [[ $SM_SRC != "$SM_HOME" ]]; then
+    rm -rf -- "$new"
+    mkdir -p "$new"
+    cp -R -- "$SM_SRC/." "$new/"
+    chown -R root:root "$new"
+    find "$new" -type d -exec chmod 755 {} +
+    find "$new" -type f -exec chmod 644 {} +
+    chmod 755 "$new/smwhmplugin" "$new/hooks/postupcp"
+    rm -rf -- "$SM_HOME.old"
+    [[ -d $SM_HOME ]] && mv -- "$SM_HOME" "$SM_HOME.old"
+    mv -- "$new" "$SM_HOME"
+    rm -rf -- "$SM_HOME.old"
+  fi
+  ln -sfn "$SM_HOME/smwhmplugin" "$SM_LINK"
+  mkdir -p "$SM_ETC" "$SM_VAR" "$SM_LOGDIR"
+  chmod 700 "$SM_ETC" "$SM_VAR" "$SM_LOGDIR"
+  printf 'URL=%s\n' "$SM_URL" >"$SM_ETC/config.new" && chmod 600 "$SM_ETC/config.new" && mv -f "$SM_ETC/config.new" "$SM_ETC/config"
+  [[ -n $(state_get INSTALLED_AT) ]] || state_set INSTALLED_AT "$(date -u +%FT%TZ)"
+  state_set VERSION "$SM_VERSION"
+  echo "installed in $SM_HOME"
+}
+
+step_theme() {
+  local cur src
+  cur=$(current_theme)
+  if [[ $cur == "$SM_THEME" ]]; then src=$(original_theme); else src=$cur; fi
+  echo "source theme: $src"
+  theme_build "$src" "$SM_URL"
+}
+
+step_activate() {
+  local cur
+  cur=$(current_theme)
+  if [[ $cur != "$SM_THEME" ]]; then
+    state_set ORIG_THEME "$cur"
+    cp -p "$CPCONF" "$SM_VAR/cpanel.config.before-$(date -u +%Y%m%d%H%M%S)" 2>/dev/null || true
+  fi
+  whm_set_theme "$SM_THEME" || { echo "WHM did not accept the login theme"; return 1; }
+  state_set ENABLED 1
+  state_set PAUSED ''
+  echo "default_login_theme=$SM_THEME (was $(original_theme))"
+}
+
+step_health() {
+  if health "$SM_URL"; then return 0; fi
+  echo "first check: $HEALTH_WHY, restarting cpsrvd"
+  restart_cpsrvd
+  sleep 3
+  health "$SM_URL" && return 0
+  if [[ -d /var/cpanel/public_contact ]]; then
+    HEALTH_WHY+='; cPanel shows its legacy login page while /var/cpanel/public_contact exists'
+  fi
+  echo "health check failed: $HEALTH_WHY"
+  return 1
+}
+
+step_hook() {
+  [[ -x $HOOKS ]] || { echo "manage_hooks not found"; return 1; }
+  if "$HOOKS" list 2>/dev/null | grep -F "$HOOK" >/dev/null; then echo "hook already registered"; return 0; fi
+  "$HOOKS" add script "$HOOK" --manual --category System --event upcp --stage post
+}
+
+whm_registered() { [[ -x $CP/bin/is_registered_with_appconfig && $("$CP/bin/is_registered_with_appconfig" whostmgr synapsemail 2>/dev/null) == 1* ]]; }
+
+step_whm() { # the WHM page: Plugins >> SynapseMail Webmail
+  [[ -d $CP/whostmgr/docroot ]] || { echo "WHM docroot not found"; return 1; }
+  [[ -f $SM_HOME/whm/index.cgi ]] || { echo "WHM page files missing"; return 1; }
+  mkdir -p "$WHM_CGI" "${WHM_ICON%/*}"
+  install -o root -g root -m 0755 "$SM_HOME/whm/index.cgi" "$WHM_CGI/index.cgi"
+  install -o root -g root -m 0644 "$SM_HOME/whm/synapsemail.png" "$WHM_ICON"
+  [[ -x $CP/bin/register_appconfig ]] || { echo "register_appconfig not found"; return 1; }
+  "$CP/bin/register_appconfig" "$SM_HOME/whm/synapsemail.conf" || whm_registered || return 1
+  echo "WHM page: Plugins >> SynapseMail Webmail"
+}
+
+whm_ensure() { # after cPanel updates: put the page back if an update removed it
+  [[ -f $SM_HOME/whm/index.cgi ]] || return 0
+  if [[ ! -f $WHM_CGI/index.cgi || ! -f $WHM_ICON ]] || ! cmp -s "$SM_HOME/whm/index.cgi" "$WHM_CGI/index.cgi" || ! whm_registered; then
+    step_whm >>"$SM_LOG" 2>&1 || log "could not restore the WHM page"
+  fi
+  return 0
+}
+
+step_unwhm() {
+  rm -rf -- "${WHM_CGI:?}" "$WHM_ICON"
+  if [[ -x $CP/bin/unregister_appconfig ]] && whm_registered; then
+    "$CP/bin/unregister_appconfig" synapsemail || true
+  fi
+  return 0
+}
+
+step_restore_theme() { # back to the original login theme (only if ours is active)
+  local o
+  o=$(original_theme)
+  if [[ $(current_theme) == "$SM_THEME" ]]; then
+    whm_set_theme "$o" || { echo "could not set the login theme back to $o"; return 1; }
+    echo "default_login_theme=$o"
+  else
+    echo "login theme is $(current_theme), nothing to restore"
+  fi
+  state_set ENABLED 0
+}
+
+step_remove_theme() {
+  theme_remove
+  local c
+  c=$(page https://127.0.0.1:2083/)
+  [[ $c != *"$MARK_THEME"* ]] || { echo "the cPanel login still shows the plugin theme"; restart_cpsrvd; }
+  return 0
+}
+
+step_unhook() {
+  [[ -x $HOOKS ]] || return 0
+  if "$HOOKS" list 2>/dev/null | grep -F "$HOOK" >/dev/null; then
+    "$HOOKS" delete script "$HOOK" --manual --category System --event upcp --stage post
+  fi
+  return 0
+}
+
+step_remove_files() {
+  rm -f -- "$SM_LINK"
+  rm -rf -- "${SM_ETC:?}" "${SM_VAR:?}" "${SM_HOME:?}" "$SM_HOME.new" "$SM_HOME.old"
+}
+
+# ---------------------------------------------------------------- flows
+
+lock() {
+  mkdir -p "${SM_LOCK%/*}"
+  exec 9>"$SM_LOCK"
+  flock -w "${1:-0}" 9 || fail "Another smwhmplugin run is in progress."
+}
+
+need_root() { [[ $EUID -eq 0 ]] || fail "Please run this as root."; }
+need_installed() { [[ -f $SM_ETC/config && -x $SM_HOME/smwhmplugin ]] || fail "The plugin is not installed. Install: bash <(curl -fsSL $SM_REPO/install.sh)"; }
+
+ask_url() { # sets SM_URL (from --url, the saved config or a question)
+  local def tries=0
+  def=$(target_url)
+  if [[ -n ${ARG_URL:-} ]]; then
+    valid_url "$ARG_URL" || fail "Not a usable address: $ARG_URL (use https://your-domain/path, not a Webmail port)."
+    SM_URL=${ARG_URL%/}; return 0
+  fi
+  if [[ -n ${ARG_YES:-} || ! -r /dev/tty ]]; then
+    [[ -n $def ]] || fail "No SynapseMail address. Add --url https://your-domain/mail"
+    SM_URL=$def; return 0
+  fi
+  local hint="Webmail logins will open this address, e.g. https://example.com/mail${def:+  (Enter keeps $def)}"
+  while :; do
+    ui_ask 'Where is SynapseMail on this server?' "$hint" "$def"
+    if valid_url "$REPLY"; then SM_URL=${REPLY%/}; return 0; fi
+    tries=$(( tries + 1 ))
+    (( tries < 3 )) || fail "Not a usable address: ${REPLY:-empty}"
+    hint="That address can't be used. Use https://your-domain/path (not a Webmail port or webmail. address)."
+    def=''
+  done
+}
+
+url_reachable() { # informational: the address should answer (any HTTP status)
+  local code
+  code=$(curl -sk -o /dev/null -w '%{http_code}' --connect-timeout 8 --max-time 15 "$1" 2>/dev/null || true)
+  [[ $code =~ ^[1-5][0-9][0-9]$ ]]
+}
+
+summary_on() {
+  ui_card "$SM_NAME $SM_VERSION" \
+    "${C_OK}${G_OK}${C_RESET} Webmail logins now open ${C_BOLD}${SM_URL}${C_RESET}" \
+    "  ports 2095/2096, webmail.<domain> and /webmail" \
+    "${C_OK}${G_OK}${C_RESET} cPanel and WHM logins are unchanged" \
+    "${C_OK}${G_OK}${C_RESET} Rebuilt automatically after cPanel updates" \
+    "${C_OK}${G_OK}${C_RESET} WHM: Plugins ${G_ARROW} SynapseMail Webmail" \
+    '' \
+    "${C_MUTED}smwhmplugin            status${C_RESET}" \
+    "${C_MUTED}smwhmplugin -url URL   change the address${C_RESET}" \
+    "${C_MUTED}smwhmplugin -rollback  back to cPanel Webmail${C_RESET}" \
+    "${C_MUTED}smwhmplugin -uninstall remove everything${C_RESET}" \
+    '' \
+    "${C_MUTED}${SM_GITHUB}${C_RESET}"
+}
+
+flow_install() {
+  need_root
+  lock 0
+  [[ -n ${SM_SRC:-} ]] || SM_SRC=$SM_HOME
+  UI_SUB='Installer'
+  ui_enter
+  ask_url
+  UI_FOOT="Webmail $G_ARROW $SM_URL" UI_FOOT2=$SM_GITHUB
+  ui_steps 'Checking the server' 'Verifying the package' 'Installing files' 'Adding the WHM page' 'Building the login theme' 'Turning on the redirect' 'Checking the logins' 'Protecting it from cPanel updates'
+  log "install $SM_VERSION url=$SM_URL"
+  ui_run 0 'Checking the server' step_check_server || fail "This server is not supported. Details: $SM_LOG"
+  if [[ ${SM_VERIFIED:-} == 1 ]]; then UI_STATE[1]=ok; ui_plain '  [2/8] Verifying the package ... ok (signed by SynapseCyber)'
+  else UI_STATE[1]=skip; ui_plain '  [2/8] Verifying the package ... skipped (local copy)'; fi
+  ui_draw
+  ui_run 2 'Installing files' step_install_files || fail "Could not install the files. Details: $SM_LOG"
+  ui_run 3 'Adding the WHM page' step_whm || log "WHM page not added (the command line works without it)"
+  enable_steps 4
+  ui_done 'Done'
+  ui_leave
+  url_reachable "$SM_URL" || printf '  %sNote:%s %s did not answer from this server. Check the address.\n' "$C_WARN" "$C_RESET" "$SM_URL"
+  summary_on
+}
+
+enable_steps() { # the shared part of install and -enable, starting at step index $1
+  local i=$1
+  ui_run "$i" 'Building the login theme' step_theme || fail "Could not build the login theme. Nothing was changed. Details: $SM_LOG"
+  if ! ui_run $(( i + 1 )) 'Turning on the redirect' step_activate; then
+    theme_remove
+    fail "WHM did not accept the login theme. Nothing was changed. Details: $SM_LOG"
+  fi
+  if ! ui_run $(( i + 2 )) 'Checking the logins' step_health; then
+    UI_STATUS='Rolling back'
+    ui_draw
+    ( step_restore_theme; step_remove_theme ) >>"$SM_LOG" 2>&1 || true
+    fail "Health check failed ($(grep -o 'health check failed: .*' "$SM_LOG" | tail -n1 | cut -d: -f2- | sed 's/^ //')). The original login page was restored. Details: $SM_LOG"
+  fi
+  ui_run $(( i + 3 )) 'Protecting it from cPanel updates' step_hook || {
+    UI_STATE[i+3]=fail
+    log "hook registration failed"
+  }
+  state_set LAST_CHECK "$(date -u +%FT%TZ) ok"
+}
+
+flow_enable() {
+  need_root; need_installed; lock 0
+  UI_SUB='Turning on'
+  ui_enter
+  ask_url
+  if [[ $SM_URL != "$(target_url)" ]]; then
+    printf 'URL=%s\n' "$SM_URL" >"$SM_ETC/config.new" && chmod 600 "$SM_ETC/config.new" && mv -f "$SM_ETC/config.new" "$SM_ETC/config"
+  fi
+  UI_FOOT="Webmail $G_ARROW $SM_URL" UI_FOOT2=$SM_GITHUB
+  ui_steps 'Checking the server' 'Building the login theme' 'Turning on the redirect' 'Checking the logins' 'Protecting it from cPanel updates'
+  log "enable url=$SM_URL"
+  ui_run 0 'Checking the server' step_check_server || fail "This server is not supported. Details: $SM_LOG"
+  enable_steps 1
+  ui_done 'Done'
+  ui_leave
+  summary_on
+}
+
+flow_url() {
+  need_root; need_installed
+  [[ -n ${ARG_URL:-} ]] || fail "Usage: smwhmplugin -url https://your-domain/mail"
+  if [[ $(state_get ENABLED) == 1 ]]; then
+    flow_enable
+  else
+    valid_url "$ARG_URL" || fail "Not a usable address: $ARG_URL"
+    lock 0
+    printf 'URL=%s\n' "${ARG_URL%/}" >"$SM_ETC/config"
+    chmod 600 "$SM_ETC/config"
+    log "url set to ${ARG_URL%/} (redirect is off)"
+    say "Saved. The redirect is off; turn it on with: smwhmplugin -enable"
+  fi
+}
+
+flow_rollback() {
+  need_root
+  lock 0
+  UI_SUB='Rollback' UI_FOOT='Webmail goes back to cPanel Webmail (Roundcube)'
+  ui_steps 'Restoring the original login theme' 'Removing the SynapseMail login theme' 'Checking the logins'
+  ui_enter
+  log "rollback"
+  ui_run 0 'Restoring the original login theme' step_restore_theme || fail "Could not restore the login theme. Set it in WHM >> Tweak Settings >> Default login theme. Details: $SM_LOG"
+  ui_run 1 'Removing the SynapseMail login theme' step_remove_theme || true
+  ui_run 2 'Checking the logins' rollback_check || true
+  ui_done 'Done'
+  ui_leave
+  ui_card "$SM_NAME" \
+    "${C_OK}${G_OK}${C_RESET} Webmail is back to cPanel's own login (theme: $(current_theme))" \
+    "${C_MUTED}The plugin is still installed. Turn the redirect on again:${C_RESET}" \
+    "${C_MUTED}smwhmplugin -enable    or remove it: smwhmplugin -uninstall${C_RESET}"
+}
+
+rollback_check() {
+  local c
+  c=$(page https://127.0.0.1:2096/)
+  [[ $c != *"$MARK_REDIRECT"* ]] || { restart_cpsrvd; sleep 3; c=$(page https://127.0.0.1:2096/); }
+  [[ $c != *"$MARK_REDIRECT"* ]]
+}
+
+flow_uninstall() {
+  need_root
+  if [[ -z ${ARG_YES:-} && -r /dev/tty ]]; then
+    printf 'Remove the %s and restore cPanel Webmail? [y/N] ' "$SM_NAME"
+    read -r REPLY </dev/tty || REPLY=''
+    [[ $REPLY =~ ^[Yy] ]] || { say 'Nothing was changed.'; return 0; }
+  fi
+  lock 0
+  UI_SUB='Uninstall' UI_FOOT='Everything the plugin added is removed'
+  ui_steps 'Restoring the original login theme' 'Removing the SynapseMail login theme' 'Removing the cPanel update hook' 'Removing the WHM page' 'Removing the plugin files'
+  ui_enter
+  log "uninstall"
+  ui_run 0 'Restoring the original login theme' step_restore_theme || fail "Could not restore the login theme, so nothing else was removed. Details: $SM_LOG"
+  ui_run 1 'Removing the SynapseMail login theme' step_remove_theme || true
+  ui_run 2 'Removing the cPanel update hook' step_unhook || true
+  ui_run 3 'Removing the WHM page' step_unwhm || true
+  ui_run 4 'Removing the plugin files' step_remove_files || true
+  ui_done 'Removed'
+  ui_leave
+  ui_card "$SM_NAME" \
+    "${C_OK}${G_OK}${C_RESET} Uninstalled. Webmail uses cPanel's own login again." \
+    "${C_MUTED}The log stays in $SM_LOG${C_RESET}"
+}
+
+# -repair: run by the cPanel update hook (and by hand). Rebuilds our theme from the updated original.
+flow_repair() {
+  need_root
+  lock 120
+  local url
+  url=$(target_url)
+  whm_ensure
+  if [[ $(state_get ENABLED) != 1 || ! -f $SM_ETC/config ]]; then say 'Redirect is off, nothing to repair.'; return 0; fi
+  valid_url "$url" || { say 'Saved address is not valid; run smwhmplugin -enable'; return 0; }
+  SM_URL=$url
+  log "repair"
+  local src
+  src=$(original_theme)
+  if theme_build "$src" "$url" >>"$SM_LOG" 2>&1 && { [[ $(current_theme) == "$SM_THEME" ]] || whm_set_theme "$SM_THEME"; } && step_health >>"$SM_LOG" 2>&1; then
+    state_set LAST_CHECK "$(date -u +%FT%TZ) ok"
+    state_set PAUSED ''
+    say "Webmail redirect checked: OK ($url)"
+    return 0
+  fi
+  # fail safe: back to the original login page, keep the setting so -enable can try again
+  step_restore_theme >>"$SM_LOG" 2>&1 || true
+  theme_remove
+  state_set ENABLED 0
+  state_set PAUSED "$(date -u +%FT%TZ) after a cPanel update"
+  state_set LAST_CHECK "$(date -u +%FT%TZ) failed"
+  say "Webmail redirect paused: the updated login page could not be checked. Run: smwhmplugin -enable"
+  return 0
+}
+
+flow_check() {
+  need_root; need_installed
+  local url
+  url=$(target_url)
+  if [[ $(state_get ENABLED) != 1 ]]; then say 'The redirect is off.'; return 0; fi
+  if health "$url"; then
+    state_set LAST_CHECK "$(date -u +%FT%TZ) ok"
+    say "OK: Webmail opens $url; cPanel and WHM logins are normal."
+  else
+    state_set LAST_CHECK "$(date -u +%FT%TZ) failed"
+    say "Problem: $HEALTH_WHY. Run: smwhmplugin -repair"
+    return 1
+  fi
+}
+
+flow_status() {
+  need_root
+  local on url theme hook paused check
+  url=$(target_url)
+  theme=$(current_theme)
+  paused=$(state_get PAUSED)
+  check=$(state_get LAST_CHECK)
+  if [[ ! -f $SM_ETC/config ]]; then on="${C_MUTED}not installed${C_RESET}"
+  elif [[ $(state_get ENABLED) == 1 && $theme == "$SM_THEME" ]]; then on="${C_OK}${G_OK} on${C_RESET}"
+  elif [[ -n $paused ]]; then on="${C_WARN}paused${C_RESET} (${paused})"
+  else on="${C_MUTED}off${C_RESET}"; fi
+  hook="${C_MUTED}no${C_RESET}"
+  if [[ -x $HOOKS ]] && "$HOOKS" list 2>/dev/null | grep -F "$HOOK" >/dev/null; then hook="${C_OK}yes${C_RESET}"; fi
+  ui_card "$SM_NAME $SM_VERSION" \
+    "Webmail redirect   $on" \
+    "Opens              ${url:-${C_MUTED}not set${C_RESET}}" \
+    "Login theme        $theme${C_MUTED} (original: $(original_theme))${C_RESET}" \
+    "Update protection  $hook" \
+    "Last check         ${check:-${C_MUTED}never${C_RESET}}" \
+    '' \
+    "${C_MUTED}-enable  -url URL  -check  -repair  -rollback  -uninstall  -update  -help${C_RESET}" \
+    "${C_MUTED}WHM: Plugins ${G_ARROW} SynapseMail Webmail  ${G_DOT}  ${SM_GITHUB}${C_RESET}"
+}
+
+json_str() { # JSON string (values here are plain; quotes, backslashes and control characters are escaped anyway)
+  local s=$1
+  s=${s//\\/\\\\}; s=${s//\"/\\\"}; s=${s//$'\n'/ }; s=${s//$'\r'/ }; s=${s//$'\t'/ }
+  printf '"%s"' "$s"
+}
+
+flow_json() { # status for the WHM page
+  need_root
+  local installed=false enabled=false hook=false
+  [[ -f $SM_ETC/config ]] && installed=true
+  [[ $(state_get ENABLED) == 1 && $(current_theme) == "$SM_THEME" ]] && enabled=true
+  if [[ -x $HOOKS ]] && "$HOOKS" list 2>/dev/null | grep -F "$HOOK" >/dev/null; then hook=true; fi
+  printf '{"version":%s,"installed":%s,"enabled":%s,"paused":%s,"url":%s,"theme":%s,"original":%s,"hook":%s,"last_check":%s,"check_detail":%s,"latest":%s,"latest_checked":%s}\n' \
+    "$(json_str "$SM_VERSION")" "$installed" "$enabled" "$(json_str "$(state_get PAUSED)")" "$(json_str "$(target_url)")" \
+    "$(json_str "$(current_theme)")" "$(json_str "$(original_theme)")" "$hook" "$(json_str "$(state_get LAST_CHECK)")" "$(json_str "$(state_get CHECK_DETAIL)")" \
+    "$(json_str "$(state_get LATEST)")" "$(json_str "$(state_get LATEST_AT)")"
+}
+
+flow_latest() { # the newest version on the repo (signature checked), saved for the WHM page
+  need_root
+  local tmp v
+  tmp=$(mktemp -d)
+  if ! curl --proto '=https' --tlsv1.2 -fsSL --retry 2 --connect-timeout 10 --max-time 30 -o "$tmp/SHA256SUMS" "$SM_REPO/SHA256SUMS" \
+    || ! curl --proto '=https' --tlsv1.2 -fsSL --retry 2 --connect-timeout 10 --max-time 30 -o "$tmp/SHA256SUMS.sig" "$SM_REPO/SHA256SUMS.sig"; then
+    rm -rf -- "$tmp"; fail "Could not reach $SM_REPO"
+  fi
+  printf -- '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA%s\n-----END PUBLIC KEY-----\n' "$SM_PUBKEY" >"$tmp/release.pub"
+  if ! openssl pkeyutl -verify -pubin -rawin -inkey "$tmp/release.pub" -sigfile "$tmp/SHA256SUMS.sig" -in "$tmp/SHA256SUMS" >/dev/null 2>&1; then
+    rm -rf -- "$tmp"; fail "The update information is not signed by SynapseCyber."
+  fi
+  v=$(awk '$2 ~ /^\*?smwhmplugin-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { n = $2; sub(/^\*?smwhmplugin-/, "", n); sub(/\.tar\.gz$/, "", n); print n; exit }' "$tmp/SHA256SUMS")
+  rm -rf -- "$tmp"
+  [[ $v =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "No version found on $SM_REPO"
+  state_set LATEST "$v"
+  state_set LATEST_AT "$(date -u +'%F %H:%M UTC')"
+  log "latest version on the repo: $v (installed $SM_VERSION)"
+  say "Latest: $v (installed: $SM_VERSION)"
+}
+
+flow_restart() {
+  need_root
+  log "restart cpsrvd"
+  restart_cpsrvd
+  say "cPanel login service (cpsrvd) restarted."
+}
+
+flow_update() {
+  need_root
+  local tmp
+  tmp=$(mktemp -d)
+  curl --proto '=https' --tlsv1.2 -fsSL --retry 2 --connect-timeout 15 -o "$tmp/install.sh" "$SM_REPO/install.sh" || { rm -rf "$tmp"; fail "Could not download $SM_REPO/install.sh"; }
+  local url; url=$(target_url)
+  local rc=0
+  bash "$tmp/install.sh" ${url:+--url "$url"} ${ARG_YES:+-y} ${SM_PLAIN:+--plain} || rc=$?
+  rm -rf "$tmp"
+  return "$rc"
+}
+
+usage() {
+  cat <<EOF
+$SM_NAME $SM_VERSION
+
+  smwhmplugin              status
+  smwhmplugin -enable      turn the Webmail redirect on (asks for the address)
+  smwhmplugin -url URL     change the SynapseMail address
+  smwhmplugin -check       check that Webmail redirects and cPanel/WHM logins are normal
+  smwhmplugin -repair      rebuild the login theme (runs after every cPanel update)
+  smwhmplugin -rollback    turn the redirect off and restore the original login page
+  smwhmplugin -uninstall   roll back and remove the plugin
+  smwhmplugin -update      install the latest version from $SM_REPO
+  smwhmplugin -latest      check which version is the latest (signature checked)
+  smwhmplugin -restart     restart cPanel's login service (cpsrvd)
+  smwhmplugin -version
+
+Options: --url URL   -y (no questions)   --plain (no full-screen view)   NO_COLOR=1
+Log: $SM_LOG
+WHM: Plugins >> SynapseMail Webmail
+$SM_GITHUB
+EOF
+}
+
+# ---------------------------------------------------------------- main
+
+cleanup() {
+  local rc=$?
+  trap - EXIT
+  [[ -n $SM_CHILD ]] && kill "$SM_CHILD" 2>/dev/null
+  ui_leave
+  # the installer's download folder (only a folder made by install.sh)
+  if [[ ${SM_CLEAN_SRC:-} =~ ^/tmp/smwhmplugin\.[A-Za-z0-9]+$ && -d $SM_CLEAN_SRC ]]; then rm -rf -- "$SM_CLEAN_SRC"; fi
+  exit "$rc"
+}
+
+main() {
+  set -Eeuo pipefail
+  shopt -s inherit_errexit 2>/dev/null || true
+  umask 022
+  local here cmd=status
+  here=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
+  # shellcheck source=lib/ui.sh
+  . "$here/lib/ui.sh"
+  ui_init
+  ui_palette
+  trap cleanup EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+
+  ARG_URL='' ARG_YES='' ARG_CLEAN='' SM_SRC='' SM_VERIFIED=0 SM_CLEAN_SRC=''
+  while (( $# )); do
+    case $1 in
+      -install|--install|install) cmd=install ;;
+      -enable|--enable|enable|-on|--on) cmd=enable ;;
+      -rollback|--rollback|rollback|-disable|--disable|disable|-off|--off) cmd=rollback ;;
+      -uninstall|--uninstall|uninstall|-remove|--remove) cmd=uninstall ;;
+      -repair|--repair|repair) cmd=repair ;;
+      -check|--check|check) cmd=check ;;
+      -status|--status|status) cmd=status ;;
+      -update|--update|update) cmd=update ;;
+      -json|--json) cmd=json ;;
+      -latest|--latest|latest) cmd=latest ;;
+      -restart|--restart|restart) cmd=restart ;;
+      -url|--url|url) [[ $cmd == status ]] && cmd=url; ARG_URL=${2:-}; (( $# > 1 )) && shift ;;
+      --url=*) ARG_URL=${1#*=} ;;
+      -y|--yes) ARG_YES=1 ;;
+      --plain) SM_PLAIN=1 ;;
+      --from) SM_SRC=${2:-}; (( $# > 1 )) && shift ;;
+      --verified) SM_VERIFIED=1 ;;
+      --cleanup) ARG_CLEAN=1 ;;
+      --hook) SM_PLAIN=1 ;;
+      -version|--version|version|-v) printf '%s %s\n' "$SM_NAME" "$SM_VERSION"; return 0 ;;
+      -help|--help|help|-h) usage; return 0 ;;
+      *) printf 'Unknown option: %s\n\n' "$1" >&2; usage >&2; return 2 ;;
+    esac
+    shift
+  done
+  if [[ -n ${SM_PLAIN:-} ]]; then ui_init; ui_palette; fi
+  if [[ -n $ARG_CLEAN && $SM_SRC == /tmp/smwhmplugin.*/smwhmplugin ]]; then SM_CLEAN_SRC=${SM_SRC%/smwhmplugin}; fi
+
+  case $cmd in
+    install) flow_install ;;
+    enable) flow_enable ;;
+    url) flow_url ;;
+    rollback) flow_rollback ;;
+    uninstall) flow_uninstall ;;
+    repair) flow_repair ;;
+    check) flow_check ;;
+    update) flow_update ;;
+    json) flow_json ;;
+    latest) flow_latest ;;
+    restart) flow_restart ;;
+    status) flow_status ;;
+  esac
+}
+
+main "$@"

@@ -17,9 +17,10 @@
 ![Updates](https://img.shields.io/badge/updates-signed%20Ed25519-2ea44f)
 ![Mobile](https://img.shields.io/badge/mobile-ready-ff8c42)
 ![RTL](https://img.shields.io/badge/RTL-Persian%20%7C%20Arabic-9b59b6)
+![WHM plugin](https://img.shields.io/badge/WHM-plugin-ff6c2c)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.3](#new) · [🚀 Install](#install) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.3](#new) · [🚀 Install](#install) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -177,6 +178,8 @@ still accepts the password from any app that asks.
 - 🧱 Turn on the protections of your server or panel (for example cPHulk on cPanel, Fail2Ban, or app passwords
   where your mail server supports them).
 - 🚫 If you do not use mail apps, ask your host to limit IMAP/POP3/SMTP access, or disable other webmail apps.
+- 🖥️ On a WHM server, install the [WHM plugin](#whm) so cPanel's Webmail login opens SynapseMail, where the
+  passcode and 2FA apply.
 
 **What comes next:** the **server edition** will let administrators make SynapseMail the only webmail on a server
 and work toward protecting the other doors too. See the [roadmap](#roadmap).
@@ -315,6 +318,47 @@ downloaded, it shows ready nginx rules for your folder and waits until they are 
 
 ---
 
+<a id="whm"></a>
+
+## 🖥️ For WHM servers: send cPanel Webmail to SynapseMail (optional, recommended)
+
+On a cPanel & WHM server, every mailbox also has cPanel's own Webmail (Roundcube on port 2096). That login asks
+only for the password, so it skips SynapseMail's passcode and 2FA. The **SynapseMail WHM plugin** sends those
+Webmail logins to your SynapseMail address instead, so your users land on the protected webmail and everyone uses
+one address. It is optional: SynapseMail works without it, and we recommend it for WHM admins.
+
+```bash
+bash <(curl -fsSL https://repo.synapsecyber.io/synapsemail/whm-plugin-only/install.sh)
+```
+
+Run it as root on the WHM server. It asks for your SynapseMail address (for example `https://example.com/mail`).
+
+- ➡️ **Every Webmail door:** ports 2095/2096, `webmail.<domain>` and `/webmail` on every site open SynapseMail.
+- ✅ **cPanel and WHM logins stay as they are**, and cPanel's own files are never edited.
+- 🩺 **Checked before it counts:** after switching, it loads the Webmail, cPanel and WHM logins on the server. If
+  anything looks wrong, the original login page comes back by itself.
+- 🔄 **Survives cPanel updates:** a cPanel update hook rebuilds it after every update.
+- 🧑‍💼 **WHM page:** *Plugins › SynapseMail Webmail* shows the status and has buttons for check, rebuild, restart
+  the login service, turn off or on, change the address and update. Uninstall is a separate step you confirm.
+- 🔐 **Signed:** the installer checks the SynapseCyber signature of the package before it changes anything.
+
+| Command | What it does |
+|---|---|
+| `smwhmplugin` | status |
+| `smwhmplugin -rollback` | turn it off and restore the original login page (the plugin stays installed) |
+| `smwhmplugin -enable` | turn it on again |
+| `smwhmplugin -url https://example.com/mail` | change the address |
+| `smwhmplugin -update` | install the latest version |
+| `smwhmplugin -uninstall` | roll back and remove the plugin |
+
+Needs cPanel & WHM 110 or newer (tested on 138 with AlmaLinux 9) and SynapseMail installed on one of the server's
+sites. ⚠️ It is a redirect, not a wall: the *Check Email* button inside cPanel and Webmail sessions that are already
+signed in still open cPanel's Webmail, and IMAP, POP3 and SMTP are not changed (see the
+[security model](#security-model)).
+📖 [WHM plugin guide](whm-plugin/README.md)
+
+---
+
 <a id="faq"></a>
 
 ## ❓ FAQ
@@ -348,6 +392,10 @@ the address, and each address has its own name and signature. See the [Send As g
 **Do I need MySQL?**
 No. SynapseMail uses SQLite, so there is nothing extra to set up.
 
+**Can cPanel's Webmail open SynapseMail instead of Roundcube?**
+Yes, on a WHM server. The optional [WHM plugin](#whm) sends the Webmail login (ports 2095/2096,
+`webmail.<domain>` and `/webmail`) to your SynapseMail address, and you can roll it back with one command.
+
 ---
 
 <a id="roadmap"></a>
@@ -365,11 +413,12 @@ step, together with the people who use it. 💪
 - 🎨 Appearance settings and the Soft Light theme
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
 - Web installer with hosting panel detection, and a private admin panel with health checks and backups
+- 🖥️ WHM plugin: cPanel's Webmail logins open SynapseMail, with a WHM page, rollback and uninstall
 
 ### 🛠️ Next steps (planned)
 - ⚡ **One-command installer** for Linux servers and SSH accounts, with signature checks and a terminal interface
-- 🖥️ **Server edition for WHM**: install once for the whole server and manage it from WHM, with the option to make
-  SynapseMail the only webmail on the server
+- 🖥️ **Server edition for WHM**: install SynapseMail once for the whole server and manage it from WHM, building on
+  the WHM plugin, with the option to make SynapseMail the only webmail on the server
 - 📦 **Three ways to install**: server edition (WHM), overlay (SynapseMail on top of your own Roundcube) and the
   full package (like today)
 
@@ -406,6 +455,7 @@ updates come from the admin panel.
 |---|---|
 | `app/` | 📦 the complete package: Roundcube 1.7.5 + SynapseMail ([file list](app/SYNAPSEMAIL-FILES.txt)) |
 | `editor/` | ✍️ source code of the email editor (Lexical) |
+| `whm-plugin/` | 🖥️ the WHM plugin (`smwhmplugin`): [guide](whm-plugin/README.md) |
 | `tools/` | 🛠️ release build and helper scripts |
 | `docs/` | 📖 help, troubleshooting and screenshots |
 
