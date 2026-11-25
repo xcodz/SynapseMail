@@ -73,16 +73,20 @@ sub host_only { # "https://Server.Example:2087/x" or "server.example:2087" -> "s
 
 # Extra check on top of WHM's own session token: the browser's Origin/Referer must name this server.
 # Hosts are compared without ports (cpsrvd may pass Host without :2087), and a proxy's forwarded host counts
-# (WHM opened through whm.<domain>). Returns '' when fine, else what did not match.
+# (WHM opened through whm.<domain>). A request must name its origin: "null" (sandboxed frames, some redirects) or
+# no Origin and no Referer at all is refused. Returns '' when fine, else what did not match.
 sub origin_problem {
     my %ours = map { ( host_only($_) => 1 ) } grep { defined && $_ ne '' } @ENV{qw(HTTP_HOST SERVER_NAME HTTP_X_FORWARDED_HOST)};
+    my $seen = 0;
     for my $h (qw(HTTP_ORIGIN HTTP_REFERER)) {
         my $v = $ENV{$h} // '';
-        next if $v eq '' || $v eq 'null';
+        next if $v eq '';
+        return 'the browser did not say which page sent it' if $v eq 'null';
         my $o = host_only($v);
         return "$o is not " . join( ' or ', sort keys %ours ) if !$ours{$o};
+        $seen = 1;
     }
-    return '';
+    return $seen ? '' : 'the browser did not say which page sent it';
 }
 
 sub h {

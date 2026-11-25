@@ -6,7 +6,7 @@
 
 ### 🔐 Secure, self-hosted webmail: 2FA, a passcode lock, every address in one place, and signed one-click updates
 
-**Built on Roundcube 1.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
+**Built on Roundcube 1.7.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
 ![Version](https://img.shields.io/badge/version-3.5.5-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)

@@ -14,7 +14,7 @@ if [ -z "${BASH_VERSION:-}" ]; then echo "smwhmplugin needs bash." >&2; exit 1; 
 # (System::upcp, post) rebuilds the copy from the updated original after every update.
 # Nothing in /usr/local/cpanel is edited; the plugin only adds its own theme folder there.
 
-SM_VERSION=1.1.3
+SM_VERSION=1.1.4
 SM_NAME='SynapseMail WHM plugin'
 SM_HOME=/usr/local/synapsemail-whm
 SM_ETC=/etc/synapsemail-whm
@@ -22,7 +22,7 @@ SM_VAR=/var/lib/synapsemail-whm
 SM_LOGDIR=/var/log/synapsemail-whm
 SM_LOG=$SM_LOGDIR/smwhmplugin.log
 SM_LINK=/usr/local/sbin/smwhmplugin
-SM_LOCK=/run/lock/smwhmplugin.lock
+SM_LOCK=/run/smwhmplugin.lock   # root-only folder: other users cannot hold or replace the lock
 SM_THEME=synapsemail
 SM_REPO=${SM_REPO:-https://repo.synapsecyber.io/synapsemail/whm-plugin-only}
 SM_GITHUB=https://github.com/xcodz/SynapseMail
@@ -386,6 +386,11 @@ summary_on() {
 flow_install() {
   need_root
   lock 0
+  local have
+  have=$(sed -n 's/^SM_VERSION=\([0-9.]*\).*/\1/p' "$SM_HOME/smwhmplugin" 2>/dev/null | head -1 || true) # empty on a new server
+  if [[ -n $have && -z ${ARG_DOWNGRADE:-} ]] && ver_lt "$SM_VERSION" "$have"; then
+    fail "Version $have is installed, newer than this $SM_VERSION. To go back on purpose, add --downgrade."
+  fi
   [[ -n ${SM_SRC:-} ]] || SM_SRC=$SM_HOME
   UI_SUB='Installer'
   ui_enter
@@ -594,10 +599,10 @@ flow_json() { # status for the WHM page
     "$(json_str "$(state_get LATEST)")" "$(json_str "$(state_get LATEST_AT)")"
 }
 
-flow_latest() { # the newest version on the repo (signature checked), saved for the WHM page
-  need_root
-  local tmp v
-  tmp=$(mktemp -d)
+ver_lt() { [[ $1 != "$2" && $(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1) == "$1" ]]; }
+
+signed_sums() { # signed_sums DIR : SHA256SUMS of the repo into DIR, only when signed with the SynapseCyber key
+  local tmp=$1
   if ! curl --proto '=https' --tlsv1.2 -fsSL --retry 2 --connect-timeout 10 --max-time 30 -o "$tmp/SHA256SUMS" "$SM_REPO/SHA256SUMS" \
     || ! curl --proto '=https' --tlsv1.2 -fsSL --retry 2 --connect-timeout 10 --max-time 30 -o "$tmp/SHA256SUMS.sig" "$SM_REPO/SHA256SUMS.sig"; then
     rm -rf -- "$tmp"; fail "Could not reach $SM_REPO"
@@ -606,7 +611,16 @@ flow_latest() { # the newest version on the repo (signature checked), saved for 
   if ! openssl pkeyutl -verify -pubin -rawin -inkey "$tmp/release.pub" -sigfile "$tmp/SHA256SUMS.sig" -in "$tmp/SHA256SUMS" >/dev/null 2>&1; then
     rm -rf -- "$tmp"; fail "The update information is not signed by SynapseCyber."
   fi
-  v=$(awk '$2 ~ /^\*?smwhmplugin-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { n = $2; sub(/^\*?smwhmplugin-/, "", n); sub(/\.tar\.gz$/, "", n); print n; exit }' "$tmp/SHA256SUMS")
+}
+
+sums_version() { awk '$2 ~ /^\*?smwhmplugin-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { n = $2; sub(/^\*?smwhmplugin-/, "", n); sub(/\.tar\.gz$/, "", n); print n; exit }' "$1"; }
+
+flow_latest() { # the newest version on the repo (signature checked), saved for the WHM page
+  need_root
+  local tmp v
+  tmp=$(mktemp -d)
+  signed_sums "$tmp"
+  v=$(sums_version "$tmp/SHA256SUMS")
   rm -rf -- "$tmp"
   [[ $v =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "No version found on $SM_REPO"
   state_set LATEST "$v"
@@ -622,11 +636,19 @@ flow_restart() {
   say "cPanel login service (cpsrvd) restarted."
 }
 
-flow_update() {
+flow_update() { # runs the repo's install.sh as root, so it must match the signed SHA256SUMS first
   need_root
-  local tmp
+  local tmp v sum
   tmp=$(mktemp -d)
+  signed_sums "$tmp"
+  v=$(sums_version "$tmp/SHA256SUMS")
+  [[ $v =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { rm -rf -- "$tmp"; fail "No version found on $SM_REPO"; }
+  if ver_lt "$v" "$SM_VERSION"; then rm -rf -- "$tmp"; fail "The repo offers $v, older than the installed $SM_VERSION: not installed."; fi
+  sum=$(awk '{ n = $2; sub(/^\*/, "", n) } n == "install.sh" { print $1; exit }' "$tmp/SHA256SUMS")
+  [[ $sum =~ ^[0-9a-f]{64}$ ]] || { rm -rf -- "$tmp"; fail "install.sh is not listed in the signed SHA256SUMS."; }
   curl --proto '=https' --tlsv1.2 -fsSL --retry 2 --connect-timeout 15 -o "$tmp/install.sh" "$SM_REPO/install.sh" || { rm -rf "$tmp"; fail "Could not download $SM_REPO/install.sh"; }
+  [[ $(sha256sum "$tmp/install.sh" | awk '{print $1}') == "$sum" ]] || { rm -rf -- "$tmp"; fail "install.sh does not match the signed SHA256SUMS: not run."; }
+  log "update to $v: install.sh matches the signed SHA256SUMS"
   local url; url=$(target_url)
   local rc=0
   bash "$tmp/install.sh" ${url:+--url "$url"} ${ARG_YES:+-y} ${SM_PLAIN:+--plain} || rc=$?
@@ -650,7 +672,7 @@ $SM_NAME $SM_VERSION
   smwhmplugin -restart     restart cPanel's login service (cpsrvd)
   smwhmplugin -version
 
-Options: --url URL   -y (no questions)   --plain (no full-screen view)   NO_COLOR=1
+Options: --url URL   -y (no questions)   --plain (no full-screen view)   --downgrade (with install.sh)   NO_COLOR=1
 Log: $SM_LOG
 WHM: Plugins >> SynapseMail Webmail
 $SM_GITHUB
@@ -683,7 +705,7 @@ main() {
   trap 'exit 130' INT
   trap 'exit 143' TERM
 
-  ARG_URL='' ARG_YES='' ARG_CLEAN='' SM_SRC='' SM_VERIFIED=0 SM_CLEAN_SRC=''
+  ARG_URL='' ARG_YES='' ARG_CLEAN='' ARG_DOWNGRADE='' SM_SRC='' SM_VERIFIED=0 SM_CLEAN_SRC=''
   while (( $# )); do
     case $1 in
       -install|--install|install) cmd=install ;;
@@ -704,6 +726,7 @@ main() {
       --from) SM_SRC=${2:-}; (( $# > 1 )) && shift ;;
       --verified) SM_VERIFIED=1 ;;
       --cleanup) ARG_CLEAN=1 ;;
+      --downgrade) ARG_DOWNGRADE=1 ;;
       --hook) SM_PLAIN=1 ;;
       -version|--version|version|-v) printf '%s %s\n' "$SM_NAME" "$SM_VERSION"; return 0 ;;
       -help|--help|help|-h) usage; return 0 ;;

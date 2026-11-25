@@ -4,6 +4,7 @@ if [ -z "${BASH_VERSION:-}" ]; then echo "Please run this with bash: bash <(curl
 # SynapseMail WHM plugin installer.
 #   bash <(curl -fsSL https://repo.synapsecyber.io/synapsemail/whm-plugin-only/install.sh)
 # Options: --url https://your-domain/mail   -y (no questions)   --plain (no full-screen view)
+#          --downgrade (install an older version on purpose)
 #
 # Downloads the plugin package, checks its SHA-256 against SHA256SUMS and the Ed25519 signature of SHA256SUMS
 # against the SynapseCyber release key pinned below, then runs the installer from the package.

@@ -41,7 +41,7 @@ token, and they run `smwhmplugin` in the background (so a cpsrvd restart cannot 
 | `smwhmplugin -rollback` | turn the redirect off and restore the original login page (also `-disable`, `-off`) |
 | `smwhmplugin -enable` | turn it on again |
 | `smwhmplugin -uninstall` | roll back and remove the plugin (`-y` skips the question) |
-| `smwhmplugin -update` | install the latest version from the repo |
+| `smwhmplugin -update` | install the latest version from the repo (signature checked, never older) |
 | `smwhmplugin -latest` | check which version is the latest (signature checked) |
 | `smwhmplugin -restart` | restart cPanel's login service (cpsrvd) |
 | `smwhmplugin -json` | status as JSON (used by the WHM page) |
@@ -82,8 +82,11 @@ token, and they run `smwhmplugin` in the background (so a cpsrvd restart cannot 
 - The package is checked before anything changes: SHA-256 against `SHA256SUMS`, and `SHA256SUMS` against its
   Ed25519 signature with the SynapseCyber release key pinned in `install.sh` (the key that signs SynapseMail
   updates). Archive entries must be plain files and folders under `smwhmplugin/`.
+- `smwhmplugin -update` checks the same signed `SHA256SUMS` before it runs the new `install.sh`, which must match
+  it. An older version is never installed by an update; to go back on purpose, run `install.sh --downgrade`.
+- The WHM page accepts changes only from WHM itself: the browser must name this server as the page that sent them.
 - The address must be `https://`, without quotes, spaces, `?`, a Webmail port or a `webmail.` host (no loops).
-- One run at a time (`flock /run/lock/smwhmplugin.lock`); the update hook waits up to two minutes for it.
+- One run at a time (`flock /run/smwhmplugin.lock`, a folder only root can write); the update hook waits up to two minutes for it.
 - This is a convenience redirect, not a security boundary: a browser without JavaScript and meta refresh, a
   signed-in Webmail session, or cPanel's "Check Email" button still reach cPanel Webmail. IMAP/POP3/SMTP are
   unchanged.
