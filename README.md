@@ -55,7 +55,7 @@ See [🐳 Docker](#docker) to start it.
 
 <a id="new-353"></a>
 
-## ✨ New in 3.5.3: send **and read** from every address
+## ✨ New in 3.5.4: send **and read** from every address
 
 | 📥 All your addresses in one inbox | 🔀 Or open one inbox at a time |
 |:---:|:---:|
