@@ -75,8 +75,6 @@ Sample data only. No mail server is connected and nothing is sent.
   list, higher contrast and underlined links. Saved to the account, ready before the page draws.
 - 🌤️ **Soft Light theme.** A calm grey-blue light theme, easy on the eyes, for the webmail, the sign-in page and
   the admin panel. **Match system** switches between Soft Light and your dark theme.
-- 🧑‍💼 **A redesigned admin panel** with readable labels, settings in clear rows, a numbers strip, a light/dark
-  switch and a better phone layout. Checkboxes and radio buttons in Settings now match the skin.
 
 📋 [Full changelog](CHANGELOG.md)
 
