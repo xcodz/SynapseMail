@@ -53,7 +53,7 @@ Sample data only. No mail server is connected and nothing is sent.
 <a id="new-354"></a>
 <a id="new-353"></a>
 
-## ✨ New in 3.5.5: send **and read** from every address
+## ✨ New in 3.5.x: send **and read** from every address
 
 | 📥 All your addresses in one inbox | 🔀 Or open one inbox at a time |
 |:---:|:---:|
