@@ -3,126 +3,125 @@
 # SynapseMail release build.
 # Copyright (c) 2026 SynapseCyber.io. Developed by Milad Ahmadipour (https://milad.io). CC BY-NC-ND 4.0.
 #
-# Builds from app/ into dist/:
+# Builds one commit (default HEAD) into dist/:
 #   dist/SynapseMail_v<V>.zip                      the portable (full tree) package
 #   dist/repo/ and dist/repo.zip                   upload to https://repo.synapsecyber.io/synapsemail/
 #     releases/SynapseMail_v<V>.zip(.sha256)  SHA256SUMS  index.html  .htaccess
-#     release.json + release.json.sig              signed when ~/.synapsemail/release-signing.key exists
+#     release.json + release.json.sig              signed with the release key
 #
-# The package carries SYNAPSEMAIL-RELEASE.json + .sig (sha256 of every file, Ed25519): the admin panel installs
-# only zips signed with the release key. The key stays outside the repo (~/.synapsemail/release-signing.key).
-# Env: RELEASE_NOTES="..." (default: this version's CHANGELOG section)  REPO_URL=https://repo.synapsecyber.io/synapsemail (default)
+# How a package is made (each step must pass before the next; nothing is signed before every check passed):
+#   1. source: a clean snapshot of the commit (git archive into a temporary folder), never the working folder.
+#      The tree must be clean and the commit on a branch or tag, unless DEV=1.
+#   2. code: every SynapseMail PHP file parses and the self test passes, on the snapshot.
+#   3. file lists: every packaged file is in app/SYNAPSEMAIL-FILES.txt or in tools/roundcube-files.txt (pinned
+#      Roundcube files with SHA-256), every listed file is there, and unmodified Roundcube files match their hash.
+#   4. reject classes: other-edition paths, per-install files (local configs, lock, setup key, databases),
+#      backups, snapshots and rollback zips, development folders, editor sources, links, private key blocks and
+#      access tokens, and the private host and address patterns (outside the repo, never printed).
+#      The Docker build context (docker/.dockerignore allow-list) is checked the same way.
+#   5. sign: SYNAPSEMAIL-RELEASE.json + .sig (sha256 of every file, Ed25519) inside the package; the admin panel
+#      installs only zips signed with the release key, which stays outside the repo.
+#   6. zip: sorted entries, the commit's time, fixed modes. Two builds of one commit give the same bytes.
+#
+# Env: COMMIT, DEV, LEAK_PATTERNS, SIGNING_KEY, UNSIGNED=1, TEST_SIGNING_KEY, DIST (see tools/release-lib.sh)
+#      RELEASE_NOTES="..." (default: this version's CHANGELOG section)  REPO_URL=https://repo.synapsecyber.io/synapsemail
+# A DEV build is written as dist/SynapseMail_v<V>-dev-<commit>.zip, unsigned and without the repo folder.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ROOT=$PWD
-APP=app
-PHP=${PHP:-php}
+. tools/release-lib.sh
 REPO_URL=${REPO_URL:-https://repo.synapsecyber.io/synapsemail}
-KEY=${SIGNING_KEY:-$HOME/.synapsemail/release-signing.key}
 
-die() { echo "ABORT: $*" >&2; exit 1; }
-command -v "$PHP" >/dev/null || die "php not found (set PHP=/path/to/php)"
-command -v zip >/dev/null || die "zip not found"
-
-V=$(sed -n "s/.*const VERSION = '\([0-9.]*\)'.*/\1/p" $APP/plugins/synapse_core/synapse_core.php)
-[[ -n $V ]] || die "cannot read synapse_core::VERSION"
-NAME=SynapseMail_v$V
-OUT=dist/$NAME
-
-# 1. code sanity: every SynapseMail PHP file parses
-while IFS= read -r f; do
-  "$PHP" -l "$f" >/dev/null 2>&1 || die "PHP syntax error in $f"
-done < <(find $APP/plugins/synapse_* $APP/public_html/install.php $APP/public_html/admin.php $APP/config/config.inc.php -name '*.php' -o -name '*.inc' | sort)
-
-# 2. stage the package (per-install and dev files never ship)
-rm -rf "$OUT" "$OUT.zip" dist/repo
-mkdir -p dist
-rsync -a --exclude '.DS_Store' \
-  --exclude 'db/*.db' --exclude 'db/*.db-*' --exclude 'db/*.tmp' --exclude 'db/install-probe.txt' \
-  --exclude 'config/synapse.inc.php' --exclude 'config/installed.lock' --exclude 'config/ADMIN-URL.txt' \
-  --exclude 'config/*.tmp' --exclude 'config/config.local.inc.php' --exclude 'setup.key' \
-  --exclude 'logs/*' --exclude 'temp/*' --exclude 'plugins/synapse_demo' \
-  $APP/ "$OUT/"
-cp $APP/logs/.htaccess "$OUT/logs/"
-cp $APP/temp/.htaccess "$OUT/temp/"
-# example ownership file: placeholder code only, the installer never accepts it
-grep -qx 'SM-XXXX-XXXX-XXXX' tools/setup.key.example || die "tools/setup.key.example lost its placeholder"
-cp tools/setup.key.example "$OUT/setup.key"
-sed "1s/.*/SynapseMail v$V: install/" $APP/INSTALL-SYNAPSEMAIL.txt > "$OUT/INSTALL-SYNAPSEMAIL.txt"
-# repo-root documents are the single source; the package gets copies
-cp README.md "$OUT/README.md"
-cp SECURITY.md "$OUT/SECURITY.md"
-cp CHANGELOG.md "$OUT/CHANGELOG-SYNAPSEMAIL.md"
-cp LICENSE-SYNAPSEMAIL.txt "$OUT/LICENSE-SYNAPSEMAIL.txt"
-
-# 3. leak gates: per-install files and anything that looks like a secret
-leak=$(cd "$OUT" && find . \( -name '*.db' -o -name '*.db-*' -o -name 'synapse.inc.php' -o -name 'installed.lock' \
-  -o -name 'ADMIN-URL.txt' -o -name 'config.local.inc.php' -o -name 'release-signing.key' -o -path './logs/*.log' \) -print)
-[[ -z $leak ]] || die "per-install files in the package: $leak"
-# private patterns (test hosts, test accounts, personal addresses) live outside the repo, one regex per line
-PATTERNS=${SECRET_PATTERNS:-$HOME/.synapsemail/secret-patterns.txt}
-[[ -f $PATTERNS ]] || echo "(no $PATTERNS: only generic secret checks run)"
-secrets=$( { [[ -f $PATTERNS ]] && grep -rIlE -f "$PATTERNS" "$OUT" || true
-  grep -rIlE -e 'BEGIN [A-Z ]*PRIVATE KEY' -e 'AKIA[0-9A-Z]{16}' -e 'gh[pousr]_[A-Za-z0-9]{36}' -e 'xox[baprs]-[A-Za-z0-9-]{10,}' "$OUT" --exclude-dir=vendor --exclude-dir=enigma || true; } )
-[[ -z $secrets ]] || die "secret-looking content in: $secrets"
-grep -rqE "synapse_debug|debug_collect" "$OUT/plugins/synapse_core" "$OUT/config" && die "debug collector code found"
-# the public demo plugin and its switches never ship in the release
-[[ -e $OUT/plugins/synapse_demo ]] && die "demo plugin in the release package"
-grep -q "synapse_demo'\] = true\|\"synapse_demo\"\] = true" "$OUT/config/config.inc.php" && die "demo switch in config.inc.php"
-# every file listed as SynapseMail's own must be in the package (manifest used by the overlay/WHM editions)
-missing=$(awk '/^\[added\]/{a=1;next} /^\[/{a=0} a&&NF' $APP/SYNAPSEMAIL-FILES.txt | while read -r p; do [[ -e "$OUT/$p" ]] || echo "$p"; done)
-[[ -z $missing ]] || die "listed in SYNAPSEMAIL-FILES.txt but missing: $missing"
-
-# 4. signed file list inside the package: the in-app updater installs only zips whose every file matches it
-[[ -f $KEY || -n ${UNSIGNED:-} ]] || die "no signing key at $KEY (UNSIGNED=1 builds a zip the updater refuses)"
-[[ -z $(find "$OUT" -type l) ]] || die "symbolic links in the package"
-# notes: this version's CHANGELOG section, wrapped lines joined, markdown marks removed
-NOTES=${RELEASE_NOTES:-$(awk -v v="## $V" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md | sed -e 's/\*\*//g' -e 's/`//g' | awk 'NR>1 && /^  /{sub(/^ +/," ");printf "%s",$0;next} {if(NR>1)printf "\n";printf "%s",$0} END{print ""}' | head -c 3000)}
-if [[ -f $KEY ]]; then
-  "$PHP" -r '
-    [, $dir, $v, $key, $notes] = $argv;
-    $files = [];
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
-    foreach ($it as $f) {
-        if ($f->isFile()) { $files[substr($f->getPathname(), strlen($dir) + 1)] = hash_file("sha256", $f->getPathname()); }
-    }
-    ksort($files, SORT_STRING);
-    $m = json_encode(["product" => "SynapseMail", "version" => $v, "released" => gmdate("Y-m-d"), "notes" => $notes, "files" => $files],
-      JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
-    file_put_contents("$dir/SYNAPSEMAIL-RELEASE.json", $m);
-    file_put_contents("$dir/SYNAPSEMAIL-RELEASE.sig", base64_encode(sodium_crypto_sign_detached($m, base64_decode(trim(file_get_contents($key))))) . "\n");
-    echo count($files) . " files signed\n";
-  ' "$OUT" "$V" "$KEY" "$NOTES"
-fi
-
-# 5. zip
-(cd "$OUT" && zip -qr -X "../$NAME.zip" .)
-echo "dist/$NAME.zip: $(unzip -l "dist/$NAME.zip" | tail -1 | awk '{print $2}') files, $(du -h "dist/$NAME.zip" | cut -f1)"
-
-# 6. repo site
-mkdir -p dist/repo/releases
-cp "dist/$NAME.zip" dist/repo/releases/
-(cd dist/repo/releases && shasum -a 256 "$NAME.zip" > "$NAME.zip.sha256" && cat ./*.sha256 > ../SHA256SUMS)
-# landing page and server rules (placeholders filled in)
-for f in repo-site/index.html repo-site/.htaccess; do
-  [[ -f $f ]] && sed -e "s/{{VERSION}}/$V/g" -e "s/{{DATE}}/$(date -u +%Y-%m-%d)/g" -e "s/{{SHA256}}/$(cut -d' ' -f1 dist/repo/releases/$NAME.zip.sha256)/g" "$f" > "dist/repo/$(basename "$f")"
+# 1. source
+rl_source
+rl_patterns
+SNAP=$RL_WORK/src
+rl_snapshot "$SNAP"
+for f in app/SYNAPSEMAIL-FILES.txt tools/roundcube-files.txt docker/.dockerignore tools/setup.key.example; do
+  [[ -f $SNAP/$f ]] || die "$f is not in commit $RL_SHORT"
 done
-[[ -f installer/install.sh ]] && cp installer/install.sh dist/repo/install.sh
+APP=$SNAP/app
+V=$(sed -n "s/.*const VERSION = '\([0-9.]*\)'.*/\1/p" "$APP/plugins/synapse_core/synapse_core.php")
+[[ -n $V ]] || die "cannot read synapse_core::VERSION"
+PUB=$(sed -n "s/.*PUBLIC_KEY = '\([A-Za-z0-9+\/=]*\)'.*/\1/p" "$APP/plugins/synapse_core/lib/synapse_update.php")
+[[ ${#PUB} -eq 44 ]] || die "release public key not found in synapse_update.php"
+rl_signing "$PUB"
+NAME=SynapseMail_v$V
+ZIPNAME=$NAME${DEV:+-dev-$RL_SHORT}.zip
+echo "version: $V"
 
-# 7. signed manifest (private key stays outside the repo)
-if [[ -f $KEY ]]; then
-  "$PHP" -r '
-    [, $v, $zip, $url, $key, $notes] = $argv;
-    $m = json_encode(["product" => "SynapseMail", "edition" => "portable", "version" => $v, "released" => gmdate("Y-m-d"),
-      "url" => $url, "sha256" => hash_file("sha256", $zip), "size" => filesize($zip), "notes" => $notes], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n";
-    file_put_contents("dist/repo/release.json", $m);
-    file_put_contents("dist/repo/release.json.sig", base64_encode(sodium_crypto_sign_detached($m, base64_decode(trim(file_get_contents($key))))) . "\n");
-  ' "$V" "dist/$NAME.zip" "$REPO_URL/releases/$NAME.zip" "$KEY" "$NOTES"
-  echo "dist/repo/release.json signed for $V"
-else
-  echo "(no signing key at $KEY: release.json not written)"
+# 2. code sanity on the snapshot: every SynapseMail PHP file parses, the self test passes
+while IFS= read -r f; do
+  "$PHP" -l "$f" >/dev/null 2>&1 || die "PHP syntax error in ${f#"$SNAP"/}"
+done < <(find "$APP"/plugins/synapse_* "$APP/public_html/install.php" "$APP/public_html/admin.php" "$APP/config/config.inc.php" \( -name '*.php' -o -name '*.inc' \) | sort)
+"$PHP" "$APP/plugins/synapse_core/tests/selftest.php" >"$RL_WORK/selftest.txt" 2>&1 || { grep '^FAIL' "$RL_WORK/selftest.txt" >&2 || true; die "self test failed"; }
+echo "code: PHP files parse, self test $(grep -c '^ok' "$RL_WORK/selftest.txt") ok"
+
+# stage the package from the snapshot (the demo plugin never ships)
+OUT=$RL_WORK/pkg
+cp -Rp "$APP" "$OUT"
+rm -rf "$OUT/plugins/synapse_demo"
+# example ownership file: placeholder code only, the installer never accepts it
+grep -qx 'SM-XXXX-XXXX-XXXX' "$SNAP/tools/setup.key.example" || die "tools/setup.key.example lost its placeholder"
+cp "$SNAP/tools/setup.key.example" "$OUT/setup.key"
+sed "1s/.*/SynapseMail v$V: install/" "$APP/INSTALL-SYNAPSEMAIL.txt" >"$OUT/INSTALL-SYNAPSEMAIL.txt"
+# repo-root documents are the single source; the package gets copies
+cp "$SNAP/README.md" "$OUT/README.md"
+cp "$SNAP/SECURITY.md" "$OUT/SECURITY.md"
+cp "$SNAP/CHANGELOG.md" "$OUT/CHANGELOG-SYNAPSEMAIL.md"
+cp "$SNAP/LICENSE-SYNAPSEMAIL.txt" "$OUT/LICENSE-SYNAPSEMAIL.txt"
+
+# 3. and 4. file lists and reject classes, before anything is signed
+"$PHP" "$RL_CHECK" package "$OUT" "$APP/SYNAPSEMAIL-FILES.txt" "$SNAP/tools/roundcube-files.txt" || die "package check failed"
+rl_scan_private "$OUT"
+! grep -rqE "synapse_debug|debug_collect" "$OUT/plugins/synapse_core" "$OUT/config" || die "debug collector code found"
+! grep -q "synapse_demo'\] = true\|\"synapse_demo\"\] = true" "$OUT/config/config.inc.php" || die "demo switch in config.inc.php"
+"$PHP" "$RL_CHECK" docker "$SNAP/docker" || die "Docker build context check failed"
+rl_scan_private "$SNAP/docker"
+
+# notes: this version's CHANGELOG section, wrapped lines joined, markdown marks removed
+NOTES=${RELEASE_NOTES:-$(awk -v v="## $V" '$0==v{f=1;next} /^## /{f=0} f' "$SNAP/CHANGELOG.md" | sed -e 's/\*\*//g' -e 's/`//g' | awk 'NR>1 && /^  /{sub(/^ +/," ");printf "%s",$0;next} {if(NR>1)printf "\n";printf "%s",$0} END{print ""}' | head -c 3000)}
+
+# 5. signed file list inside the package: the in-app updater installs only zips whose every file matches it
+if [[ -n $RL_SIGN ]]; then
+  "$PHP" "$RL_CHECK" sign-files "$OUT" "$V" "$RL_DATE" "$NOTES" "$RL_KEY"
+  if [[ -z ${TEST_SIGNING_KEY:-} ]]; then
+    # the same check the Docker build runs on the published zip
+    "$PHP" "$SNAP/docker/verify-release.php" "$OUT" "$V" || die "the signed package does not verify"
+  fi
 fi
+
+# 6. zip (deterministic)
+mkdir -p "$DIST"
+rm -f "$DIST/$ZIPNAME"
+"$PHP" "$RL_CHECK" zip "$OUT" "$DIST/$ZIPNAME" "$RL_TIME" >/dev/null
+echo "$DIST/$ZIPNAME: $(unzip -l "$DIST/$ZIPNAME" | tail -1 | awk '{print $2}') files, $(du -h "$DIST/$ZIPNAME" | cut -f1), sha256 $("$PHP" "$RL_CHECK" sha256 "$DIST/$ZIPNAME")"
+if [[ -n $DEV ]]; then
+  echo "done: $DIST/$ZIPNAME (DEV build: unsigned, not for publishing)"
+  exit 0
+fi
+
+# 7. repo site
+REPO=$RL_WORK/repo
+mkdir -p "$REPO/releases"
+cp "$DIST/$ZIPNAME" "$REPO/releases/"
+rl_sha256 "$REPO/releases/$NAME.zip" "$NAME.zip" >"$REPO/releases/$NAME.zip.sha256"
+cp "$REPO/releases/$NAME.zip.sha256" "$REPO/SHA256SUMS"
+# landing page and server rules (placeholders filled in)
+for f in index.html .htaccess; do
+  [[ -f $SNAP/repo-site/$f ]] && sed -e "s/{{VERSION}}/$V/g" -e "s/{{DATE}}/$RL_DATE/g" -e "s/{{SHA256}}/$(cut -d' ' -f1 "$REPO/releases/$NAME.zip.sha256")/g" "$SNAP/repo-site/$f" >"$REPO/$f"
+done
+[[ -f $SNAP/installer/install.sh ]] && cp "$SNAP/installer/install.sh" "$REPO/install.sh"
+# signed manifest (private key stays outside the repo)
+if [[ -n $RL_SIGN ]]; then
+  "$PHP" "$RL_CHECK" sign-repo "$REPO" "$V" "$RL_DATE" "$DIST/$ZIPNAME" "$REPO_URL/releases/$NAME.zip" "$NOTES" "$RL_KEY"
+  echo "repo/release.json signed for $V"
+else
+  echo "(unsigned build: release.json not written)"
+fi
+rl_scan_private "$REPO"
+rm -rf "$DIST/repo" "$DIST/repo.zip"
+cp -Rp "$REPO" "$DIST/repo"
 # one zip of the repo folder: extract its contents into /synapsemail/ on the update server
-rm -f dist/repo.zip
-(cd dist/repo && zip -qr -X ../repo.zip .)
-echo "done: dist/$NAME.zip, dist/repo/ and dist/repo.zip (upload into https://repo.synapsecyber.io/synapsemail/)"
+"$PHP" "$RL_CHECK" zip "$REPO" "$DIST/repo.zip" "$RL_TIME" >/dev/null
+echo "$DIST/repo.zip: sha256 $("$PHP" "$RL_CHECK" sha256 "$DIST/repo.zip")"
+echo "done: $DIST/$ZIPNAME, $DIST/repo/ and $DIST/repo.zip (upload into https://repo.synapsecyber.io/synapsemail/)"

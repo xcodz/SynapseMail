@@ -96,3 +96,9 @@ token, and they run `smwhmplugin` in the background (so a cpsrvd restart cannot 
 `tools/build_whm_plugin.sh` builds `dist/whm-plugin-only/` (upload its contents to
 `https://repo.synapsecyber.io/synapsemail/whm-plugin-only/`) and `dist/whm-plugin-only.zip`. It needs the release
 signing key in `~/.synapsemail/release-signing.key` (never in git).
+
+It builds from a clean snapshot of one commit (default `HEAD`), never from the working folder, and refuses a dirty
+tree. Before signing it checks that the payload holds exactly the files in `whm-plugin/PAYLOAD-FILES.txt`, with no
+per-install files, databases, backups, development folders, key blocks, tokens or private host patterns. The
+archive is reproducible: two builds of one commit give the same bytes. `tools/test-release-build.sh` tests these
+rules with a throwaway key.

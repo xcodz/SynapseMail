@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# SynapseMail: writes app/SYNAPSEMAIL-FILES.txt by diffing app/ against a pristine Roundcube "complete" tree.
+# SynapseMail: writes app/SYNAPSEMAIL-FILES.txt by diffing app/ against a pristine Roundcube "complete" tree, and
+# tools/roundcube-files.txt (every pristine file with its SHA-256) for the release build's file check.
 # Usage: tools/synapsemail-files.py /path/to/roundcubemail-1.7.7
-import re, subprocess, sys, os
+import hashlib, re, subprocess, sys, os
 if len(sys.argv) != 2:
     sys.exit('usage: synapsemail-files.py <pristine roundcube dir>')
 here = os.path.dirname(os.path.abspath(__file__)); app = os.path.join(here, '..', 'app'); base = sys.argv[1].rstrip('/')
@@ -34,3 +35,20 @@ with open(os.path.join(app, 'SYNAPSEMAIL-FILES.txt'), 'w') as f:
             '# Used to build the overlay and WHM editions. Regenerate: tools/synapsemail-files.py <pristine roundcube dir>\n\n'
             '[added]\n' + '\n'.join(sorted(added)) + '\n\n[changed]\n' + '\n'.join(sorted(changed)) + '\n\n[removed]\n' + '\n'.join(sorted(removed)) + '\n')
 print(f'{len(added)} added, {len(changed)} changed, {len(removed)} removed (Roundcube {version})')
+# pinned Roundcube files: the release build refuses unlisted files and unmodified Roundcube files that differ
+rows = []
+for d, _, names in os.walk(base):
+    for n in names:
+        full = os.path.join(d, n)
+        rel = os.path.relpath(full, base)
+        if os.path.isfile(full) and not os.path.islink(full):
+            h = '-' if rel in changed else hashlib.sha256(open(full, 'rb').read()).hexdigest()
+            rows.append((rel, h))
+with open(os.path.join(here, 'roundcube-files.txt'), 'w') as f:
+    f.write(f'# Roundcube Webmail {version} (complete package): the files SynapseMail ships unmodified, with their SHA-256.\n'
+            '# Paths are relative to app/. "-" marks a Roundcube file SynapseMail changes ([changed] in app/SYNAPSEMAIL-FILES.txt).\n'
+            '# tools/build_release.sh refuses a package with a file in neither list, a listed file missing, or an unmodified\n'
+            '# Roundcube file that differs from its hash here. Regenerate on a Roundcube upgrade:\n'
+            '#   tools/synapsemail-files.py <pristine roundcube dir>   (writes this file and app/SYNAPSEMAIL-FILES.txt)\n'
+            f'roundcube {version}\n' + ''.join(f'{h}  {p}\n' for p, h in sorted(rows)))
+print(f'{len(rows)} Roundcube files pinned in tools/roundcube-files.txt')

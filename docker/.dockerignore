@@ -1,0 +1,10 @@
+# SynapseMail image build context: an allow-list, so only these files reach the build (the app itself comes from
+# the signed release zip). tools/release-check.php docker checks that the list is complete and clean.
+# Copyright (c) 2026 SynapseCyber.io. Licensed under CC BY-NC-ND 4.0.
+*
+!Dockerfile
+!verify-release.php
+!php.ini
+!apache.conf
+!entrypoint.sh
+!setup-key.sh

@@ -1,0 +1,11 @@
+# Files of the WHM plugin package (smwhmplugin-<version>.tar.gz, relative to whm-plugin/payload/).
+# tools/build_whm_plugin.sh refuses a payload with any other file or with one of these missing.
+# Copyright (c) 2026 SynapseCyber.io. Licensed under CC BY-NC-ND 4.0.
+VERSION
+hooks/postupcp
+lib/ui.sh
+smwhmplugin
+whm/banner.webp
+whm/index.cgi
+whm/synapsemail.conf
+whm/synapsemail.png
