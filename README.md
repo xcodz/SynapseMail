@@ -527,12 +527,13 @@ Self-test: `php app/plugins/synapse_core/tests/selftest.php`
 SynapseMail is **source-available, not open source**.
 
 - 🟦 **SynapseMail parts** (`skins/synapse`, `plugins/synapse_*`, the installer and admin pages,
-  `config/config.inc.php`, `editor/`, `tools/`):
+  `config/config.inc.php`, `editor/`, `docker/`, `whm-plugin/`, `tools/`):
   [Creative Commons BY-NC-ND 4.0](LICENSE-SYNAPSEMAIL.txt).
   ✅ Use and share it for free, with credit. ❌ Do not sell it or share changed versions.
-- 🟩 **Roundcube files** keep their GPL-3.0 license. See [app/README-ROUNDCUBE.md](app/README-ROUNDCUBE.md).
-- 🟨 **Third-party parts:** Lexical (MIT), Lucide icons (ISC), anime.js (MIT), qrcode-generator (MIT), fonts
-  (SIL OFL). Details in [LICENSE-SYNAPSEMAIL.txt](LICENSE-SYNAPSEMAIL.txt).
+- 🟩 **Roundcube files** keep their license: GPL-3.0-or-later, with exceptions for skins and plugins. See
+  [app/README-ROUNDCUBE.md](app/README-ROUNDCUBE.md).
+- 🟨 **Third-party parts:** Lexical (MIT, inside the editor bundle), Lucide icons (ISC), anime.js (MIT),
+  qrcode-generator (MIT), fonts (SIL OFL). Details in [LICENSE-SYNAPSEMAIL.txt](LICENSE-SYNAPSEMAIL.txt).
 
 ---
 

@@ -135,3 +135,11 @@ docker build --build-arg SYNAPSEMAIL_VERSION=3.5.6 -t synapsemail docker/
 
 The build downloads `SynapseMail_v3.5.6.zip` from GitHub Releases and stops if the signature or any file does not
 match.
+
+## License
+
+SynapseMail is source-available, not open source. Its own parts, including these Docker files, are under
+[Creative Commons BY-NC-ND 4.0](../LICENSE-SYNAPSEMAIL.txt): use and share them for free, with credit, but do not
+sell them or share changed versions. The image also contains Roundcube (GPL-3.0-or-later, with exceptions for
+skins and plugins), the third-party parts listed in `LICENSE-SYNAPSEMAIL.txt`, and the PHP and Apache software of
+the base image, each under its own license.

@@ -10,6 +10,7 @@
   check the user name and password, and whether the provider needs an App Password.
 - Release packages are built from a clean copy of one version and checked file by file before they are signed.
 - Every change is now checked automatically (PHP syntax and the built-in self test).
+- Licence notices clarified for SynapseMail and third-party parts; no licence change.
 
 ## 3.5.5
 - **Security fixes.** Several fixes for sign-in, Send As, backups and updates. Update every copy.

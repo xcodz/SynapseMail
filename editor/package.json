@@ -5,11 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "esbuild src/index.js --bundle --minify --format=iife --target=es2019 --define:process.env.NODE_ENV='\"production\"' --legal-comments=eof --banner:js='/*! SynapseMail editor bundle. Copyright (c) 2026 SynapseCyber.io, developed by Milad Ahmadipour. CC BY-NC-ND 4.0. Includes Lexical (c) Meta Platforms, Inc. and affiliates, MIT License. */' --outfile=../app/plugins/synapse_editor/lexical.bundle.js"
+    "build": "esbuild src/index.js --bundle --minify --format=iife --target=es2019 --define:process.env.NODE_ENV='\"production\"' --legal-comments=eof --banner:js='/*! SynapseMail editor bundle. SynapseMail code: Copyright (c) 2026 SynapseCyber.io, developed by Milad Ahmadipour, CC BY-NC-ND 4.0 (see LICENSE.txt). Lexical code: Copyright (c) Meta Platforms, Inc. and affiliates, MIT License (see LEXICAL-LICENSE.txt). */' --outfile=../app/plugins/synapse_editor/lexical.bundle.js"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "SEE LICENSE IN ../LICENSE-SYNAPSEMAIL.txt",
+  "private": true,
   "type": "commonjs",
   "dependencies": {
     "@lexical/history": "^0.52.0",

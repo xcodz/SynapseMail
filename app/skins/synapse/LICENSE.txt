@@ -7,6 +7,10 @@ Developed by Milad Ahmadipour (https://milad.io).
 License: Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
 (CC BY-NC-ND 4.0)  https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
 
+The SynapseMail components are source-available, not open source: you may read, use and share them under the
+terms below, but not share changed versions or use them commercially. The third-party software listed further
+down keeps its own licenses.
+
 In short:
   - Free to use: you may install, use and share SynapseMail at no cost.
   - Attribution: keep the copyright notices and the "Powered by SynapseCyber" credit.
@@ -17,19 +21,23 @@ In short:
 Scope
 -----
 This license covers the SynapseMail components:
-  skins/synapse/                 SynapseMail interface (templates, styles, scripts)
+  skins/synapse/                 SynapseMail interface (templates, styles, scripts), except skins/synapse/vendor/
   plugins/synapse_core/          security (passcode, 2FA, rate limits), sessions, installer, admin panel
-  plugins/synapse_editor/        rich-text editor integration
+  plugins/synapse_editor/        rich-text editor integration; in lexical.bundle.js only the SynapseMail code
+                                 (the Lexical code in it is MIT licensed, see below)
   plugins/synapse_preview/       message preview text
+  plugins/synapse_demo/          public demo (source repository and demo package only, not in the release)
   config/config.inc.php          SynapseMail configuration
   public_html/install.php, public_html/admin.php   installer and admin panel entry points
-  In the source repository also: editor/, installer/, repo-site/, tools/
+  In the source repository also: editor/ (the SynapseMail editor sources; the npm packages it builds with keep
+  their own licenses), docker/, whm-plugin/, repo-site/, tools/, .github/
 
 Third-party software
 --------------------
-  Roundcube Webmail   GPL-3.0 with exceptions for skins and plugins (see docs/LICENSE.md)
-                      https://github.com/roundcube/roundcubemail
-  Lexical             MIT License (see plugins/synapse_editor/LEXICAL-LICENSE.txt)
+  Roundcube Webmail   GPL-3.0-or-later, with exceptions for skins and plugins (see README-ROUNDCUBE.md and
+                      docs/LICENSE.md)  https://github.com/roundcube/roundcubemail
+  Lexical             MIT License, Copyright (c) Meta Platforms, Inc. and affiliates; included in
+                      plugins/synapse_editor/lexical.bundle.js (see plugins/synapse_editor/LEXICAL-LICENSE.txt)
   Lucide icons        ISC License   } bundled in skins/synapse/vendor/
   anime.js            MIT License   } (licenses: skins/synapse/vendor/licenses/)
   qrcode-generator    MIT License   }

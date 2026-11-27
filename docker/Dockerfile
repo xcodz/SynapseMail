@@ -24,7 +24,7 @@ LABEL org.opencontainers.image.title="SynapseMail" \
       org.opencontainers.image.source="https://github.com/xcodz/SynapseMail" \
       org.opencontainers.image.url="https://github.com/xcodz/SynapseMail" \
       org.opencontainers.image.vendor="SynapseCyber.io" \
-      org.opencontainers.image.licenses="CC-BY-NC-ND-4.0" \
+      org.opencontainers.image.licenses="CC-BY-NC-ND-4.0 AND GPL-3.0-or-later AND MIT AND ISC AND OFL-1.1" \
       org.opencontainers.image.version="${SYNAPSEMAIL_VERSION}"
 
 # PHP extensions the installer checks for (intl) and uses when present (zip, gd); keep only their runtime libraries

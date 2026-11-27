@@ -102,3 +102,10 @@ tree. Before signing it checks that the payload holds exactly the files in `whm-
 per-install files, databases, backups, development folders, key blocks, tokens or private host patterns. The
 archive is reproducible: two builds of one commit give the same bytes. `tools/test-release-build.sh` tests these
 rules with a throwaway key.
+
+## License
+
+The WHM plugin is part of SynapseMail and is source-available, not open source: it is under
+[Creative Commons BY-NC-ND 4.0](../LICENSE-SYNAPSEMAIL.txt). Use and share it for free, with credit, but do not sell
+it or share changed versions. The SynapseMail it installs comes with its own license notices
+(`LICENSE-SYNAPSEMAIL.txt`, and Roundcube's GPL-3.0-or-later with exceptions for skins and plugins).
