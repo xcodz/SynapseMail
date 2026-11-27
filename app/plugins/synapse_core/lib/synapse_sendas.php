@@ -572,6 +572,84 @@ class synapse_sendas
     }
 
     /** Names of this server: a certificate or greeting with one of them means the connection never left this server */
+    /* ---------------- test sign-ins to other accounts (Send As server test, other inboxes) ---------------- */
+
+    // errors that only say something about the account (password, user, app password or 2FA, sign-in policy):
+    // the user sees one result, the security log the detail
+    private const ACCOUNT_ERRORS = ['auth', 'apppass', 'msauth', 'failed'];
+
+    /** What the user is told: account-state errors all look like one "sign-in not accepted" */
+    public static function public_error($key)
+    {
+        return in_array($key, self::ACCOUNT_ERRORS, true) ? 'auth' : $key;
+    }
+
+    /** True when a failed test may have checked the password (it counts against the target account) */
+    public static function counts_as_guess($key)
+    {
+        return in_array($key, self::ACCOUNT_ERRORS, true);
+    }
+
+    /**
+     * True when a test would sign in to this server itself: one of its own names or configured mail hosts, or an
+     * address of this machine (own IPs, local and private networks).
+     */
+    public static function is_local_target($host, array $ips, ?array $own_names = null, ?array $own_ips = null)
+    {
+        $host = strtolower(rtrim((string) $host, '.'));
+        if (in_array($host, $own_names ?? self::own_names(), true) || in_array($host, ['localhost'], true)) {
+            return true;
+        }
+        $own = $own_ips !== null ? array_map('inet_pton', $own_ips) : self::own_ips();
+        foreach ($ips as $ip) {
+            if (!self::is_public($ip) || in_array(inet_pton($ip), $own, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Binary addresses of this machine and of its configured mail hosts (cached per request) */
+    private static function own_ips()
+    {
+        static $ips = null;
+        if ($ips === null) {
+            $ips = [];
+            $names = array_merge(self::own_names(), [gethostname()]);
+            foreach (array_filter(array_unique($names)) as $name) {
+                foreach ((array) @gethostbynamel($name) as $ip) {
+                    $ips[] = $ip;
+                }
+                foreach ((array) @dns_get_record($name, DNS_AAAA) as $rec) {
+                    $ips[] = $rec['ipv6'] ?? null;
+                }
+            }
+            foreach (['SERVER_ADDR', 'LOCAL_ADDR'] as $k) {
+                $ips[] = $_SERVER[$k] ?? null;
+            }
+            $ips = array_values(array_unique(array_map('inet_pton', array_filter($ips, static function ($ip) { return filter_var($ip, FILTER_VALIDATE_IP); }))));
+        }
+
+        return $ips;
+    }
+
+    /**
+     * Rate-limit keys for a test sign-in as $username on $host (resolved to $ips). On this server itself the test is
+     * counted on the same counters as its sign-in form, so it is never an extra way to guess a local password.
+     * Elsewhere: per target account, across all users, and per client IP.
+     */
+    public static function test_keys($host, $username, array $ips)
+    {
+        $user = mb_strtolower(trim((string) $username));
+        $client = rcube_utils::remote_addr();
+        if (self::is_local_target($host, $ips)) {
+            return ['uip' => $user . '|' . $client, 'user' => $user, 'ip' => $client];
+        }
+
+        return ['tgtacct' => $user, 'tgtip' => $client];
+    }
+
     private static function own_names()
     {
         $rc = rcube::get_instance();
@@ -926,16 +1004,36 @@ class synapse_sendas
         if ($wait = synapse_core::rl_blocked(['satest' => $user])) {
             $this->fail('slow', ['wait' => $wait]);
         }
+        // a test with a user name and password is a sign-in to that account: limited per target account and client IP
+        // (on this server itself: by its own sign-in limits), one attempt taken before the test
+        $keys = [];
+        if ($st['mode'] === 'smtp' && !self::demo()) {
+            $ips = self::resolve($st['host']);
+            if (is_string($ips)) {
+                $this->fail($ips);
+            }
+            $keys = self::test_keys($st['host'], $st['username'], $ips);
+            if ($wait = synapse_core::rl_take($keys)) {
+                synapse_core::security_log("sendas: server test refused (rate limit) for {$st['username']} on {$st['host']} by " . $rcmail->get_user_name());
+                $this->fail('slow', ['wait' => $wait]);
+            }
+        }
+        $settle = static function (array $res) use ($keys) {
+            if ($keys) {
+                synapse_core::rl_settle($keys, $res['ok'] || !self::counts_as_guess($res['error']));
+            }
+        };
 
         // same verified address, other SMTP server or password: a working connection is enough. Moving it to or
         // from "this mail server" needs a new code, because then this server sends and signs its mail
         $ident = $iid ? $rcmail->user->get_identity($iid) : null;
         if ($old && $old['verified_at'] && $ident && strtolower($ident['email']) === $email && $old['mode'] === 'smtp' && $st['mode'] === 'smtp') {
             $res = self::demo() ? ['ok' => true] : $this->try_server($st, self::state_password($st));
+            $settle($res);
             if (!$res['ok']) {
                 synapse_core::rl_fail(['satest' => $user]); // only failed tests count: trying ports and modes is normal
-                synapse_core::security_log("sendas: server test failed ({$res['error']}) for " . $rcmail->get_user_name());
-                $this->fail($res['error'], ['names' => $res['names'] ?? []]);
+                synapse_core::security_log("sendas: server test failed ({$res['error']}) for {$st['username']} on {$st['host']} by " . $rcmail->get_user_name());
+                $this->fail(self::public_error($res['error']), ['names' => $res['names'] ?? []]);
             }
             $this->save($st, (int) $old['verified_at']);
             synapse_core::security_log("sendas: server changed for {$email} by " . $rcmail->get_user_name());
@@ -943,12 +1041,13 @@ class synapse_sendas
         }
 
         $res = $this->send_code($st);
+        $settle($res);
         if (!$res['ok']) {
             if ($res['error'] !== 'slow') {
                 synapse_core::rl_fail(['satest' => $user]);
-                synapse_core::security_log("sendas: server test failed ({$res['error']}) for " . $rcmail->get_user_name());
+                synapse_core::security_log("sendas: server test failed ({$res['error']}) for {$st['username']} on {$st['host']} by " . $rcmail->get_user_name());
             }
-            $this->fail($res['error'], ['names' => $res['names'] ?? [], 'wait' => $res['wait'] ?? 0]);
+            $this->fail(self::public_error($res['error']), ['names' => $res['names'] ?? [], 'wait' => $res['wait'] ?? 0]);
         }
         $_SESSION['synapse_sa'] = $st;
         $this->plugin->json(['ok' => true, 'step' => 'code', 'email' => $email, 'resend' => self::RESEND_WAIT, 'demo' => self::demo()]);

@@ -674,10 +674,28 @@ class synapse_inbox
         if ($wait = synapse_core::rl_blocked(['sainbox' => $uid])) {
             $this->fail('slow', ['wait' => $wait]);
         }
+        // a sign-in to that account: limited per target account and client IP (on this server itself: by its own
+        // sign-in limits), one attempt taken before the test
+        $keys = [];
+        if (!self::demo()) {
+            $ips = synapse_sendas::resolve($host);
+            if (is_string($ips)) {
+                $this->fail($ips);
+            }
+            $keys = synapse_sendas::test_keys($host, $user, $ips);
+            if ($wait = synapse_core::rl_take($keys)) {
+                synapse_core::security_log("inbox: sign-in test refused (rate limit) for {$user} on {$host} by " . $rcmail->get_user_name());
+                $this->fail('slow', ['wait' => $wait]);
+            }
+        }
         $t = self::demo() ? ['ok' => true, 'unseen' => rcube_demo::unseen_of($iid)] : self::test($host, $user, $password);
+        if ($keys) {
+            synapse_core::rl_settle($keys, $t['ok'] || !synapse_sendas::counts_as_guess($t['error']));
+        }
         if (!$t['ok']) {
             synapse_core::rl_fail(['sainbox' => $uid]);
-            $this->fail($t['error'], ['names' => $t['names'] ?? []]);
+            synapse_core::security_log("inbox: sign-in test failed ({$t['error']}) for {$user} on {$host} by " . $rcmail->get_user_name());
+            $this->fail(synapse_sendas::public_error($t['error']), ['names' => $t['names'] ?? []]);
         }
         self::put(['identity_id' => $iid, 'user_id' => $uid, 'host' => $host, 'username' => $user,
             'password' => $same ? '' : synapse_secret::encrypt($password, self::key()), 'created_at' => $old['created_at'] ?? time(), 'last_ok_at' => time()]);

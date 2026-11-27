@@ -62,6 +62,8 @@ class synapse_core extends rcube_plugin
         'satest' => 15, // Send As: failed server tests per user (each one connects to another server)
         'sacode' => 5, // Send As: code mails per user
         'sainbox' => 15, // other inboxes: failed sign-in tests per user
+        'tgtacct' => 5, // Send As and other-inbox tests: failed sign-ins to one target account, across all users
+        'tgtip' => 20, // the same tests: failed sign-ins from one client IP, any target
         'stepup' => 5, // wrong passwords or codes when confirming a security change, per user
     ];
 

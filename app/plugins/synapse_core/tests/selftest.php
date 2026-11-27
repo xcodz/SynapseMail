@@ -473,4 +473,20 @@ $check(strpos($core_src, 'private function otp_consume') !== false && substr_cou
 $admin_src = (string) file_get_contents(__DIR__ . '/../admin/admin.php');
 $check(substr_count($admin_src, 'synapse_atomic::admin_step(') >= 4 && strpos($admin_src, 'synapse_atomic::admin_recovery(') !== false && strpos($admin_src, 'SET `totp_last_step` = ? WHERE `id` = ?"') === false, 'race: admin sign-in, code checks and recovery codes use the atomic updates');
 
+// connection tests to other accounts (SEC-R04): per-target limits, one result for account errors, local targets
+$core_now = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
+$sa_src = (string) file_get_contents(__DIR__ . '/../lib/synapse_sendas.php');
+$ib_src = (string) file_get_contents(__DIR__ . '/../lib/synapse_inbox.php');
+$check(synapse_sendas::public_error('auth') === 'auth' && synapse_sendas::public_error('apppass') === 'auth' && synapse_sendas::public_error('msauth') === 'auth' && synapse_sendas::public_error('failed') === 'auth', 'tests: wrong password, unknown user, app password and blocked sign-in look the same');
+$check(synapse_sendas::public_error('unreachable') === 'unreachable' && synapse_sendas::public_error('tlsfail') === 'tlsfail' && synapse_sendas::public_error('certname') === 'certname', 'tests: connection problems keep their own message');
+$check(synapse_sendas::counts_as_guess('apppass') && synapse_sendas::counts_as_guess('auth') && !synapse_sendas::counts_as_guess('unreachable') && !synapse_sendas::counts_as_guess('slow') && !synapse_sendas::counts_as_guess('certbad'), 'tests: only failures that may have checked a password count against the target');
+$own = ['mail.example.org', 'webmail.example.org'];
+$check(synapse_sendas::is_local_target('mail.example.org', ['203.0.113.9'], $own, []) && synapse_sendas::is_local_target('alias.example.net', ['198.51.100.7'], $own, ['198.51.100.7']), 'tests: this server by name or by its own address is a local target');
+$check(synapse_sendas::is_local_target('x.example.net', ['127.0.0.1'], $own, []) && synapse_sendas::is_local_target('x.example.net', ['10.1.2.3'], $own, []) && synapse_sendas::is_local_target('x.example.net', ['::1'], $own, []), 'tests: loopback and private addresses are local targets');
+$check(!synapse_sendas::is_local_target('smtp.example.net', ['93.184.216.34'], $own, ['198.51.100.7']), 'tests: another public server is not a local target');
+$check(preg_match("/'tgtacct' => \d+/", $core_now) && preg_match("/'tgtip' => \d+/", $core_now), 'tests: limits per target account and per client IP exist');
+$check(preg_match("/return \['uip' => \\\$user \. '\|' \. \\\$client, 'user' => \\\$user, 'ip' => \\\$client\];/", $sa_src) === 1, 'tests: a local target is counted on the sign-in form counters');
+$check(substr_count($sa_src, 'synapse_core::rl_take($keys)') === 1 && substr_count($sa_src, '$settle($res);') === 2 && substr_count($sa_src, 'self::public_error($res[\'error\'])') === 2, 'tests: Send As server test takes a target attempt and shows one result');
+$check(strpos($ib_src, 'synapse_core::rl_take($keys)') !== false && strpos($ib_src, 'synapse_sendas::test_keys($host, $user, $ips)') !== false && strpos($ib_src, 'synapse_sendas::public_error($t[\'error\'])') !== false, 'tests: other-inbox sign-in test takes a target attempt and shows one result');
+
 exit($fail ? 1 : 0);
