@@ -516,7 +516,9 @@ $css = (string) file_get_contents($skin . 'synapse.css');
 $check(strpos($wm, "getPropertyValue('--bg-soft')") !== false && preg_match('/body\{[^}]*background:#/', $wm) === 0 && preg_match('/html,body\{[^}]*background:var\(--sm-blank/', $wm) === 1, 'skin: the blank pane takes the theme background (no fixed dark body)');
 $check(strpos($ui, 'function paintBlank(f)') !== false && strpos($ui, "doc.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IFRAME') paintBlank(e.target); }, true);") !== false && strpos($ui, 'paintBlank(f); // an empty pane repaints in the new theme') !== false, 'skin: blank panes are repainted on load and on every theme switch (also with a cached old blank page)');
 $ph = (string) file_get_contents($skin . 'images/contact-person.svg') . (string) file_get_contents($skin . 'images/contact-group.svg');
-$check(!is_file($skin . 'images/contactpic.svg') && strpos($ph, '<rect') === false && strpos($ph, '#1a2117') === false, 'skin: contact placeholders have no fixed dark background (new file names, so no stale cache)');
+// (no check that the old files are gone: the updater never deletes files, so upgraded copies keep them unused;
+// the templates no longer point to them, checked below)
+$check(strpos($ph, '<rect') === false && strpos($ph, '#1a2117') === false, 'skin: contact placeholders have no fixed dark background (new file names, so no stale cache)');
 $tpl = (string) file_get_contents($skin . 'templates/contact.html') . file_get_contents($skin . 'templates/contactedit.html') . file_get_contents($skin . 'templates/contactprint.html');
 $check(substr_count($tpl, 'placeholder="/images/contact-person.svg"') === 3 && strpos($tpl, 'contactpic.svg') === false && preg_match('/\.contact-photo img \{[^}]*background: var\(--panel-2\)/', $css) === 1, 'skin: contact view, edit and print use the theme-aware placeholder');
 $check(strpos($css, 'body .ui-dialog .ui-dialog-content.iframe iframe { display: block; height: 100%; }') !== false, 'skin: framed dialogs (contact import) fill their box');
