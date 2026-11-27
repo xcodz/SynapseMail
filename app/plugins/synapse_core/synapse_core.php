@@ -57,6 +57,7 @@ class synapse_core extends rcube_plugin
         'otpip' => 20, // wrong authenticator codes from one IP, across sessions
         'admin' => 5, // admin panel sign-in failures per admin name
         'admip' => 10, // admin panel sign-in failures per IP
+        'admstep' => 5, // admin panel: wrong authenticator codes when confirming a restore, update, backup or new codes
         'pwuser' => 5, // password change attempts per account (protects against guessing the current password)
         'sadetect' => 30, // Send As: settings lookups per user
         'satest' => 15, // Send As: failed server tests per user (each one connects to another server)
@@ -253,12 +254,12 @@ class synapse_core extends rcube_plugin
         if ($args['task'] === 'settings' && $args['action'] === 'plugin.password-save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = mb_strtolower((string) $rcmail->get_user_name());
             if ($wait = $this->rl_blocked(['pwuser' => $user])) {
-                rcube::write_log('synapse_security', sprintf('password change refused (rate limit) for %s from %s', $user, rcube_utils::remote_ip()));
+                self::security_log('password change refused (rate limit) for ' . $user);
                 $rcmail->output->show_message($this->gettext(['name' => 'pwratelimit', 'vars' => ['n' => max(1, (int) ceil($wait / 60))]]), 'error');
                 $args['action'] = 'plugin.password';
             } else {
                 $this->rl_fail(['pwuser' => $user]);
-                rcube::write_log('synapse_security', sprintf('password change attempt for %s from %s', $user, rcube_utils::remote_ip()));
+                self::security_log('password change attempt for ' . $user);
             }
         }
 
@@ -1042,7 +1043,7 @@ class synapse_core extends rcube_plugin
         $rcmail = rcmail::get_instance();
         $rcmail->session->regenerate_id(false);
         $rcmail->session->set_auth_cookie();
-        rcube::write_log('synapse_security', sprintf('password changed for %s from %s', $rcmail->get_user_name(), rcube_utils::remote_ip()));
+        self::security_log('password changed for ' . $rcmail->get_user_name());
 
         return $args;
     }
@@ -1218,12 +1219,30 @@ class synapse_core extends rcube_plugin
     /** One line in logs/synapse_security.log (never passwords or codes) */
     public static function security_log($message)
     {
-        rcube::write_log('synapse_security', $message . ' from ' . rcube_utils::remote_ip());
+        rcube::write_log('synapse_security', self::log_safe($message . ' from ' . rcube_utils::remote_ip()));
     }
 
+    /**
+     * Text for a log line: line breaks, other control characters, Unicode line separators and direction marks are
+     * written escaped (\\x0a), so a user name, host or message can never start a new (forged) entry.
+     */
+    public static function log_safe($text)
+    {
+        return preg_replace_callback('/[\x00-\x1F\x7F]|\xC2[\x80-\x9F]|\xE2\x80[\x8E\x8F\xA8-\xAE]|\xE2\x81[\xA6-\xA9]/',
+            static function ($m) { return '\\x' . bin2hex($m[0]); }, (string) $text);
+    }
+
+    /**
+     * State-changing and outward-connecting actions: POST with this session's request token (header or _token).
+     * The token is required explicitly, because core's check lets an empty POST through.
+     */
     public function require_post()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !rcmail::get_instance()->check_request(rcube_utils::INPUT_POST)) {
+        $rcmail = rcmail::get_instance();
+        $given = (string) (rcube_utils::request_header('X-Roundcube-Request') ?: ($_POST['_token'] ?? ''));
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || $given === '' || !hash_equals((string) $rcmail->get_request_token(), $given)
+            || !$rcmail->check_request(rcube_utils::INPUT_POST)
+        ) {
             $this->json(['ok' => false, 'message' => $this->gettext('invalidrequest')], 403);
         }
     }

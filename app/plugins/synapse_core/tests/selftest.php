@@ -471,7 +471,7 @@ rmdir($rdir);
 $check(substr_count($core_src, 'synapse_atomic::') >= 4 && !preg_match('/\$fails = \(int\) \$rcmail->config->get\(\'synapse_(pin|otp)_fails/', $core_src), 'race: passcode and code counters are no longer read, increased and written back');
 $check(strpos($core_src, 'private function otp_consume') !== false && substr_count($core_src, '$this->otp_consume(') >= 4 && substr_count($core_src, '$this->otp_check(') === 1, 'race: every authenticator or recovery code is used up atomically (sign-in, step-up, new codes, 2FA off)');
 $admin_src = (string) file_get_contents(__DIR__ . '/../admin/admin.php');
-$check(substr_count($admin_src, 'synapse_atomic::admin_step(') >= 4 && strpos($admin_src, 'synapse_atomic::admin_recovery(') !== false && strpos($admin_src, 'SET `totp_last_step` = ? WHERE `id` = ?"') === false, 'race: admin sign-in, code checks and recovery codes use the atomic updates');
+$check(substr_count($admin_src, 'synapse_atomic::admin_step(') >= 2 && preg_match('/function admin_code_ok\(.*?synapse_atomic::admin_step\(/s', $admin_src) === 1 && strpos($admin_src, 'synapse_atomic::admin_recovery(') !== false && strpos($admin_src, 'SET `totp_last_step` = ? WHERE `id` = ?"') === false, 'race: admin sign-in, code checks and recovery codes use the atomic updates');
 
 // connection tests to other accounts (SEC-R04): per-target limits, one result for account errors, local targets
 $core_now = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
@@ -488,5 +488,24 @@ $check(preg_match("/'tgtacct' => \d+/", $core_now) && preg_match("/'tgtip' => \d
 $check(preg_match("/return \['uip' => \\\$user \. '\|' \. \\\$client, 'user' => \\\$user, 'ip' => \\\$client\];/", $sa_src) === 1, 'tests: a local target is counted on the sign-in form counters');
 $check(substr_count($sa_src, 'synapse_core::rl_take($keys)') === 1 && substr_count($sa_src, '$settle($res);') === 2 && substr_count($sa_src, 'self::public_error($res[\'error\'])') === 2, 'tests: Send As server test takes a target attempt and shows one result');
 $check(strpos($ib_src, 'synapse_core::rl_take($keys)') !== false && strpos($ib_src, 'synapse_sendas::test_keys($host, $user, $ips)') !== false && strpos($ib_src, 'synapse_sendas::public_error($t[\'error\'])') !== false, 'tests: other-inbox sign-in test takes a target attempt and shows one result');
+
+// admin step-up limits, admin sign-in timing, backups need a code (SEC-R05); one log entry per line (SEC-R06);
+// actions that sign in elsewhere need POST and the token (SEC-R09)
+require_once __DIR__ . '/../synapse_core.php';
+$core_now = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
+$adm = (string) file_get_contents(__DIR__ . '/../admin/admin.php');
+$adm_views = (string) file_get_contents(__DIR__ . '/../admin/views.php');
+$safe = synapse_core::log_safe("eve\r\n[27-Nov-2026 10:00:00 +0000]: forged\x00\x1b[31m\u{2028}x\u{202E}y\u{2066}z");
+$check(!preg_match('/[\x00-\x1F\x7F]|\xE2\x80[\xA8\xAE]|\xE2\x81\xA6/', $safe) && strpos($safe, 'eve\x0d\x0a[27-Nov') === 0, 'logs: line breaks, control characters, line separators and direction marks are written escaped');
+$check(synapse_core::log_safe('سلام user@example.com mail.example.org 192.0.2.1 [ok]') === 'سلام user@example.com mail.example.org 192.0.2.1 [ok]', 'logs: ordinary text (also non-Latin) is unchanged');
+$check(preg_match_all("/write_log\('synapse_security', (?!self::log_safe|synapse_core::log_safe|'[^'\$]*'\))/", $core_now . $adm) === 0, 'logs: every security log line goes through the sanitiser');
+$check(strpos($adm, "write_log('synapse_security', synapse_core::log_safe('admin '") !== false, 'logs: admin audit lines are sanitised');
+$check(preg_match("/'admstep' => \d+/", $core_now) === 1 && preg_match('/function admin_stepup\(.*?rl_take\(\$keys\).*?rl_settle\(\$keys, \$ok\)/s', $adm) === 1, 'admin: confirmation codes take an attempt and count wrong ones per admin');
+$check(substr_count($adm, 'admin_stepup($RC, $db, $admins, $A[\'id\'])') >= 4 && strpos($adm, 'admin_code_ok($RC, $db, $admins, $A[\'id\'])') === false, 'admin: restore, updates, backups and new codes all use the counted confirmation');
+$check(preg_match("/case 'backup_create':\s*\/\/[^\n]*\n\s*if \(\(\\\$err = admin_stepup/", $adm) === 1 && strpos($adm_views, "form('backup_create', code_input(") !== false, 'admin: creating a backup needs an authenticator code');
+$check(strpos($adm, 'if ($row && $pass_ok) {') === false && strpos($adm, 'admin_recovery_hit($row ?') !== false && strpos($adm, 'synapse_totp::verify($secret ?: ADMIN_DUMMY_TOTP') !== false, 'admin: sign-in checks the code with the same work whatever the name and password');
+$check(preg_match('/const ADMIN_DUMMY_CODES = \[(\s*\'\$2y\$10\$[^\']{53}\',){8}\s*\];/', $adm) === 1 && preg_match('/max\(8, count\(\$hashes\)\)/', $adm) === 1, 'admin: a missing account checks eight stand-in recovery hashes, like a real one');
+$check(preg_match('/function require_post\(\).*?\$given === \'\' \|\| !hash_equals/s', $core_now) === 1, 'requests: POST actions need the request token explicitly (an empty POST is refused)');
+$check(preg_match('/function action_list\(\)\s*\{\s*\/\/[^\n]*\n\s*\$this->plugin->require_post\(\);/', (string) file_get_contents(__DIR__ . '/../lib/synapse_inbox.php')) === 1, 'requests: the other-inbox list (it signs in elsewhere) needs POST and the token');
 
 exit($fail ? 1 : 0);

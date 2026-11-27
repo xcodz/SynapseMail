@@ -53,6 +53,19 @@ require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_update.php';
 require_once INSTALL_PATH . 'plugins/synapse_core/lib/synapse_platform.php';
 require_once __DIR__ . '/views.php';
 
+// stand-ins for a missing admin, so a wrong name or password costs the same as a wrong code (random, unusable values)
+const ADMIN_DUMMY_TOTP = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+const ADMIN_DUMMY_CODES = [
+    '$2y$10$dr/xwMkmHHt7iizySs7EKeSG/rOwwLSGZ/XbZey3fSDJN9hivfj1a',
+    '$2y$10$mTSTQAh2FI/YXcmNLYAnl./0tRW8I0PIVwJFYPlUVBaKit21hPqV6',
+    '$2y$10$FgWx41AuYOpDNPAV6f1EH.qo619KVZAeobMAvA1Y1rALW2LsOMVsy',
+    '$2y$10$P2mHPJsYsbpgdnXJVNxRV.wan8xz9iXK0npk2Nw13doHkevjRHGAa',
+    '$2y$10$D2pzV6TGO8zg7zxoFHEJv.Gq4cPKZ9pqHaSyRImhxfbv9l0APOMtq',
+    '$2y$10$7rD3R8rgBoK.parrf.iG7et9HavqNEqP6hEGh5ALhMqj.Y1To52wC',
+    '$2y$10$p.5mjmQiLRmFZI6OKPnPve6Der2zjWkiXRL13MXfw/RLbGQZ6UTxG',
+    '$2y$10$obQ3CNfQbERdF67QzFtfu.8UH2l6pD1Qco5NycGYvlqumwL56a7rK',
+];
+
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'");
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -217,6 +230,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             back('deliverability', ['domain' => $domain]);
 
         case 'backup_create':
+            // the backup holds the encryption key and every stored secret: a fresh authenticator code first
+            if (($err = admin_stepup($RC, $db, $admins, $A['id'])) !== true) {
+                flash('fail', $err);
+                back('backup');
+            }
             if (!db_file($RC)) {
                 flash('fail', 'Backups work with the SQLite database of the shared edition only.');
                 back('backup');
@@ -252,19 +270,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
 
         case 'restore':
-            $row = admin_row($db, $admins, $A['id']);
-            $secret = $row ? synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key')) : null;
-            $step = $secret ? synapse_totp::verify($secret, $_POST['code'] ?? '') : false;
             $up = $_FILES['file'] ?? null;
-            if ($step === false || $step <= (int) $row['totp_last_step']) {
-                flash('fail', 'Authenticator code is incorrect.');
+            if (($err = admin_stepup($RC, $db, $admins, $A['id'])) !== true) {
+                flash('fail', $err);
             } elseif (!db_file($RC)) {
                 flash('fail', 'Restore works with the SQLite database of the shared edition only.');
             } elseif (!$up || $up['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'])) {
                 flash('fail', 'Upload failed' . ($up && in_array($up['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? ': the file is larger than PHP allows here (' . upload_limit()[1] . ').' : '.'));
-            } elseif (!synapse_atomic::admin_step($db, $admins, $row['id'], $step)) {
-                // used a moment ago by a parallel request
-                flash('fail', 'Authenticator code is incorrect.');
             } else {
                 try {
                     $backup = synapse_backup::open(file_get_contents($up['tmp_name']), $_POST['key'] ?? '');
@@ -304,8 +316,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 'update_install':
         case 'update_upload':
-            if (!admin_code_ok($RC, $db, $admins, $A['id'])) {
-                flash('fail', 'Authenticator code is incorrect.');
+            if (($err = admin_stepup($RC, $db, $admins, $A['id'])) !== true) {
+                flash('fail', $err);
                 back('updates');
             }
             $file = null;
@@ -370,15 +382,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             back('account');
 
         case 'admin_recovery':
-            $row = admin_row($db, $admins, $A['id']);
-            $secret = $row ? synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key')) : null;
-            $step = $secret ? synapse_totp::verify($secret, $_POST['code'] ?? '') : false;
-            if ($step === false || !synapse_atomic::admin_step($db, $admins, $row['id'], $step)) {
-                flash('fail', 'Authenticator code is incorrect.');
+            if (($err = admin_stepup($RC, $db, $admins, $A['id'])) !== true) {
+                flash('fail', $err);
             } else {
                 $codes = synapse_totp::recovery_codes();
                 $db->query("UPDATE {$admins} SET `recovery_codes` = ? WHERE `id` = ?",
-                    json_encode(array_map(static function ($c) { return password_hash($c, PASSWORD_DEFAULT); }, $codes)), $row['id']);
+                    json_encode(array_map(static function ($c) { return password_hash($c, PASSWORD_DEFAULT); }, $codes)), (int) $A['id']);
                 $A['show_codes'] = $codes;
                 audit('created new admin recovery codes');
             }
@@ -438,7 +447,7 @@ function login($db, $admins, $ip)
     $keys = demo() ? ['admip' => $ip] : ['admip' => $ip, 'admin' => $user]; // demo: one visitor cannot lock the shared account
     // one attempt is taken on every limit before anything is checked, so parallel requests get no extra guesses
     if ($wait = synapse_core::rl_take($keys)) {
-        rcube::write_log('synapse_security', "admin sign-in refused (rate limit) for $user from $ip");
+        synapse_core::security_log("admin sign-in refused (rate limit) for $user");
         flash('fail', 'Too many failed attempts. Try again in ' . max(1, (int) ceil($wait / 60)) . ' minutes.');
         return;
     }
@@ -446,23 +455,26 @@ function login($db, $admins, $ip)
     // same work whether or not the name exists
     $pass_ok = password_verify((string) ($_POST['password'] ?? ''), $row['password_hash'] ?? '$2y$10$TmmjNQXdqiNoFfa9WQwKT.zl.TweH0o6v.0ELOQk4Z/.38zwuNita');
     $code = strtoupper(trim((string) ($_POST['code'] ?? '')));
+    // the code is checked with the same work whatever the name and password were, so the time taken never shows
+    // whether the password was right: a code is used up only when name and password are right as well
     $ok = false;
-    if ($row && $pass_ok) {
-        if (demo() && preg_replace('/\s+/', '', $code) === '123456') {
-            $ok = true;
-        } elseif (preg_match('/^\d{3}\s?\d{3}$/', $code)) {
-            $secret = synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key'));
-            $step = $secret ? synapse_totp::verify($secret, $code) : false;
-            // accepted only if this request moves the stored step forward: a code signs in once
-            $ok = $step !== false && synapse_atomic::admin_step($db, $admins, $row['id'], $step);
-        } elseif (strlen($plain = preg_replace('/[^A-Z0-9]/', '', $code)) === 8) {
-            // removed by compare-and-swap: a recovery code signs in once
-            $ok = synapse_atomic::admin_recovery($db, $admins, $row['id'], substr($plain, 0, 4) . '-' . substr($plain, 4)) ? 'recovery' : false;
-        }
+    $live = $row && $pass_ok;
+    if (demo() && preg_replace('/\s+/', '', $code) === '123456') {
+        $ok = $live;
+    } elseif (preg_match('/^\d{3}\s?\d{3}$/', $code)) {
+        $secret = $row ? synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key')) : null;
+        $step = synapse_totp::verify($secret ?: ADMIN_DUMMY_TOTP, $code);
+        // accepted only if this request moves the stored step forward: a code signs in once
+        $ok = $live && $secret && $step !== false && synapse_atomic::admin_step($db, $admins, $row['id'], $step);
+    } elseif (strlen($plain = preg_replace('/[^A-Z0-9]/', '', $code)) === 8) {
+        $plain = substr($plain, 0, 4) . '-' . substr($plain, 4);
+        $hit = admin_recovery_hit($row ? (array) json_decode((string) $row['recovery_codes'], true) : [], $plain);
+        // removed by compare-and-swap: a recovery code signs in once
+        $ok = $live && $hit && synapse_atomic::admin_recovery($db, $admins, $row['id'], $plain) ? 'recovery' : false;
     }
     synapse_core::rl_settle($keys, (bool) $ok);
     if (!$ok) {
-        rcube::write_log('synapse_security', "admin sign-in failed for $user from $ip");
+        synapse_core::security_log("admin sign-in failed for $user");
         flash('fail', 'Sign-in failed. Check the username, password and code.');
         return;
     }
@@ -474,6 +486,42 @@ function login($db, $admins, $ip)
     if ($ok === 'recovery') {
         flash('warn', 'You used a recovery code. Create new codes under Admin account if you are running low.');
     }
+}
+
+
+/** True when $plain is one of the recovery code hashes; always checks eight hashes (padded), never stops early */
+function admin_recovery_hit(array $hashes, $plain)
+{
+    $hashes = array_values(array_filter($hashes, 'is_string'));
+    $hit = false;
+    foreach (array_slice(array_merge($hashes, ADMIN_DUMMY_CODES), 0, max(8, count($hashes))) as $i => $hash) {
+        $hit = password_verify($plain, $hash) && $i < count($hashes) || $hit;
+    }
+
+    return $hit;
+}
+
+/**
+ * Fresh confirmation with the admin's authenticator code (restore, updates, backups, new recovery codes): one attempt
+ * is taken before the check, wrong codes are counted per admin. True, or the message to show.
+ */
+function admin_stepup($RC, $db, $admins, $id)
+{
+    $keys = ['admstep' => (int) $id];
+    if ($wait = synapse_core::rl_take($keys)) {
+        audit('was refused a confirmation (too many wrong codes)');
+
+        return 'Too many wrong authenticator codes. Try again in ' . max(1, (int) ceil($wait / 60)) . ' minutes.';
+    }
+    $ok = admin_code_ok($RC, $db, $admins, $id);
+    synapse_core::rl_settle($keys, $ok);
+    if (!$ok) {
+        audit('entered a wrong authenticator code');
+
+        return 'Authenticator code is incorrect.';
+    }
+
+    return true;
 }
 
 /* ---------------- users ---------------- */
@@ -568,7 +616,7 @@ function install_package($RC, $file, $how)
     try {
         \rcmail_utils::db_update(INSTALL_PATH . 'SQL', 'roundcube', null, ['quiet' => true]);
     } catch (\Throwable $e) {
-        rcube::write_log('errors', 'SynapseMail update: database schema update failed: ' . $e->getMessage());
+        rcube::write_log('errors', synapse_core::log_safe('SynapseMail update: database schema update failed: ' . $e->getMessage()));
     }
     $old = glob(INSTALL_PATH . 'db/rollback-v*.zip') ?: [];
     usort($old, static function ($a, $b) { return filemtime($b) <=> filemtime($a); });
@@ -851,7 +899,8 @@ function audit($what)
     if (demo()) {
         return; // the demo log view shows sample entries, never visitors
     }
-    rcube::write_log('synapse_security', 'admin ' . ($A['user'] ?? '?') . " $what (from $ip)");
+    // one entry per line: names, hosts and messages cannot break the line or forge another entry
+    rcube::write_log('synapse_security', synapse_core::log_safe('admin ' . ($A['user'] ?? '?') . " $what (from $ip)"));
 }
 
 function rcube_https()

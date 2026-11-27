@@ -480,7 +480,7 @@ function view_backup($A)
     } else {
         $create = section('Create a backup', 'An encrypted copy (AES-256-GCM) of everything SynapseMail stores itself.',
             '<ul class="adm-facts"><li>Users, settings, Send As addresses and contacts</li><li>Passcodes, 2FA and recovery codes</li><li>The admin account and the encryption key</li><li><b>Not included:</b> mail. It stays on the mail server.</li></ul>'
-            . form('backup_create', '<div class="adm-form-actions">' . button('Create backup', ['icon' => 'archive']) . '</div>', 'adm-form'));
+            . form('backup_create', code_input('Your authenticator code') . '<div class="adm-form-actions">' . button('Create backup', ['icon' => 'archive']) . '</div>', 'adm-form'));
     }
     $restore = section('Restore', 'Replaces all app data with a backup and signs everyone out. The current data is saved first as <code>db/before-restore-….db</code>; this install\'s mail server settings are kept.',
         '<form method="post" enctype="multipart/form-data" class="adm-form"><input type="hidden" name="csrf" value="' . h($A['csrf']) . '"><input type="hidden" name="do" value="restore">'

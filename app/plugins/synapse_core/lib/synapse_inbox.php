@@ -524,6 +524,8 @@ class synapse_inbox
     /** Mailboxes for the switcher, with unread counts (cached a short time; one connection per inbox) */
     public function action_list()
     {
+        // signs in to the other inboxes: never from a plain link or a cross-site request
+        $this->plugin->require_post();
         $rcmail = rcmail::get_instance();
         $uid = (int) $rcmail->user->ID;
         $active = (int) ($_SESSION['synapse_inbox'] ?? 0);
