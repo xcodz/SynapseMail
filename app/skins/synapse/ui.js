@@ -169,6 +169,7 @@ var UI = (function () {
       paintBlank(f); // an empty pane repaints in the new theme
     });
     if (save) {
+      if (rc.env.synapse_theme_tip || byId('themeTip')) themeTipDone();
       var trc = topRc();
       if (trc && trc.env.task && trc.env.task != 'login' && trc.env.task != 'logout' && trc.env.synapse_theme != theme) trc.save_pref({ name: 'synapse_theme', value: theme, env: 'synapse_theme' });
     }
@@ -1433,6 +1434,47 @@ var UI = (function () {
     });
   }
 
+  /* ---------- one-time tip: the light themes (sidebar card; floating card on phones) ---------- */
+  // Shown once per account while a dark theme is in effect and the account never picked a theme; the passcode card
+  // comes first. Any theme choice, or "Not now", ends it for good (pref synapse_tip_theme).
+  function themeTipDone() {
+    var card = byId('themeTip');
+    if (rc.env.synapse_theme_tip) {
+      rc.env.synapse_theme_tip = false;
+      try { topRc().save_pref({ name: 'synapse_tip_theme', value: '1', env: 'synapse_tip_theme' }); } catch (e) { }
+    }
+    if (card) { card.classList.add('leaving'); setTimeout(function () { card.remove(); }, 300); }
+  }
+  function initThemeTip() {
+    if (!rc.env.synapse_theme_tip || byId('themeTip') || byId('pinPrompt') || html.dataset.theme == 'soft') return;
+    var anchor = doc.querySelector('.mail-sidebar .clearance-card'); if (!anchor) return;
+    var card = doc.createElement('section');
+    card.id = 'themeTip'; card.className = 'clearance-card pin-prompt theme-tip';
+    card.setAttribute('role', 'region'); card.setAttribute('aria-label', t('themetip_label')); card.setAttribute('aria-live', 'polite');
+    card.innerHTML = '<div class="clearance-top"><span>' + esc(t('themetip_kicker_caps')) + '</span><b>' + esc(t('themetip_new_caps')) + '</b></div>'
+      + '<div class="pin-prompt-body"><i data-lucide="sun-medium"></i><p><strong>' + esc(t('themetip_title')) + '</strong>'
+      + esc(t('themetip_text', { soft: t('themename_soft'), auto: t('themename_auto') })) + '</p></div>'
+      + '<div class="pin-prompt-actions"><button type="button" class="solid-btn" data-tip="soft">' + esc(t('themetip_try_caps')) + '</button>'
+      + '<button type="button" class="ghost-btn" data-tip="menu" aria-haspopup="menu">' + esc(t('themetip_all_caps')) + '</button>'
+      + '<button type="button" class="ghost-btn" data-tip="close">' + esc(t('themetip_close_caps')) + '</button></div>';
+    var small = window.matchMedia('(max-width: 900px)');
+    var place = function () {
+      card.classList.toggle('floating', small.matches);
+      if (small.matches) doc.body.appendChild(card); else anchor.parentNode.insertBefore(card, anchor);
+    };
+    place();
+    small.addEventListener('change', place);
+    icons();
+    card.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-tip]'); if (!b) return;
+      e.stopPropagation();
+      if (b.dataset.tip == 'soft') applyTheme('soft', true, true);
+      else if (b.dataset.tip == 'menu') { themeTipDone(); toggleMenu('themePopover', null, true); return; }
+      themeTipDone();
+    });
+    card.addEventListener('keydown', function (e) { if (e.key == 'Escape') { e.stopPropagation(); themeTipDone(); } });
+  }
+
   /* ---------- Settings › Security (passcode + remembered device) ---------- */
   function initSecurity() {
     var app = byId('securityApp'); if (!app) return;
@@ -2373,7 +2415,7 @@ var UI = (function () {
       initCompose();
       decorateFolders();
       if (rc.env.task == 'settings') { initSettings(); initSecurity(); initSendAs(); initAppearance(); }
-      if (rc.env.task == 'mail') { initPinPrompt(); initInboxes(); }
+      if (rc.env.task == 'mail') { initPinPrompt(); initThemeTip(); initInboxes(); }
       initDetailPane();
       if (rc.env.task == 'addressbook') {
         decorateDirectory();

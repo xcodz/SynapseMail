@@ -531,4 +531,24 @@ $check($fn !== '' && $bp !== null && strpos($css, "@media (min-width: {$bp}px) {
 $check(strpos($fn, 'list.get_single_selection()') !== false && strpos($fn, 'watermark\\.html|about:blank') !== false && strpos($fn, "idents[i]['default']") !== false && strpos($fn, 'list.select(id)') !== false, 'identities: it never overrides a selection or an open editor, and picks the standard identity');
 $check(strpos($ui, "var env = rc.env.synapse_sendas;\n    openStandardIdentity(env);") !== false, 'identities: it runs when the Identities page starts');
 
+// one-time light theme tip (CE-032)
+$core_now = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
+$ui = (string) file_get_contents(__DIR__ . '/../../../skins/synapse/ui.js');
+$check(strpos($core_now, "public \$allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_tip_theme'];") !== false && strpos($core_now, 'plugin.synapse-tip') === false, 'theme tip: the seen flag is an allowed pref saved like the theme (no extra action)');
+$check(preg_match("/\\\$own = \(array\) \\\$rcmail->user->get_prefs\(\);\s*if \(\\\$rcmail->task === 'mail' && empty\(\\\$own\['synapse_theme'\]\) && empty\(\\\$own\['synapse_tip_theme'\]\)\)/", $core_now) === 1, 'theme tip: offered only while the account itself never picked a theme or dismissed it (admin defaults do not count)');
+$tip = preg_match('/function initThemeTip\(\) \{.*?\n  \}/s', $ui, $m) ? $m[0] : '';
+$check(strpos($tip, "html.dataset.theme == 'soft'") !== false && strpos($tip, "byId('pinPrompt')") !== false, 'theme tip: not shown on a light theme, and the passcode card comes first');
+$check(strpos($tip, "setAttribute('role', 'region')") !== false && strpos($tip, "aria-live', 'polite'") !== false && strpos($tip, "e.key == 'Escape'") !== false && strpos($tip, '.focus()') === false, 'theme tip: a labelled region, Escape dismisses, focus is not taken');
+$check(strpos($ui, "if (rc.env.synapse_theme_tip || byId('themeTip')) themeTipDone();") !== false && strpos($ui, "save_pref({ name: 'synapse_tip_theme', value: '1'") !== false, 'theme tip: any theme choice or a dismiss ends it for good');
+$langs_ok = true;
+foreach (['en_US', 'ar_SA', 'fa_IR'] as $l) {
+    $labels = [];
+    include __DIR__ . "/../localization/$l.inc";
+    foreach (['themetip_label', 'themetip_kicker_caps', 'themetip_new_caps', 'themetip_title', 'themetip_text', 'themetip_try_caps', 'themetip_all_caps', 'themetip_close_caps'] as $k) {
+        $langs_ok = $langs_ok && !empty($labels[$k]);
+    }
+    $langs_ok = $langs_ok && strpos($labels['themetip_text'], '$soft') !== false && strpos($labels['themetip_text'], '$auto') !== false;
+}
+$check($langs_ok, 'theme tip: texts in English, Arabic and Persian');
+
 exit($fail ? 1 : 0);

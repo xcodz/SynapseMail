@@ -71,8 +71,9 @@ class synapse_core extends rcube_plugin
     // sign-in attempt taken in authenticate(), settled by login_after() or login_failed()
     private $rl_login_taken = null;
 
-    // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init())
-    public $allowed_prefs = ['synapse_theme', 'synapse_ui'];
+    // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init()); synapse_tip_theme marks
+    // the one-time light theme tip as seen
+    public $allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_tip_theme'];
 
     // requests allowed while the passcode gate is up
     private const GATE_ACTIONS = ['plugin.synapse-gate', 'plugin.synapse-pin-status', 'plugin.synapse-pin-verify', 'plugin.synapse-pin-forgot',
@@ -123,6 +124,13 @@ class synapse_core extends rcube_plugin
             $ui = (string) $rcmail->config->get('synapse_ui', '');
             if (preg_match('/^((motion-(reduce|off)|effects-off|density-compact|text-(small|large|larger)|contrast-more|links-underline|open-(split|window))(\.|$))*$/', $ui)) {
                 $rcmail->output->set_env('synapse_ui', $ui);
+            }
+            // one-time tip about the light themes, in the mail view, while the account itself has never picked a theme
+            // (an admin default does not count) and has not dismissed the tip; the page also checks that a dark
+            // theme is in effect
+            $own = (array) $rcmail->user->get_prefs();
+            if ($rcmail->task === 'mail' && empty($own['synapse_theme']) && empty($own['synapse_tip_theme'])) {
+                $rcmail->output->set_env('synapse_theme_tip', true);
             }
             if ($prompt = $this->prompt_state()) {
                 $rcmail->output->set_env('synapse_pin_prompt', $prompt);

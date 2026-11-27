@@ -760,6 +760,10 @@ body.action-preview .reader-body, body.action-show .reader-body { background: li
 .pin-prompt-actions { display: flex; gap: 6px; }
 .pin-prompt-actions .solid-btn, .pin-prompt-actions .ghost-btn { height: 30px; padding: 0 10px; font-size: 8px; text-decoration: none; }
 .pin-prompt.leaving { animation: hud-out .3s forwards; }
+/* one-time light theme tip: built like the passcode card, in the theme's accent instead of the warning colour */
+.theme-tip { border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%), var(--panel); }
+.theme-tip .clearance-top b, .theme-tip .pin-prompt-body svg { color: var(--accent); }
+.theme-tip .pin-prompt-actions { flex-wrap: wrap; }
 .sidebar-collapsed .pin-prompt { display: none; }
 @media (max-width: 900px) { .mail-sidebar .pin-prompt { display: none; } .mobile-nav-open .mail-sidebar .pin-prompt { display: block; } }
 @media (max-width: 900px) { .pin-prompt.floating { display: block !important; position: fixed; z-index: 60; left: 12px; right: 12px; bottom: 12px; margin: 0; } }
@@ -913,6 +917,7 @@ html.iframe body.action-preview .reader-body { height: 100%; }
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     box-shadow: 0 -12px 40px var(--shade), 0 18px 50px var(--shade);
   }
+  .theme-tip.pin-prompt.floating { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), color-mix(in srgb, var(--bg-soft) 97%, transparent); }
 }
 
 /* "Original colours": the message as authored, on the white page HTML mail is designed for */
