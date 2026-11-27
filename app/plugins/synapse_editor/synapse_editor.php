@@ -22,7 +22,19 @@ class synapse_editor extends rcube_plugin
     public function init()
     {
         $this->add_hook('html_editor', [$this, 'html_editor']);
+        $this->add_hook('message_compose_body', [$this, 'compose_body']);
         $this->add_texts('localization/', true);
+    }
+
+    /** Reply, forward, draft and edit bodies (already washed by core): no form controls reach the compose form */
+    public function compose_body($args)
+    {
+        if (!empty($args['html'])) {
+            require_once __DIR__ . '/synapse_compose_guard.php';
+            $args['body'] = synapse_compose_guard::defuse($args['body']);
+        }
+
+        return $args;
     }
 
     public function html_editor($args)

@@ -275,4 +275,41 @@ $cfg = (string) file_get_contents(__DIR__ . '/../../../config/config.inc.php');
 $check(!preg_match('/synapse_demo|storage_driver/', $cfg), 'config.inc.php does not enable the demo');
 $check(strpos((string) file_get_contents(__DIR__ . '/../synapse_core.php'), "get('synapse_demo') === true") !== false, 'demo 2FA code needs the explicit demo switch');
 
+// compose: quoted and reopened mail sits inside the compose form, so no form control from a mail may reach it
+require_once __DIR__ . '/../../../vendor/autoload.php';
+spl_autoload_register(static function ($class) {
+    $file = __DIR__ . '/../../../program/lib/Roundcube/' . $class . '.php';
+    if (preg_match('/^rcube_\w+$/', $class) && is_file($file)) {
+        require_once $file;
+    }
+});
+require_once __DIR__ . '/../../synapse_editor/synapse_compose_guard.php';
+defined('RCUBE_CHARSET') || define('RCUBE_CHARSET', 'UTF-8');
+$wash =static function ($html) {
+    $w = new rcube_washtml(['allow_remote' => false, 'html_elements' => [], 'container_id' => 'replybody1', 'css_prefix' => 'v1']);
+
+    return $w->wash('<html><head><meta charset="utf-8"></head><body>' . $html . '</body></html>');
+};
+$quoted = $wash('<p>Hello</p><button type="submit" name="_bcc" value="x@example.test" style="opacity:0">Open the invoice</button>'
+    . '<input name="_to" value="y@example.test"><input type="hidden" name="h" value="hidden-value"><input type="submit" value="Go">'
+    . '<textarea name="_subject">s</textarea><select name="_from"><option>first</option><option>second</option></select>'
+    . '<label for="_bcc">label text</label><fieldset><legend>legend text</legend><output name="o">out</output></fieldset>'
+    . '<a href="https://example.test/" formaction="/x">link</a><div id="_rc_sig">quoted signature</div>');
+$check(preg_match('/<button\b[^>]*type="submit"/', $quoted) === 1, 'compose: washed mail still holds a submit button (test input is real)');
+$safe = synapse_compose_guard::defuse($quoted);
+$check(!preg_match('/<\s*(button|input|select|textarea|label|fieldset|legend|output|form)\b/i', $safe), 'compose: no form control survives in quoted mail');
+$check(!preg_match('/\sform(action|method|enctype|target|novalidate)?\s*=/i', $safe), 'compose: form attributes are removed');
+$check(strpos($safe, 'Open the invoice') !== false && strpos($safe, 'label text') !== false && strpos($safe, 'legend text') !== false && strpos($safe, '>first<') !== false, 'compose: the text of replaced controls stays visible');
+$check(strpos($safe, 'hidden-value') === false && strpos($safe, 'x@example.test') === false, 'compose: hidden values and button values are not carried over');
+$check(strpos($safe, 'id="v1_rc_sig"') !== false && strpos($safe, 'href="https://example.test/"') !== false, 'compose: ids and links of the quote are kept');
+$rtl = '<p dir="rtl">سلام دنیا</p><p>日本語 é</p><blockquote type="cite"><div id="replybody1"><p>quote</p></div></blockquote>';
+$check(synapse_compose_guard::defuse($rtl) === $rtl, 'compose: mail without form controls is left byte for byte');
+$check(synapse_compose_guard::defuse($rtl . '<button>b</button>') === $rtl . '<span>b</span>', 'compose: non-Latin text survives the rewrite');
+$editor_src = (string) file_get_contents(__DIR__ . '/../../synapse_editor/synapse_editor.js');
+$check(strpos((string) file_get_contents(__DIR__ . '/../../synapse_editor/synapse_editor.php'), "add_hook('message_compose_body'") !== false, 'compose: the server-side guard is registered');
+$check(strpos($editor_src, "addEventListener('submit'") !== false && strpos($editor_src, 'rcmail.submit_messageform = function') !== false, 'compose: the form is sent only by the Send and Save commands');
+$check(strpos($editor_src, '[id$="_rc_sig"]') === false && strpos($editor_src, 'topLevel(wrap, /^(v\d+)?_rc_sig$/)') !== false, 'compose: only a top-level own signature is taken as the signature');
+$check(strpos($editor_src, 'document.createElement(\'div\'), nodes') === false && strpos($editor_src, 'createHTMLDocument') !== false, 'compose: mail HTML is split in an inert document');
+$check(preg_match('/\.lx-signature, \.lx-quoted-body \{[^}]*contain: paint/', (string) file_get_contents(__DIR__ . '/../../../skins/synapse/synapse.css')) === 1, 'compose: quote and signature boxes clip their content');
+
 exit($fail ? 1 : 0);

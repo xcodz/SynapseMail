@@ -374,6 +374,9 @@ body .ui-resizable-handle { position: absolute; }
 .lx-quoted.open .lx-quoted-body { display: block; }
 .lx-quoted-body blockquote { margin: 0; padding-inline-start: 12px; border-inline-start: 2px solid var(--line-strong); }
 .lx-quoted-body a { color: var(--green); }
+/* quoted mail and signatures never paint outside their own box (positioned or oversized content is clipped there) */
+.lx-signature, .lx-quoted-body { position: relative; isolation: isolate; contain: paint; }
+.lx-signature { overflow: hidden; }
 #composebodycontainer > textarea { width: 100%; min-height: 210px; border: 0; outline: 0; background: var(--field); color: var(--text); padding: 18px; line-height: 1.7; resize: vertical; }
 #uploadform, form[name="uploadform"] { display: none; }
 

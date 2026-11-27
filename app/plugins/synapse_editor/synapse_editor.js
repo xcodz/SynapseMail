@@ -39,26 +39,87 @@ function rcube_text_editor(config, id) {
     return String(text || '').replace(/\r\n/g, '\n').split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
   }
 
+  // Mail HTML is parsed in a separate, inert document: nothing in it loads or runs while it is split
+  var inert = document.implementation.createHTMLDocument('');
+  var CONTROLS = 'button,input,select,textarea,output,datalist,option,optgroup,label,form,fieldset,legend';
+  var FORM_ATTRS = ['form', 'formaction', 'formmethod', 'formenctype', 'formtarget', 'formnovalidate'];
+
+  // Quoted mail, signatures and drafts sit inside the compose form: turn every form control into text so
+  // nothing from a received mail can submit or change the form (the server does the same; this is the backstop)
+  function defuse(root) {
+    var all = Array.prototype.slice.call(root.querySelectorAll('*')).reverse();
+    all.forEach(function (el) {
+      FORM_ATTRS.forEach(function (a) { el.removeAttribute(a); });
+      if (!el.matches(CONTROLS) || (el.matches('option,optgroup') && el.closest('select,datalist'))) return;
+      var tag = el.tagName.toLowerCase(), box = el.ownerDocument.createElement(/^(form|fieldset|legend)$/.test(tag) ? 'div' : 'span');
+      ['style', 'class', 'dir', 'lang', 'title'].forEach(function (a) { if (el.hasAttribute(a)) box.setAttribute(a, el.getAttribute(a)); });
+      if (tag == 'input') {
+        if (!/^(hidden|checkbox|radio|file|image|password|range|color)$/i.test(el.getAttribute('type') || 'text')) box.textContent = el.getAttribute('value') || '';
+      } else if (tag == 'select') {
+        var opt = el.querySelector('option[selected]') || el.querySelector('option');
+        box.textContent = opt ? opt.textContent : '';
+      } else if (tag == 'textarea' || tag == 'option') {
+        box.textContent = el.textContent;
+      } else if (tag != 'datalist') {
+        while (el.firstChild) box.appendChild(el.firstChild);
+      }
+      el.parentNode.replaceChild(box, el);
+    });
+    return root;
+  }
+
+  // HTML for a read-only block on the page: defused, and its own <style> rules limited to that block
+  function safeHtml(html, scope) {
+    var d = defuse(Object.assign(inert.createElement('div'), { innerHTML: html || '' }));
+    d.querySelectorAll('style').forEach(function (s) { s.textContent = '@scope (' + scope + ') {\n' + s.textContent + '\n}'; });
+    return d.innerHTML;
+  }
+
+  // The compose form is sent only by the app's own Send / Save commands (core calls form.requestSubmit() there);
+  // any other submit (a button or Enter in a header field) is dropped
+  function guardForm(form) {
+    if (!form || form.synapseGuard) return;
+    var allowed = false, send = rcmail.submit_messageform;
+    form.synapseGuard = true;
+    if (typeof send == 'function') {
+      rcmail.submit_messageform = function () {
+        allowed = true;
+        try { return send.apply(this, arguments); } finally { allowed = false; }
+      };
+    }
+    form.addEventListener('submit', function (e) {
+      if (!allowed) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+  }
+
+  // ids of our own markers: exact, optionally with core's "v<n>" wash prefix (reopened drafts)
+  function topLevel(wrap, re) {
+    return Array.prototype.filter.call(wrap.children, function (c) { return re.test(c.id || ''); })[0] || null;
+  }
+
   // Split compose HTML into [quoted-before] user body [signature] [quoted-after]
   function split(html) {
-    var wrap = document.createElement('div'), nodes, kids, i, qs = -1, qe = -1, before = '', after = '', sig = null;
+    var wrap = inert.createElement('div'), nodes, kids, i, qs = -1, qe = -1, before = '', after = '', sig = null;
     wrap.innerHTML = html || '';
+    defuse(wrap);
 
     // reopened drafts are washed by core: ids get a "v1" prefix, data-* is dropped and the body
     // gains an outer <div style="font-size…">; unwrap such single wrappers first
     var only;
     while ((only = wrap.children.length == 1 && !wrap.textContent.replace(wrap.children[0].textContent, '').trim() ? wrap.children[0] : null)
-      && only.tagName == 'DIV' && !/(synapse-body|_rc_sig)$/.test(only.id || '')) {
+      && only.tagName == 'DIV' && !/^(v\d+)?(synapse-body|_rc_sig)$/.test(only.id || '')) {
       $(only).replaceWith(only.childNodes);
     }
 
-    var sigEl = wrap.querySelector('[id$="_rc_sig"]');
+    // only our own top-level signature block: a "_rc_sig" inside a quoted mail stays in the quote
+    var sigEl = topLevel(wrap, /^(v\d+)?_rc_sig$/);
     if (sigEl) { sig = sigEl.innerHTML; sigEl.parentNode.removeChild(sigEl); }
 
     // a draft saved by this editor: the body wrapper marks exactly what the user wrote
-    var body = wrap.querySelector(':scope > div[id$="synapse-body"]');
+    var body = topLevel(wrap, /^(v\d+)?synapse-body$/);
+    if (body && body.tagName != 'DIV') body = null;
     if (body && compose) {
-      var pre = document.createElement('div'), post = document.createElement('div'), target = pre;
+      var pre = inert.createElement('div'), post = inert.createElement('div'), target = pre;
       Array.prototype.slice.call(wrap.childNodes).forEach(function (k) {
         if (k === body) { target = post; return; }
         target.appendChild(k.cloneNode(true));
@@ -89,7 +150,7 @@ function rcube_text_editor(config, id) {
       }
     }
 
-    var html_of = function (list) { var d = document.createElement('div'); list.forEach(function (k) { d.appendChild(k.cloneNode(true)); }); return d.innerHTML; };
+    var html_of = function (list) { var d = inert.createElement('div'); list.forEach(function (k) { d.appendChild(k.cloneNode(true)); }); return d.innerHTML; };
     if (qs < 0) return { before: '', body: wrap.innerHTML, sig: sig, after: '' };
 
     var quote = html_of(kids.slice(qs, qe + 1)), head = kids.slice(0, qs), tail = kids.slice(qe + 1);
@@ -108,7 +169,7 @@ function rcube_text_editor(config, id) {
     var box = $('<div class="lx-quoted"/>').addClass('lx-quoted-' + where).attr('hidden', !html);
     $('<button type="button" class="lx-quoted-toggle"/>').text('··· ' + label(where == 'before' ? 'quoted_above' : 'quoted')).appendTo(box)
       .on('click', function () { box.toggleClass('open'); });
-    $('<div class="lx-quoted-body"/>').html(html || '').appendTo(box);
+    $('<div class="lx-quoted-body"/>').html(safeHtml(html, '.lx-quoted-body')).appendTo(box);
     return box;
   }
 
@@ -116,7 +177,7 @@ function rcube_text_editor(config, id) {
     host.find('.lx-quoted, .lx-signature').remove();
     var surface = host.find('.lx-surface');
     if (parts.before) quoteBlock(parts.before, 'before').insertBefore(surface);
-    $('<div class="lx-signature"/>').attr('hidden', !parts.sig).html(parts.sig || '').insertAfter(surface);
+    $('<div class="lx-signature"/>').attr('hidden', !parts.sig).html(safeHtml(parts.sig, '.lx-signature')).insertAfter(surface);
     if (parts.after) quoteBlock(parts.after, 'after').appendTo(host);
   }
 
@@ -134,6 +195,7 @@ function rcube_text_editor(config, id) {
   function mount(html) {
     var p = split(html);
     parts = { before: p.before, sig: p.sig, after: p.after };
+    if (compose) guardForm(textarea.form);
     host = $('<div class="lx-host"/>').addClass('lx-mode-' + (compose ? 'compose' : conf.mode)).insertAfter(textarea);
     $(textarea).hide();
     lx = SynapseEditor.create(host.get(0), {
@@ -216,7 +278,7 @@ function rcube_text_editor(config, id) {
     }
     if (!show_sig) return;
     var s = rcmail.env.signatures && rcmail.env.signatures[id];
-    parts.sig = s ? s.html : '';
+    parts.sig = s ? defuse(Object.assign(inert.createElement('div'), { innerHTML: s.html || '' })).innerHTML : '';
     render(); sync();
   };
 
