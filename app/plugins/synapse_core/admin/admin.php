@@ -23,6 +23,7 @@ namespace SynapseMail\Admin;
 
 use rcube;
 use RuntimeException;
+use synapse_atomic;
 use synapse_backup;
 use synapse_core;
 use synapse_deliverability;
@@ -261,8 +262,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('fail', 'Restore works with the SQLite database of the shared edition only.');
             } elseif (!$up || $up['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'])) {
                 flash('fail', 'Upload failed' . ($up && in_array($up['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? ': the file is larger than PHP allows here (' . upload_limit()[1] . ').' : '.'));
+            } elseif (!synapse_atomic::admin_step($db, $admins, $row['id'], $step)) {
+                // used a moment ago by a parallel request
+                flash('fail', 'Authenticator code is incorrect.');
             } else {
-                $db->query("UPDATE {$admins} SET `totp_last_step` = ? WHERE `id` = ?", $step, $row['id']);
                 try {
                     $backup = synapse_backup::open(file_get_contents($up['tmp_name']), $_POST['key'] ?? '');
                     // tables made on first use: create them now, the restore copies only into tables this server has
@@ -370,12 +373,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $row = admin_row($db, $admins, $A['id']);
             $secret = $row ? synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key')) : null;
             $step = $secret ? synapse_totp::verify($secret, $_POST['code'] ?? '') : false;
-            if ($step === false || $step <= (int) $row['totp_last_step']) {
+            if ($step === false || !synapse_atomic::admin_step($db, $admins, $row['id'], $step)) {
                 flash('fail', 'Authenticator code is incorrect.');
             } else {
                 $codes = synapse_totp::recovery_codes();
-                $db->query("UPDATE {$admins} SET `recovery_codes` = ?, `totp_last_step` = ? WHERE `id` = ?",
-                    json_encode(array_map(static function ($c) { return password_hash($c, PASSWORD_DEFAULT); }, $codes)), $step, $row['id']);
+                $db->query("UPDATE {$admins} SET `recovery_codes` = ? WHERE `id` = ?",
+                    json_encode(array_map(static function ($c) { return password_hash($c, PASSWORD_DEFAULT); }, $codes)), $row['id']);
                 $A['show_codes'] = $codes;
                 audit('created new admin recovery codes');
             }
@@ -433,7 +436,8 @@ function login($db, $admins, $ip)
     global $A, $RC;
     $user = strtolower(trim((string) ($_POST['username'] ?? '')));
     $keys = demo() ? ['admip' => $ip] : ['admip' => $ip, 'admin' => $user]; // demo: one visitor cannot lock the shared account
-    if ($wait = synapse_core::rl_blocked($keys)) {
+    // one attempt is taken on every limit before anything is checked, so parallel requests get no extra guesses
+    if ($wait = synapse_core::rl_take($keys)) {
         rcube::write_log('synapse_security', "admin sign-in refused (rate limit) for $user from $ip");
         flash('fail', 'Too many failed attempts. Try again in ' . max(1, (int) ceil($wait / 60)) . ' minutes.');
         return;
@@ -449,25 +453,15 @@ function login($db, $admins, $ip)
         } elseif (preg_match('/^\d{3}\s?\d{3}$/', $code)) {
             $secret = synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key'));
             $step = $secret ? synapse_totp::verify($secret, $code) : false;
-            if ($step !== false && $step > (int) $row['totp_last_step']) {
-                $db->query("UPDATE {$admins} SET `totp_last_step` = ? WHERE `id` = ?", $step, $row['id']);
-                $ok = true;
-            }
+            // accepted only if this request moves the stored step forward: a code signs in once
+            $ok = $step !== false && synapse_atomic::admin_step($db, $admins, $row['id'], $step);
         } elseif (strlen($plain = preg_replace('/[^A-Z0-9]/', '', $code)) === 8) {
-            $plain = substr($plain, 0, 4) . '-' . substr($plain, 4);
-            $codes = (array) json_decode($row['recovery_codes'], true);
-            foreach ($codes as $i => $hash) {
-                if (password_verify($plain, $hash)) {
-                    unset($codes[$i]);
-                    $db->query("UPDATE {$admins} SET `recovery_codes` = ? WHERE `id` = ?", json_encode(array_values($codes)), $row['id']);
-                    $ok = 'recovery';
-                    break;
-                }
-            }
+            // removed by compare-and-swap: a recovery code signs in once
+            $ok = synapse_atomic::admin_recovery($db, $admins, $row['id'], substr($plain, 0, 4) . '-' . substr($plain, 4)) ? 'recovery' : false;
         }
     }
+    synapse_core::rl_settle($keys, (bool) $ok);
     if (!$ok) {
-        synapse_core::rl_fail($keys);
         rcube::write_log('synapse_security', "admin sign-in failed for $user from $ip");
         flash('fail', 'Sign-in failed. Check the username, password and code.');
         return;
@@ -597,12 +591,9 @@ function admin_code_ok($RC, $db, $admins, $id)
     $row = admin_row($db, $admins, $id);
     $secret = $row ? synapse_secret::decrypt($row['totp_secret'], $RC->config->get_crypto_key('des_key')) : null;
     $step = $secret ? synapse_totp::verify($secret, $_POST['code'] ?? '') : false;
-    if ($step === false || $step <= (int) $row['totp_last_step']) {
-        return false;
-    }
-    $db->query("UPDATE {$admins} SET `totp_last_step` = ? WHERE `id` = ?", $step, $row['id']);
 
-    return true;
+    // the step is used up atomically: two parallel requests with one code cannot both pass
+    return $step !== false && synapse_atomic::admin_step($db, $admins, $row['id'], $step);
 }
 
 /** Overview row; checks the network when asked or when the last check is older than a day */

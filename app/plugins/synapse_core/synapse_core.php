@@ -18,6 +18,7 @@
 require_once __DIR__ . '/lib/synapse_totp.php';
 require_once __DIR__ . '/lib/synapse_secret.php';
 require_once __DIR__ . '/lib/synapse_gate.php';
+require_once __DIR__ . '/lib/synapse_atomic.php';
 
 class synapse_core extends rcube_plugin
 {
@@ -63,6 +64,9 @@ class synapse_core extends rcube_plugin
         'sainbox' => 15, // other inboxes: failed sign-in tests per user
         'stepup' => 5, // wrong passwords or codes when confirming a security change, per user
     ];
+
+    // sign-in attempt taken in authenticate(), settled by login_after() or login_failed()
+    private $rl_login_taken = null;
 
     // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init())
     public $allowed_prefs = ['synapse_theme', 'synapse_ui'];
@@ -187,6 +191,10 @@ class synapse_core extends rcube_plugin
     public function login_after($args)
     {
         $rcmail = rcmail::get_instance();
+        if ($this->rl_login_taken) {
+            $this->rl_settle($this->rl_login_taken, true);
+            $this->rl_login_taken = null;
+        }
         $this->rl_clear('uip', mb_strtolower((string) $rcmail->get_user_name()) . '|' . rcube_utils::remote_addr());
 
         if (rcube_utils::get_input_string('_remember', rcube_utils::INPUT_POST) === '1') {
@@ -310,15 +318,22 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => false, 'next' => $this->next_gate(), 'message' => $this->gettext('finishsignin')], 403);
         }
 
-        $ip = rcube_utils::remote_addr();
-        if ($this->rl_blocked(['pinip' => $ip])) {
+        // attempts are taken before the check (network and account), so parallel requests get no extra guesses
+        $ip = ['pinip' => rcube_utils::remote_addr()];
+        if ($this->rl_take($ip)) {
             $rcmail->kill_session();
             $this->json(['ok' => false, 'signedout' => true, 'message' => $this->gettext('pin_netlimit')]);
+        }
+        if (!$this->take_attempt('synapse_pin_fails')) {
+            $this->rl_settle($ip, true);
+            $rcmail->kill_session();
+            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $this->locked_until() ?: null, 'message' => $this->gettext('pin_locked')]);
         }
 
         $code = rcube_utils::get_input_string('_pin', rcube_utils::INPUT_POST);
 
         if (preg_match('/^\d{4,6}$/', $code) && password_verify($code, $pin['hash'])) {
+            $this->rl_settle($ip, true);
             $_SESSION['synapse_pin_state'] = null; $_SESSION['synapse_pin_tries'] = null;
             $_SESSION['synapse_pin_ok_at'] = time();
             $this->save_prefs(['synapse_pin_fails' => 0]);
@@ -328,22 +343,15 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => true, 'next' => $this->gate_step_done()]);
         }
 
-        $this->rl_fail(['pinip' => $ip]);
+        $this->rl_settle($ip, false);
         $tries = ++$_SESSION['synapse_pin_tries'];
-        $fails = (int) $rcmail->config->get('synapse_pin_fails', 0) + 1;
-        $prefs = ['synapse_pin_fails' => $fails];
-
         // too many wrong codes on this account (across sign-ins): temporary lock
-        if ($fails >= self::PIN_FAILS_BEFORE_LOCK) {
-            $prefs['synapse_pin_fails'] = 0;
-            $prefs['synapse_pin_lock'] = time() + self::PIN_FAIL_LOCK_SECONDS;
-        }
-        $this->save_prefs($prefs);
+        $lock = $this->lock_if_full('synapse_pin_fails');
 
-        if (!empty($prefs['synapse_pin_lock']) || $tries >= self::PIN_TRIES_PER_SESSION) {
+        if ($lock || $tries >= self::PIN_TRIES_PER_SESSION) {
             $rcmail->kill_session();
-            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $prefs['synapse_pin_lock'] ?? null,
-                'message' => !empty($prefs['synapse_pin_lock']) ? $this->gettext('pin_locked') : $this->gettext('pin_signin')]);
+            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $lock ?: null,
+                'message' => $lock ? $this->gettext('pin_locked') : $this->gettext('pin_signin')]);
         }
 
         $this->json(['ok' => false, 'left' => self::PIN_TRIES_PER_SESSION - $tries, 'message' => $this->gettext('pin_wrong')]);
@@ -471,23 +479,26 @@ class synapse_core extends rcube_plugin
     private function current_pin_ok(array $pin)
     {
         $rcmail = rcmail::get_instance();
-        $ip = rcube_utils::remote_addr();
-        if ($this->rl_blocked(['pinip' => $ip])) {
+        $ip = ['pinip' => rcube_utils::remote_addr()];
+        if ($this->rl_take($ip)) {
             $this->json(['ok' => false, 'message' => $this->gettext('pin_netlimit')]);
         }
+        if (!$this->take_attempt('synapse_pin_fails')) {
+            $this->rl_settle($ip, true);
+            $rcmail->kill_session();
+            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $this->locked_until() ?: null, 'message' => $this->gettext('pin_locked')]);
+        }
         if (password_verify((string) rcube_utils::get_input_string('_current', rcube_utils::INPUT_POST), $pin['hash'])) {
+            $this->rl_settle($ip, true);
+            $this->give_back_attempt('synapse_pin_fails');
+
             return true;
         }
 
-        $this->rl_fail(['pinip' => $ip]);
-        $fails = (int) $rcmail->config->get('synapse_pin_fails', 0) + 1;
-        if ($fails < self::PIN_FAILS_BEFORE_LOCK) {
-            $this->save_prefs(['synapse_pin_fails' => $fails]);
-
+        $this->rl_settle($ip, false);
+        if (!($until = $this->lock_if_full('synapse_pin_fails'))) {
             return false;
         }
-        $until = time() + self::PIN_FAIL_LOCK_SECONDS;
-        $this->save_prefs(['synapse_pin_fails' => 0, 'synapse_pin_lock' => $until]);
         $this->security_log('passcode locked after wrong current passcodes in Settings for ' . $rcmail->get_user_name());
         $rcmail->kill_session();
         $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $until, 'message' => $this->gettext('pin_locked')]);
@@ -608,37 +619,91 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => false, 'message' => $this->gettext('finishsignin')], 403);
         }
         $user = mb_strtolower((string) $rcmail->get_user_name());
-        if ($wait = $this->rl_blocked(['stepup' => $user])) {
+        $keys = ['stepup' => $user];
+        if ($wait = $this->rl_take($keys)) {
             $this->json(['ok' => false, 'message' => $this->gettext(['name' => 'stepup_limit', 'vars' => ['n' => max(1, (int) ceil($wait / 60))]])]);
         }
 
         $given = (string) rcube_utils::get_input_string('_secret', rcube_utils::INPUT_POST, true);
         $ok = synapse_gate::password_matches($rcmail->decrypt((string) ($_SESSION['password'] ?? '')), $given);
-        if (!$ok && ($otp = $this->otp()) && preg_match('/^\d{3}\s?\d{3}$/', trim($given))) {
+        if (!$ok && $this->otp() && preg_match('/^\d{3}\s?\d{3}$/', trim($given))) {
+            // a time step is used up atomically, like at sign-in
             $used = false;
-            if ($new = $this->otp_check($otp, $given, $used)) {
-                $this->save_prefs(['synapse_otp' => $new]);
-                $ok = true;
-            }
+            $ok = $this->otp_consume($given, $used) !== null;
         }
+        $this->rl_settle($keys, $ok);
         if (!$ok) {
-            $this->rl_fail(['stepup' => $user]);
             $this->security_log('security change not confirmed (wrong password or code) for ' . $user);
             $this->json(['ok' => false, 'message' => $this->gettext('stepup_wrong')]);
         }
 
-        $this->rl_clear('stepup', $user);
         $_SESSION['synapse_stepup_until'] = time() + synapse_gate::STEPUP_SECONDS;
         $this->json(['ok' => true, 'until' => $_SESSION['synapse_stepup_until']]);
     }
 
+    /** Save security preferences, merged into the stored ones as one compare-and-swap (no lost parallel writes) */
     private function save_prefs(array $prefs)
     {
+        return $this->update_prefs(static function () use ($prefs) { return $prefs; }) !== null;
+    }
+
+    /**
+     * Read-modify-write of the user's preferences without races: $change gets the stored preferences and returns
+     * the keys to set (null removes one), or null to change nothing. Returns the changes, or null.
+     */
+    private function update_prefs(callable $change)
+    {
         $rcmail = rcmail::get_instance();
-        $rcmail->user->save_prefs($prefs);
-        foreach ($prefs as $k => $v) {
+        $db = $rcmail->get_dbh();
+        $result = synapse_atomic::prefs($db, $db->table_name('users', true), $rcmail->user->ID, $change);
+        if (!$result) {
+            return null;
+        }
+        [$changes, $serialized] = $result;
+        // this request continues with the new state (rcube_user rebuilds its cache from data)
+        $rcmail->user->data['preferences'] = $serialized;
+        $rcmail->user->prefs = null;
+        foreach ($changes as $k => $v) {
             $rcmail->config->set($k, $v);
         }
+
+        return $changes;
+    }
+
+    /**
+     * Account-wide attempt for a passcode or authenticator code, taken before the check: refused while the account
+     * is locked or while parallel requests already hold every attempt left before the lock.
+     */
+    private function take_attempt($counter)
+    {
+        $limit = $counter === 'synapse_otp_fails' ? self::OTP_FAILS_BEFORE_LOCK : self::PIN_FAILS_BEFORE_LOCK;
+
+        return $this->update_prefs(static function (array $p) use ($counter, $limit) {
+            if ((int) ($p['synapse_pin_lock'] ?? 0) > time() || (int) ($p[$counter] ?? 0) >= $limit) {
+                return null;
+            }
+
+            return [$counter => (int) ($p[$counter] ?? 0) + 1];
+        }) !== null;
+    }
+
+    /** After a correct code: the attempt taken for it no longer counts */
+    private function give_back_attempt($counter)
+    {
+        $this->update_prefs(static function (array $p) use ($counter) {
+            return (int) ($p[$counter] ?? 0) > 0 ? [$counter => (int) $p[$counter] - 1] : [];
+        });
+    }
+
+    /** After a wrong code (the attempt is already counted): lock the account when the counter reached the limit */
+    private function lock_if_full($counter)
+    {
+        $limit = $counter === 'synapse_otp_fails' ? self::OTP_FAILS_BEFORE_LOCK : self::PIN_FAILS_BEFORE_LOCK;
+        $changes = $this->update_prefs(static function (array $p) use ($counter, $limit) {
+            return (int) ($p[$counter] ?? 0) >= $limit ? [$counter => 0, 'synapse_pin_lock' => time() + self::PIN_FAIL_LOCK_SECONDS] : [];
+        });
+
+        return (int) ($changes['synapse_pin_lock'] ?? 0);
     }
 
     private function device_sig($uid, $ts)
@@ -677,35 +742,38 @@ class synapse_core extends rcube_plugin
             $this->json(['ok' => empty($_SESSION['synapse_otp_state']), 'next' => $this->next_gate()]);
         }
 
-        $ip = rcube_utils::remote_addr();
-        if ($this->rl_blocked(['otpip' => $ip])) {
+        // attempts are taken before the check (network and account), so parallel requests get no extra guesses
+        $ip = ['otpip' => rcube_utils::remote_addr()];
+        if ($this->rl_take($ip)) {
             $rcmail->kill_session();
             $this->json(['ok' => false, 'signedout' => true, 'message' => $this->gettext('otp_netlimit')]);
         }
+        if (!$this->take_attempt('synapse_otp_fails')) {
+            $this->rl_settle($ip, true);
+            $rcmail->kill_session();
+            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $this->locked_until() ?: null, 'message' => $this->gettext('otp_locked')]);
+        }
 
+        // the code is used up in the same atomic write that accepts it: one time step or recovery code, one sign-in
         $used_recovery = false;
-        if ($new = $this->otp_check($otp, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used_recovery)) {
+        $new = $this->otp_consume(rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used_recovery,
+            static function (array $otp) { return ['synapse_otp' => $otp, 'synapse_otp_fails' => 0]; });
+        if ($new) {
+            $this->rl_settle($ip, true);
             $_SESSION['synapse_otp_state'] = null; $_SESSION['synapse_otp_tries'] = null;
-            $this->save_prefs(['synapse_otp' => $new, 'synapse_otp_fails' => 0]);
             $this->json(['ok' => true, 'recovery_used' => $used_recovery, 'recovery_left' => count($new['recovery']), 'next' => $this->gate_step_done()]);
         }
 
-        $this->rl_fail(['otpip' => $ip]);
+        $this->rl_settle($ip, false);
         $tries = (int) ($_SESSION['synapse_otp_tries'] ?? 0) + 1;
         $_SESSION['synapse_otp_tries'] = $tries;
-        $fails = (int) $rcmail->config->get('synapse_otp_fails', 0) + 1;
-        $prefs = ['synapse_otp_fails' => $fails];
         // same account lock as the passcode: many wrong codes across sign-ins lock the account for an hour
-        if ($fails >= self::OTP_FAILS_BEFORE_LOCK) {
-            $prefs['synapse_otp_fails'] = 0;
-            $prefs['synapse_pin_lock'] = time() + self::PIN_FAIL_LOCK_SECONDS;
-        }
-        $this->save_prefs($prefs);
+        $lock = $this->lock_if_full('synapse_otp_fails');
 
-        if (!empty($prefs['synapse_pin_lock']) || $tries >= self::OTP_TRIES_PER_SESSION) {
+        if ($lock || $tries >= self::OTP_TRIES_PER_SESSION) {
             $rcmail->kill_session();
-            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $prefs['synapse_pin_lock'] ?? null,
-                'message' => !empty($prefs['synapse_pin_lock']) ? $this->gettext('otp_locked') : $this->gettext('otp_signin')]);
+            $this->json(['ok' => false, 'signedout' => true, 'locked_until' => $lock ?: null,
+                'message' => $lock ? $this->gettext('otp_locked') : $this->gettext('otp_signin')]);
         }
 
         $this->json(['ok' => false, 'left' => self::OTP_TRIES_PER_SESSION - $tries, 'message' => $this->gettext('otp_wrong')]);
@@ -759,11 +827,19 @@ class synapse_core extends rcube_plugin
         }
 
         $codes = synapse_totp::recovery_codes();
-        $this->save_prefs([
-            'synapse_otp' => ['secret' => $enc, 'recovery' => self::hash_codes($codes), 'enabled_at' => time(), 'last_step' => $step],
-            'synapse_otp_fails' => 0,
-        ]);
+        $record = ['secret' => $enc, 'recovery' => self::hash_codes($codes), 'enabled_at' => time(), 'last_step' => $step];
+        // stored only while the account has no authenticator: of two parallel confirmations exactly one enrols
+        $saved = $this->update_prefs(static function (array $p) use ($record) {
+            return empty($p['synapse_otp']['secret']) ? ['synapse_otp' => $record, 'synapse_otp_fails' => 0] : null;
+        });
         $_SESSION['synapse_otp_new'] = null;
+        if (!$saved) {
+            if ($gate) {
+                // enrolled by a parallel request: this session now needs a code from that authenticator
+                $_SESSION['synapse_otp_state'] = 'pending';
+            }
+            $this->json(['ok' => false, 'restart' => !$gate, 'next' => $gate ? $this->next_gate() : null, 'message' => $this->gettext('otp_already')]);
+        }
         if ($gate) {
             $_SESSION['synapse_otp_state'] = null;
         }
@@ -774,31 +850,37 @@ class synapse_core extends rcube_plugin
     /** Settings: new set of recovery codes (needs a current authenticator or recovery code) */
     public function action_otp_recovery()
     {
-        $otp = $this->otp_settings_guard();
+        $ip = $this->otp_settings_guard();
         $used = false;
-        if (!($new = $this->otp_check($otp, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used))) {
-            $this->rl_fail(['otpip' => rcube_utils::remote_addr()]);
+        $codes = synapse_totp::recovery_codes();
+        $hashes = self::hash_codes($codes);
+        // the code is checked and the new set stored in one atomic write
+        if (!$this->otp_consume(rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used,
+            static function (array $otp) use ($hashes) { return ['synapse_otp' => ['recovery' => $hashes] + $otp]; })
+        ) {
+            $this->rl_settle($ip, false);
             $this->json(['ok' => false, 'message' => $this->gettext('otp_invalid')]);
         }
-        $codes = synapse_totp::recovery_codes();
-        $new['recovery'] = self::hash_codes($codes);
-        $this->save_prefs(['synapse_otp' => $new]);
+        $this->rl_settle($ip, true);
         $this->json(['ok' => true, 'codes' => $codes]);
     }
 
     /** Settings: turn 2FA off (not allowed while the server requires it) */
     public function action_otp_disable()
     {
-        $otp = $this->otp_settings_guard();
         if ($this->otp_policy() === 'required') {
+            $this->require_post();
             $this->json(['ok' => false, 'message' => $this->gettext('otp_required')]);
         }
+        $ip = $this->otp_settings_guard();
         $used = false;
-        if (!$this->otp_check($otp, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used)) {
-            $this->rl_fail(['otpip' => rcube_utils::remote_addr()]);
+        if (!$this->otp_consume(rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used,
+            static function () { return ['synapse_otp' => null, 'synapse_otp_fails' => 0]; })
+        ) {
+            $this->rl_settle($ip, false);
             $this->json(['ok' => false, 'message' => $this->gettext('otp_invalid')]);
         }
-        $this->save_prefs(['synapse_otp' => null, 'synapse_otp_fails' => 0]);
+        $this->rl_settle($ip, true);
         $this->json(['ok' => true]);
     }
 
@@ -808,14 +890,16 @@ class synapse_core extends rcube_plugin
         if (!empty($_SESSION['synapse_otp_state']) || !empty($_SESSION['synapse_pin_state'])) {
             $this->json(['ok' => false, 'message' => $this->gettext('finishsignin')], 403);
         }
-        if (!($otp = $this->otp())) {
+        if (!$this->otp()) {
             $this->json(['ok' => false, 'message' => $this->gettext('otp_notenabled')]);
         }
-        if ($this->rl_blocked(['otpip' => rcube_utils::remote_addr()])) {
+        // one attempt taken before the code is checked; the caller settles it
+        $ip = ['otpip' => rcube_utils::remote_addr()];
+        if ($this->rl_take($ip)) {
             $this->json(['ok' => false, 'message' => $this->gettext('otp_netlimit')]);
         }
 
-        return $otp;
+        return $ip;
     }
 
     /** Public demo only ($config['synapse_demo'], set by the demo build): the fixed code 123456 */
@@ -846,6 +930,31 @@ class synapse_core extends rcube_plugin
     private static function hash_codes(array $codes)
     {
         return array_map(static function ($c) { return password_hash($c, PASSWORD_DEFAULT); }, $codes);
+    }
+
+    /**
+     * Accept an authenticator or recovery code and use it up in one compare-and-swap on the stored preferences:
+     * the code is checked against the stored record, and two parallel requests with one code cannot both win.
+     * $then(updated record) returns the preferences to save (default: the record). Returns the record, or null.
+     */
+    private function otp_consume($code, &$used_recovery, ?callable $then = null)
+    {
+        $accepted = null;
+        $used = false;
+        $saved = $this->update_prefs(function (array $p) use ($code, $then, &$accepted, &$used) {
+            $otp = $p['synapse_otp'] ?? null;
+            $used = false;
+            $accepted = null;
+            if (!is_array($otp) || empty($otp['secret']) || !($new = $this->otp_check($otp + ['recovery' => [], 'last_step' => 0], $code, $used))) {
+                return null;
+            }
+            $accepted = $new;
+
+            return $then ? $then($new) : ['synapse_otp' => $new];
+        });
+        $used_recovery = $saved !== null && $used;
+
+        return $saved !== null ? $accepted : null;
     }
 
     /**
@@ -936,11 +1045,15 @@ class synapse_core extends rcube_plugin
         return $args;
     }
 
+    /** Sign-in: one attempt is taken on every limit before core checks the password (no extra parallel guesses) */
     public function authenticate($args)
     {
-        if ($this->rl_blocked($this->rl_login_keys($args['user'] ?? ''))) {
+        $keys = $this->rl_login_keys($args['user'] ?? '');
+        if ($this->rl_take($keys)) {
             $args['abort'] = true;
             $args['error'] = rcmail::ERROR_RATE_LIMIT;
+        } else {
+            $this->rl_login_taken = $keys;
         }
 
         return $args;
@@ -948,9 +1061,10 @@ class synapse_core extends rcube_plugin
 
     public function login_failed($args)
     {
-        // only real credential failures count (not CSRF/cookie problems or requests we already refused)
-        if (!in_array($args['code'], [rcmail::ERROR_INVALID_REQUEST, rcmail::ERROR_COOKIES_DISABLED, rcmail::ERROR_RATE_LIMIT], true)) {
-            $this->rl_fail($this->rl_login_keys($args['user'] ?? ''));
+        // only real credential failures count (not CSRF/cookie problems); refused requests took nothing
+        if ($this->rl_login_taken) {
+            $this->rl_settle($this->rl_login_taken, in_array($args['code'], [rcmail::ERROR_INVALID_REQUEST, rcmail::ERROR_COOKIES_DISABLED], true));
+            $this->rl_login_taken = null;
         }
 
         return $args;
@@ -1041,34 +1155,55 @@ class synapse_core extends rcube_plugin
         return $wait;
     }
 
+    /** Count a failure on each key (one atomic statement each); a key blocks when it reaches its limit */
     public static function rl_fail(array $keys)
     {
         $db = self::rl_db();
         $table = $db->table_name('synapse_ratelimit', true);
         $now = time();
-
         foreach ($keys as $scope => $value) {
-            $k = self::rl_key($scope, $value);
-            $row = $db->fetch_assoc($db->query("SELECT `fails`, `since` FROM {$table} WHERE `k` = ?", $k));
-            $fails = ($row && (int) $row['since'] > $now - self::RL_WINDOW) ? (int) $row['fails'] + 1 : 1;
-            $since = $fails == 1 ? $now : (int) $row['since'];
-            $blocked = 0;
-            if ($fails >= self::RL_LIMITS[$scope]) {
-                $blocked = $now + self::RL_BLOCK_SECONDS;
-                $fails = 0;
-                $since = $now;
-            }
-            if ($row) {
-                $db->query("UPDATE {$table} SET `fails` = ?, `since` = ?, `blocked_until` = CASE WHEN ? > 0 THEN ? ELSE `blocked_until` END WHERE `k` = ?",
-                    $fails, $since, $blocked, $blocked, $k);
-            } else {
-                $db->query("INSERT INTO {$table} (`k`, `fails`, `since`, `blocked_until`) VALUES (?, ?, ?, ?)", $k, $fails, $since, $blocked);
-            }
+            synapse_atomic::rl_fail($db, $table, self::rl_key($scope, $value), $now, self::RL_WINDOW, self::RL_LIMITS[$scope], self::RL_BLOCK_SECONDS);
         }
 
         // occasional cleanup of expired rows
         if (random_int(1, 50) === 1) {
             $db->query("DELETE FROM {$table} WHERE `blocked_until` < ? AND `since` < ?", $now, $now - self::RL_WINDOW);
+        }
+    }
+
+    /**
+     * Before checking a guess: take one attempt on every key. Returns 0 when taken, else the seconds to wait (the key
+     * is blocked, or parallel requests hold every attempt the limit allows). Settle with rl_settle() afterwards.
+     */
+    public static function rl_take(array $keys)
+    {
+        $db = self::rl_db();
+        $table = $db->table_name('synapse_ratelimit', true);
+        $now = time();
+        $taken = [];
+        foreach ($keys as $scope => $value) {
+            $k = self::rl_key($scope, $value);
+            if (!synapse_atomic::rl_take($db, $table, $k, $now, self::RL_WINDOW, self::RL_LIMITS[$scope])) {
+                // give back what this request already took
+                foreach ($taken as $t) {
+                    synapse_atomic::rl_settle($db, $table, $t, true, $now, 0, 0);
+                }
+
+                return max(1, synapse_atomic::rl_wait($db, $table, $k, $now));
+            }
+            $taken[] = $k;
+        }
+
+        return 0;
+    }
+
+    /** After rl_take(): a correct guess gives the attempts back, a wrong one keeps them (and blocks at the limit) */
+    public static function rl_settle(array $keys, $ok)
+    {
+        $db = self::rl_db();
+        $table = $db->table_name('synapse_ratelimit', true);
+        foreach ($keys as $scope => $value) {
+            synapse_atomic::rl_settle($db, $table, self::rl_key($scope, $value), (bool) $ok, time(), self::RL_LIMITS[$scope], self::RL_BLOCK_SECONDS);
         }
     }
 

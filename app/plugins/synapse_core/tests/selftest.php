@@ -326,15 +326,151 @@ $body = static function ($name) use ($core_src) {
     return preg_match('/function ' . $name . '\(.*?(?=\n    (public|private|protected) (static )?function |\n}\s*$)/s', $core_src, $m) ? $m[0] : '';
 };
 $check(preg_match("/'stepup'\] as \\\$action/", $core_src) === 1 && !preg_match("/GATE_ACTIONS = \[[^\]]*stepup/s", $core_src), 'step-up: action registered, and not allowed while the gate is up');
-$check(strpos($body('action_stepup'), 'rl_blocked') !== false && strpos($body('action_stepup'), 'rl_fail') !== false && strpos($body('action_stepup'), "\$_SESSION['password']") !== false, 'step-up: checks the session password and is rate limited');
+$check(strpos($body('action_stepup'), 'rl_take') !== false && strpos($body('action_stepup'), 'rl_settle') !== false && strpos($body('action_stepup'), "\$_SESSION['password']") !== false, 'step-up: checks the session password and is rate limited');
 $check(preg_match('/if \(!\$current\) \{\s*\$this->require_stepup\(\);/', $body('action_pin_save')) === 1, 'step-up: a first passcode needs it (a change needs the current passcode)');
 $check(preg_match("/=== 'start'\) \{\s*if \(!\\\$gate\) \{\s*\\\$this->require_stepup\(\);/", $body('action_otp_enroll')) === 1, 'step-up: authenticator enrolment from Settings needs it');
-$check(strpos($body('action_otp_recovery'), 'otp_check') !== false && strpos($body('action_otp_disable'), 'otp_check') !== false && strpos($body('action_pin_remove'), 'current_pin_ok') !== false, 'factor changes: new codes and 2FA off need a current code, passcode removal the passcode');
+$check(strpos($body('action_otp_recovery'), 'otp_consume') !== false && strpos($body('action_otp_disable'), 'otp_consume') !== false && strpos($body('action_pin_remove'), 'current_pin_ok') !== false, 'factor changes: new codes and 2FA off need a current code, passcode removal the passcode');
 $check(strpos($body('action_pin_forgot'), 'synapse_gate::pin_step') !== false && strpos($body('action_pin_verify'), 'synapse_gate::pin_step') !== false, 'gate: forgot-passcode and passcode checks follow the gate order');
 $check(strpos($body('gate_step_done'), 'regenerate_id(true)') !== false && substr_count($core_src, 'gate_step_done()') >= 4, 'gate: a new session id once the last gate step passes');
 $inst = (string) file_get_contents(__DIR__ . '/../installer/installer.php');
 $check(strpos($inst, "\$S['admin']['last_step'] = \$step") !== false && preg_match('/INSERT INTO synapse_admins \([^)]*totp_last_step/', $inst) === 1, 'installer: the setup code cannot be used again to sign in');
 $ui_src = (string) file_get_contents(__DIR__ . '/../../../skins/synapse/ui.js');
 $check(strpos($ui_src, "api('stepup'") !== false && strpos($ui_src, 'if (!st.has_pin) stepUp(show)') !== false, 'step-up: Settings asks for it before a first passcode or an authenticator');
+
+// parallel requests: counters, authenticator steps and recovery codes are changed atomically (SEC-R03)
+require_once __DIR__ . '/../lib/synapse_atomic.php';
+if (!class_exists('synapse_selftest_db')) {
+    // the three calls synapse_atomic needs from rcube_db, on a plain PDO connection
+    final class synapse_selftest_db
+    {
+        public $db_provider = 'sqlite';
+        private $pdo;
+
+        public function __construct($file)
+        {
+            $this->pdo = new PDO('sqlite:' . $file, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 10]);
+            $this->pdo->exec('PRAGMA journal_mode = WAL');
+        }
+
+        public function query($sql, ...$args)
+        {
+            $st = $this->pdo->prepare($sql);
+            $st->execute($args);
+
+            return $st;
+        }
+
+        public function fetch_assoc($st)
+        {
+            return $st->fetch(PDO::FETCH_ASSOC) ?: false;
+        }
+
+        public function affected_rows($st)
+        {
+            return $st->rowCount();
+        }
+    }
+}
+$rdir = sys_get_temp_dir() . '/smrace-' . bin2hex(random_bytes(4));
+mkdir($rdir);
+$rfile = "$rdir/race.db";
+$A = new synapse_selftest_db($rfile);
+$B = new synapse_selftest_db($rfile);
+$A->query('CREATE TABLE rl (`k` varchar(64) NOT NULL PRIMARY KEY, `fails` integer NOT NULL DEFAULT 0, `since` integer NOT NULL DEFAULT 0, `blocked_until` integer NOT NULL DEFAULT 0)');
+$A->query('CREATE TABLE users (`user_id` integer PRIMARY KEY, `preferences` text)');
+$A->query('CREATE TABLE admins (`id` integer PRIMARY KEY, `totp_last_step` integer NOT NULL DEFAULT 0, `recovery_codes` text NOT NULL)');
+$now = time();
+// counters: two connections, interleaved, lose nothing; the limit blocks exactly once
+for ($i = 0; $i < 3; $i++) {
+    synapse_atomic::rl_fail($A, 'rl', 'k1', $now, 900, 100, 900);
+    synapse_atomic::rl_fail($B, 'rl', 'k1', $now, 900, 100, 900);
+}
+$check((int) $A->fetch_assoc($A->query('SELECT fails FROM rl WHERE k = ?', 'k1'))['fails'] === 6, 'race: failures from two connections are all counted');
+$blocks = 0;
+for ($i = 0; $i < 6; $i++) {
+    $blocks += synapse_atomic::rl_fail($i % 2 ? $A : $B, 'rl', 'k2', $now, 900, 5, 900) ? 1 : 0;
+}
+$check($blocks === 1 && synapse_atomic::rl_wait($A, 'rl', 'k2', $now) > 0, 'race: reaching the limit blocks once, and the block is seen');
+$taken = 0;
+for ($i = 0; $i < 6; $i++) {
+    $taken += synapse_atomic::rl_take($i % 2 ? $A : $B, 'rl', 'k3', $now, 900, 3) ? 1 : 0;
+}
+$check($taken === 3, 'race: only as many attempts can be taken as the limit allows');
+synapse_atomic::rl_settle($A, 'rl', 'k3', true, $now, 3, 900);
+$check(synapse_atomic::rl_take($B, 'rl', 'k3', $now, 900, 3) && !synapse_atomic::rl_take($B, 'rl', 'k3', $now, 900, 3), 'race: a correct guess gives its attempt back');
+$check(synapse_atomic::rl_take($A, 'rl', 'k3', $now + 901, 900, 3), 'race: a new window has room again');
+// preferences: a write from another connection between read and write is never lost
+$A->query('INSERT INTO users (user_id, preferences) VALUES (1, ?)', serialize(['n' => 0, 'keep' => 'x']));
+$first = true;
+$r = synapse_atomic::prefs($A, 'users', 1, static function (array $p) use (&$first, $B) {
+    if ($first) {
+        $first = false;
+        synapse_atomic::prefs($B, 'users', 1, static function (array $q) { return ['n' => $q['n'] + 1, 'b' => 1]; });
+    }
+
+    return ['n' => $p['n'] + 1, 'a' => 1];
+});
+$stored = unserialize($A->fetch_assoc($A->query('SELECT preferences FROM users WHERE user_id = 1'))['preferences']);
+$check($r !== null && $stored === ['n' => 2, 'keep' => 'x', 'b' => 1, 'a' => 1], 'race: preference changes from two connections are merged, the counter counts both');
+// a one-time code in the preferences: the second request sees it used and fails
+$A->query('UPDATE users SET preferences = ? WHERE user_id = 1', serialize(['codes' => ['c1', 'c2']]));
+$use = static function (array $p) { return in_array('c1', $p['codes'], true) ? ['codes' => array_values(array_diff($p['codes'], ['c1']))] : null; };
+$first = true;
+$second = null;
+$won = synapse_atomic::prefs($A, 'users', 1, static function (array $p) use (&$first, &$second, $B, $use) {
+    if ($first) {
+        $first = false;
+        $second = synapse_atomic::prefs($B, 'users', 1, $use);
+    }
+
+    return $use($p);
+});
+$check($second !== null && $won === null, 'race: a recovery code read by two requests is used by exactly one');
+// admin table: the time step moves forward once; a recovery code works once
+$A->query('INSERT INTO admins (id, totp_last_step, recovery_codes) VALUES (1, 10, ?)', json_encode([password_hash('ABCD-EFGH', PASSWORD_DEFAULT, ['cost' => 4])]));
+$check(synapse_atomic::admin_step($A, 'admins', 1, 11) && !synapse_atomic::admin_step($B, 'admins', 1, 11) && !synapse_atomic::admin_step($B, 'admins', 1, 9), 'race: an admin code time step is accepted once, older steps never');
+$check(synapse_atomic::admin_recovery($B, 'admins', 1, 'ABCD-EFGH') && !synapse_atomic::admin_recovery($A, 'admins', 1, 'ABCD-EFGH'), 'race: an admin recovery code works once');
+// real parallel processes on one SQLite file (WAL), started together
+$parallel = static function ($n, $op) use ($rfile) {
+    if (!function_exists('proc_open')) {
+        return null;
+    }
+    $code = 'require ' . var_export(__DIR__ . '/../lib/synapse_atomic.php', true) . ';'
+        . 'class D { public $db_provider = "sqlite"; public $p; function __construct($f) { $this->p = new PDO("sqlite:" . $f, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 20]); }'
+        . ' function query($s, ...$a) { $t = $this->p->prepare($s); $t->execute($a); return $t; } function fetch_assoc($t) { return $t->fetch(PDO::FETCH_ASSOC) ?: false; } function affected_rows($t) { return $t->rowCount(); } }'
+        . '$db = new D($argv[1]); time_sleep_until((float) $argv[2]); echo (' . $op . ') ? 1 : 0;';
+    $start = microtime(true) + 0.6;
+    $procs = [];
+    for ($i = 0; $i < $n; $i++) {
+        $procs[] = proc_open([PHP_BINARY, '-r', $code, $rfile, (string) $start], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $outs[] = $pipes;
+    }
+    $wins = 0;
+    foreach ($procs as $i => $p) {
+        $wins += (int) trim(stream_get_contents($outs[$i][1]));
+        proc_close($p);
+    }
+
+    return $wins;
+};
+$A->query('UPDATE admins SET totp_last_step = 100, recovery_codes = ? WHERE id = 1', json_encode([password_hash('WXYZ-2345', PASSWORD_DEFAULT, ['cost' => 4])]));
+$w = $parallel(10, 'synapse_atomic::admin_step($db, "admins", 1, 101)');
+$check($w === null || $w === 1, 'race: 10 parallel processes with one admin code time step, exactly one wins' . ($w === null ? ' (skipped: no proc_open)' : ''));
+$w = $parallel(10, 'synapse_atomic::admin_recovery($db, "admins", 1, "WXYZ-2345")');
+$check($w === null || $w === 1, 'race: 10 parallel processes with one admin recovery code, exactly one wins');
+$A->query('UPDATE users SET preferences = ? WHERE user_id = 1', serialize(['otp' => ['last_step' => 5, 'recovery' => ['r1', 'r2']]]));
+$w = $parallel(10, 'synapse_atomic::prefs($db, "users", 1, function ($p) { return $p["otp"]["last_step"] < 6 ? ["otp" => ["last_step" => 6] + $p["otp"]] : null; })');
+$check($w === null || $w === 1, 'race: 10 parallel processes with one user code time step, exactly one wins');
+$w = $parallel(10, 'synapse_atomic::prefs($db, "users", 1, function ($p) { return in_array("r1", $p["otp"]["recovery"], true) ? ["otp" => ["recovery" => array_values(array_diff($p["otp"]["recovery"], ["r1"]))] + $p["otp"]] : null; })');
+$check($w === null || $w === 1, 'race: 10 parallel processes with one user recovery code, exactly one wins');
+$w = $parallel(12, 'synapse_atomic::rl_take($db, "rl", "k9", time(), 900, 4)');
+$check($w === null || $w === 4, 'race: 12 parallel guesses against a limit of 4, exactly 4 are checked');
+$A = $B = null;
+array_map('unlink', glob("$rdir/*"));
+rmdir($rdir);
+$check(substr_count($core_src, 'synapse_atomic::') >= 4 && !preg_match('/\$fails = \(int\) \$rcmail->config->get\(\'synapse_(pin|otp)_fails/', $core_src), 'race: passcode and code counters are no longer read, increased and written back');
+$check(strpos($core_src, 'private function otp_consume') !== false && substr_count($core_src, '$this->otp_consume(') >= 4 && substr_count($core_src, '$this->otp_check(') === 1, 'race: every authenticator or recovery code is used up atomically (sign-in, step-up, new codes, 2FA off)');
+$admin_src = (string) file_get_contents(__DIR__ . '/../admin/admin.php');
+$check(substr_count($admin_src, 'synapse_atomic::admin_step(') >= 4 && strpos($admin_src, 'synapse_atomic::admin_recovery(') !== false && strpos($admin_src, 'SET `totp_last_step` = ? WHERE `id` = ?"') === false, 'race: admin sign-in, code checks and recovery codes use the atomic updates');
 
 exit($fail ? 1 : 0);
