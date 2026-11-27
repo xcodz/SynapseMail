@@ -1,0 +1,45 @@
+# Checks every push and pull request: PHP syntax of the SynapseMail files and the self test (tools/ci-check.sh),
+# on the oldest supported PHP and the newest releases. Read-only, no secrets.
+# Copyright (c) 2026 SynapseCyber.io. Licensed under CC BY-NC-ND 4.0.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 8.6 is still a nightly build in the pinned setup-php; its result is shown but does not fail the run
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.5']
+        experimental: [false]
+        include:
+          - php: '8.6'
+            experimental: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, intl, mbstring, openssl, pdo_sqlite, sodium, zip, zlib
+          coverage: none
+          tools: none
+
+      - name: Syntax and self test
+        run: tools/ci-check.sh
