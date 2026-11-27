@@ -10,6 +10,11 @@
   https://creativecommons.org/licenses/by-nc-nd/4.0/
 -->
 <html><head><meta charset="utf-8"><title></title>
-<style>html,body{margin:0;height:100%;background:#0d110e}</style>
-<script>try{var t=parent.document.documentElement.dataset.theme;var c={blackops:'#15100c',night:'#061009',agency:'#0a171e',soft:'#edf0f4'}[t];if(c)document.documentElement.style.background=c}catch(e){}</script>
+<style>html,body{margin:0;height:100%;background:var(--sm-blank,#0d110e)}</style>
+<script>
+// an empty detail pane (contacts, identities, responses, folders, settings, mail) takes the background of the theme in
+// use from the page around it (--bg-soft); the page calls synapseBlank() again after a theme switch
+window.synapseBlank=function(){try{var c=getComputedStyle(parent.document.documentElement).getPropertyValue('--bg-soft').trim();if(c)document.documentElement.style.setProperty('--sm-blank',c)}catch(e){}};
+synapseBlank();
+</script>
 </head><body></body></html>

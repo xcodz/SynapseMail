@@ -276,6 +276,9 @@ body .ui-dialog .ui-dialog-titlebar-close::after { transform: rotate(-45deg); }
 body .ui-dialog .ui-dialog-titlebar-close:hover { color: var(--green); }
 body .ui-dialog .ui-dialog-content { padding: 16px 17px; overflow: auto; color: var(--text-2); }
 body .ui-dialog .ui-dialog-content iframe { width: 100%; border: 0; }
+/* a framed dialog (import, ...) fills its box; the default 150px frame height cut its form off */
+body .ui-dialog .ui-dialog-content.iframe { overflow: hidden; }
+body .ui-dialog .ui-dialog-content.iframe iframe { display: block; height: 100%; }
 body .ui-dialog .ui-dialog-buttonpane { display: flex; justify-content: flex-end; gap: 8px; min-height: 60px; align-items: center; padding: 0 16px; border-top: 1px solid var(--line); }
 body .ui-dialog .ui-dialog-buttonset { display: flex; gap: 8px; }
 body .ui-dialog .ui-dialog-buttonpane button { height: 34px; border: 1px solid var(--line-strong); padding: 0 13px; cursor: pointer; font: 600 9px IBM Plex Mono, monospace; letter-spacing: .08em; text-transform: uppercase; background: transparent; color: var(--muted); }
@@ -419,6 +422,8 @@ ul.rc-folders .treetoggle { display: none; }
 
 /* framed edit forms: reader-body + template compose label/input language */
 html.iframe .settings-body { height: 100%; overflow-y: auto; }
+/* framed pages end with room for the "Powered by SynapseCyber" credit, which stays fixed over the page corner */
+html.iframe .reader-body::after, html.iframe .settings-body::after { content: ""; display: block; height: 30px; }
 .settings-body h1 { margin-bottom: 18px; }
 .settings-form fieldset { margin: 0 0 22px; padding: 0; border: 0; border-top: 1px solid var(--line); }
 .settings-form legend { padding: 18px 0 8px; color: var(--amber); font: 600 10px IBM Plex Mono, monospace; letter-spacing: .14em; text-transform: uppercase; }
@@ -448,7 +453,7 @@ html.iframe .settings-body { height: 100%; overflow-y: auto; }
 .contact-list td.name, .contact-list td { font-size: 12px; }
 .contact-list tr.contactgroup td, .contact-list tr.group td { color: var(--amber); }
 .contact-meta { grid-template-columns: 72px 1fr; border-top: 0; padding-top: 0; }
-.contact-photo img { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--line-strong); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+.contact-photo img { width: 64px; height: 64px; object-fit: cover; background: var(--panel-2); border: 1px solid var(--line-strong); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
 .contact-head:not(.propform) { font: 600 22px/1.15 Barlow Condensed, sans-serif; letter-spacing: .03em; }
 .contact-head.propform label, .contact-head.propform .title { color: var(--dim); font: 600 9px IBM Plex Mono, monospace; letter-spacing: .1em; text-transform: uppercase; }
 .contact-head .names, .contact-head .displayname { display: block; }

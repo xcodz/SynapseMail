@@ -508,4 +508,18 @@ $check(preg_match('/const ADMIN_DUMMY_CODES = \[(\s*\'\$2y\$10\$[^\']{53}\',){8}
 $check(preg_match('/function require_post\(\).*?\$given === \'\' \|\| !hash_equals/s', $core_now) === 1, 'requests: POST actions need the request token explicitly (an empty POST is refused)');
 $check(preg_match('/function action_list\(\)\s*\{\s*\/\/[^\n]*\n\s*\$this->plugin->require_post\(\);/', (string) file_get_contents(__DIR__ . '/../lib/synapse_inbox.php')) === 1, 'requests: the other-inbox list (it signs in elsewhere) needs POST and the token');
 
+// skin: empty panes, contact placeholders and framed dialogs follow the theme (CE-033)
+$skin = __DIR__ . '/../../../skins/synapse/';
+$wm = (string) file_get_contents($skin . 'watermark.html');
+$ui = (string) file_get_contents($skin . 'ui.js');
+$css = (string) file_get_contents($skin . 'synapse.css');
+$check(strpos($wm, "getPropertyValue('--bg-soft')") !== false && preg_match('/body\{[^}]*background:#/', $wm) === 0 && preg_match('/html,body\{[^}]*background:var\(--sm-blank/', $wm) === 1, 'skin: the blank pane takes the theme background (no fixed dark body)');
+$check(strpos($ui, 'function paintBlank(f)') !== false && strpos($ui, "doc.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IFRAME') paintBlank(e.target); }, true);") !== false && strpos($ui, 'paintBlank(f); // an empty pane repaints in the new theme') !== false, 'skin: blank panes are repainted on load and on every theme switch (also with a cached old blank page)');
+$ph = (string) file_get_contents($skin . 'images/contact-person.svg') . (string) file_get_contents($skin . 'images/contact-group.svg');
+$check(!is_file($skin . 'images/contactpic.svg') && strpos($ph, '<rect') === false && strpos($ph, '#1a2117') === false, 'skin: contact placeholders have no fixed dark background (new file names, so no stale cache)');
+$tpl = (string) file_get_contents($skin . 'templates/contact.html') . file_get_contents($skin . 'templates/contactedit.html') . file_get_contents($skin . 'templates/contactprint.html');
+$check(substr_count($tpl, 'placeholder="/images/contact-person.svg"') === 3 && strpos($tpl, 'contactpic.svg') === false && preg_match('/\.contact-photo img \{[^}]*background: var\(--panel-2\)/', $css) === 1, 'skin: contact view, edit and print use the theme-aware placeholder');
+$check(strpos($css, 'body .ui-dialog .ui-dialog-content.iframe iframe { display: block; height: 100%; }') !== false, 'skin: framed dialogs (contact import) fill their box');
+$check(preg_match('/html\.iframe \.reader-body::after, html\.iframe \.settings-body::after \{ content: ""; display: block; height: \d+px; \}/', $css) === 1 && strpos($css, '.template-credit { display: none') === false, 'skin: framed pages leave room for the credit, which stays visible');
+
 exit($fail ? 1 : 0);

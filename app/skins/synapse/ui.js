@@ -138,6 +138,21 @@ var UI = (function () {
   }
   function motionReduced() { return html.dataset.motion == 'reduce' || html.dataset.motion == 'off' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
 
+  // An empty detail pane (the blank page in contacts, settings, mail) takes the theme's --bg-soft. Done from here too,
+  // because browsers keep the blank page itself cached for days after an update.
+  function paintBlank(f) {
+    try {
+      var w = f.contentWindow;
+      if (!w || !/watermark\.html/.test(w.location.href)) return;
+      var c = getComputedStyle(html).getPropertyValue('--bg-soft').trim();
+      if (!c) return;
+      w.document.documentElement.style.background = c;
+      if (w.document.body) w.document.body.style.background = c;
+    } catch (e) { }
+  }
+  doc.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IFRAME') paintBlank(e.target); }, true);
+  doc.querySelectorAll('iframe').forEach(paintBlank);
+
   function applyTheme(theme, announce, save) {
     if (!themeLabels[theme]) theme = 'agency';
     currentTheme = theme;
@@ -149,7 +164,10 @@ var UI = (function () {
     doc.querySelectorAll('.theme-dot, .theme-choice[data-theme]').forEach(function (el) { el.classList.toggle('active', el.dataset.theme === theme); });
     doc.querySelectorAll('.ap-theme input').forEach(function (el) { el.checked = el.value === theme; });
     // keep framed views (preview, compose, settings forms) on the same theme
-    doc.querySelectorAll('iframe').forEach(function (f) { try { f.contentDocument.documentElement.dataset.theme = shown; } catch (e) { } });
+    doc.querySelectorAll('iframe').forEach(function (f) {
+      try { f.contentDocument.documentElement.dataset.theme = shown; } catch (e) { }
+      paintBlank(f); // an empty pane repaints in the new theme
+    });
     if (save) {
       var trc = topRc();
       if (trc && trc.env.task && trc.env.task != 'login' && trc.env.task != 'logout' && trc.env.synapse_theme != theme) trc.save_pref({ name: 'synapse_theme', value: theme, env: 'synapse_theme' });
