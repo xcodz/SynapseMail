@@ -522,4 +522,13 @@ $check(substr_count($tpl, 'placeholder="/images/contact-person.svg"') === 3 && s
 $check(strpos($css, 'body .ui-dialog .ui-dialog-content.iframe iframe { display: block; height: 100%; }') !== false, 'skin: framed dialogs (contact import) fill their box');
 $check(preg_match('/html\.iframe \.reader-body::after, html\.iframe \.settings-body::after \{ content: ""; display: block; height: \d+px; \}/', $css) === 1 && strpos($css, '.template-credit { display: none') === false, 'skin: framed pages leave room for the credit, which stays visible');
 
+// Settings > Identities opens the standard identity on wide screens only (CE-034)
+$ui = (string) file_get_contents(__DIR__ . '/../../../skins/synapse/ui.js');
+$css = (string) file_get_contents(__DIR__ . '/../../../skins/synapse/synapse.css');
+$fn = preg_match('/function openStandardIdentity\(env\) \{.*?\n  \}/s', $ui, $m) ? $m[0] : '';
+$bp = preg_match("/matchMedia\('\(min-width: (\d+)px\)'\)/", $fn, $mm) ? $mm[1] : null;
+$check($fn !== '' && $bp !== null && strpos($css, "@media (min-width: {$bp}px) { .settings-stage .reader-pane { opacity: 1;") !== false, 'identities: the standard identity opens only where list and editor sit side by side (same breakpoint as the CSS)');
+$check(strpos($fn, 'list.get_single_selection()') !== false && strpos($fn, 'watermark\\.html|about:blank') !== false && strpos($fn, "idents[i]['default']") !== false && strpos($fn, 'list.select(id)') !== false, 'identities: it never overrides a selection or an open editor, and picks the standard identity');
+$check(strpos($ui, "var env = rc.env.synapse_sendas;\n    openStandardIdentity(env);") !== false, 'identities: it runs when the Identities page starts');
+
 exit($fail ? 1 : 0);

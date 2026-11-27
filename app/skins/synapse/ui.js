@@ -1631,8 +1631,24 @@ var UI = (function () {
   }
 
   /* ---------- Settings › Send As: list badges, reply option and the add / change wizard ---------- */
+  // Settings > Identities on a wide screen (list and editor side by side): open the account's standard identity at once.
+  // Not on phones and tablets, where the editor slides over the list and would hide it; not over a selection.
+  function openStandardIdentity(env) {
+    var list = rc.identity_list;
+    if (rc.env.action != 'identities' || !list || !window.matchMedia('(min-width: 1101px)').matches || list.get_single_selection()) return;
+    var win = rc.get_frame_window(rc.env.contentframe);
+    try { if (win && !/watermark\.html|about:blank/.test(win.location.href)) return; } catch (e) { return; }
+    var idents = (env && env.idents) || {};
+    var id = Object.keys(idents).filter(function (i) { return idents[i]['default']; })[0];
+    // without that flag: core lists the standard identity first
+    if (!id || !byId('rcmrow' + id)) { var first = doc.querySelector('#identities-table tbody tr[id^="rcmrow"]'); id = first && first.id.replace('rcmrow', ''); }
+    if (id) list.select(id);
+  }
+
   function initSendAs() {
-    var env = rc.env.synapse_sendas; if (!env) return;
+    var env = rc.env.synapse_sendas;
+    openStandardIdentity(env);
+    if (!env) return;
     var add = byId('sendasAdd'); if (add && !env.on) add.hidden = true;
     var decorate = function () {
       Object.keys(env.idents || {}).forEach(function (iid) {
