@@ -17,6 +17,7 @@
  */
 require_once __DIR__ . '/lib/synapse_totp.php';
 require_once __DIR__ . '/lib/synapse_secret.php';
+require_once __DIR__ . '/lib/synapse_gate.php';
 
 class synapse_core extends rcube_plugin
 {
@@ -60,6 +61,7 @@ class synapse_core extends rcube_plugin
         'satest' => 15, // Send As: failed server tests per user (each one connects to another server)
         'sacode' => 5, // Send As: code mails per user
         'sainbox' => 15, // other inboxes: failed sign-in tests per user
+        'stepup' => 5, // wrong passwords or codes when confirming a security change, per user
     ];
 
     // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init())
@@ -83,7 +85,7 @@ class synapse_core extends rcube_plugin
         $this->init_session_lifetime($rcmail);
 
         foreach (['gate', 'pin-status', 'pin-verify', 'pin-forgot', 'pin-save', 'pin-remove', 'pin-prompt', 'security', 'appearance',
-            'otp-verify', 'otp-enroll', 'otp-recovery', 'otp-disable'] as $action) {
+            'otp-verify', 'otp-enroll', 'otp-recovery', 'otp-disable', 'stepup'] as $action) {
             $this->register_action('plugin.synapse-' . $action, [$this, 'action_' . str_replace('-', '_', $action)]);
         }
         require_once __DIR__ . '/lib/synapse_sendas.php';
@@ -303,6 +305,10 @@ class synapse_core extends rcube_plugin
         if (($_SESSION['synapse_pin_state'] ?? null) !== 'pending' || !($pin = $this->pin())) {
             $this->json(['ok' => empty($_SESSION['synapse_pin_state']), 'state' => $_SESSION['synapse_pin_state'] ?? null]);
         }
+        // an enrolled authenticator is checked first: the passcode cannot be tried (or locked) before it
+        if (!synapse_gate::pin_step($_SESSION['synapse_pin_state'], $_SESSION['synapse_otp_state'] ?? null)) {
+            $this->json(['ok' => false, 'next' => $this->next_gate(), 'message' => $this->gettext('finishsignin')], 403);
+        }
 
         $ip = rcube_utils::remote_addr();
         if ($this->rl_blocked(['pinip' => $ip])) {
@@ -319,7 +325,7 @@ class synapse_core extends rcube_plugin
             if ($pin['interval'] !== 'login') {
                 $this->set_device_cookie((int) $pin['interval'] * 86400);
             }
-            $this->json(['ok' => true, 'next' => $this->next_gate()]);
+            $this->json(['ok' => true, 'next' => $this->gate_step_done()]);
         }
 
         $this->rl_fail(['pinip' => $ip]);
@@ -349,8 +355,9 @@ class synapse_core extends rcube_plugin
         $this->require_post();
         $pin = $this->pin();
 
-        if (($_SESSION['synapse_pin_state'] ?? null) !== 'pending' || !$pin) {
-            $this->json(['ok' => false]);
+        // only as the passcode step itself: never while an enrolled authenticator is still owed
+        if (!$pin || !synapse_gate::pin_step($_SESSION['synapse_pin_state'] ?? null, $_SESSION['synapse_otp_state'] ?? null)) {
+            $this->json(['ok' => false, 'message' => $this->gettext('finishsignin')], 403);
         }
 
         if (rcube_utils::get_input_string('_do', rcube_utils::INPUT_POST) !== 'erase') {
@@ -380,6 +387,7 @@ class synapse_core extends rcube_plugin
             'set_at' => $pin['set_at'] ?? null,
             'remembered_until' => $_SESSION['synapse_remember'] ?? null,
             'remember_days' => self::REMEMBER_SECONDS / 86400,
+            'stepup_until' => synapse_gate::stepup_valid($_SESSION['synapse_stepup_until'] ?? 0, time()) ? (int) $_SESSION['synapse_stepup_until'] : 0,
             'otp' => [
                 'policy' => $this->otp_policy(),
                 'enabled' => (bool) ($otp = $this->otp()),
@@ -416,9 +424,12 @@ class synapse_core extends rcube_plugin
         $hint = trim((string) rcube_utils::get_input_string('_hint', rcube_utils::INPUT_POST));
         $interval = (string) rcube_utils::get_input_string('_interval', rcube_utils::INPUT_POST);
 
-        // changing an existing passcode (or only its settings) needs the current one
+        // changing an existing passcode (or only its settings) needs the current one; a first one a fresh step-up
         if ($current && !$this->current_pin_ok($current)) {
             $this->json(['ok' => false, 'message' => $this->gettext('pin_current')]);
+        }
+        if (!$current) {
+            $this->require_stepup();
         }
         if (!in_array($interval, self::PIN_INTERVALS, true)) {
             $this->json(['ok' => false, 'message' => $this->gettext('pin_interval')]);
@@ -531,10 +542,11 @@ class synapse_core extends rcube_plugin
         $otp_state = $_SESSION['synapse_otp_state'] ?? null;
         $pin = $this->pin();
 
-        if ($pin_state !== 'locked' && $otp_state) {
+        $factor = synapse_gate::next_factor($pin_state, $otp_state);
+        if ($factor === 'otp' || $factor === 'enroll') {
             return [
                 'state' => 'pending',
-                'factor' => $otp_state === 'enroll' ? 'enroll' : 'otp',
+                'factor' => $factor,
                 'len' => synapse_totp::DIGITS,
                 'locked_until' => null,
                 'tries_left' => self::OTP_TRIES_PER_SESSION - (int) ($_SESSION['synapse_otp_tries'] ?? 0),
@@ -556,6 +568,68 @@ class synapse_core extends rcube_plugin
         $info = $this->gate_info();
 
         return $info['state'] ? $info + ['token' => rcmail::get_instance()->get_request_token()] : null;
+    }
+
+    /**
+     * After a gate step succeeded: the next step, or null when the gate is fully passed. Then the session gets a new
+     * id (the old one, known before the gate, stops working) and a new auth cookie.
+     */
+    private function gate_step_done()
+    {
+        $next = $this->next_gate();
+        if (!$next) {
+            $rcmail = rcmail::get_instance();
+            $rcmail->session->regenerate_id(true);
+            $rcmail->session->set_auth_cookie();
+        }
+
+        return $next;
+    }
+
+    /* ---------------- step-up: confirm it's you before changing a sign-in factor ---------------- */
+
+    /** Stops the request unless the session confirmed the password or an authenticator code a moment ago */
+    private function require_stepup()
+    {
+        if (!synapse_gate::stepup_valid($_SESSION['synapse_stepup_until'] ?? 0, time())) {
+            $this->json(['ok' => false, 'stepup' => true, 'message' => $this->gettext('stepup_needed')]);
+        }
+    }
+
+    /**
+     * Settings: _secret is the mailbox password this session signed in with, or (when 2FA is on) a current
+     * authenticator code. Opens a short window for setting a first passcode or enrolling an authenticator.
+     */
+    public function action_stepup()
+    {
+        $rcmail = rcmail::get_instance();
+        $this->require_post();
+        if (!empty($_SESSION['synapse_otp_state']) || !empty($_SESSION['synapse_pin_state'])) {
+            $this->json(['ok' => false, 'message' => $this->gettext('finishsignin')], 403);
+        }
+        $user = mb_strtolower((string) $rcmail->get_user_name());
+        if ($wait = $this->rl_blocked(['stepup' => $user])) {
+            $this->json(['ok' => false, 'message' => $this->gettext(['name' => 'stepup_limit', 'vars' => ['n' => max(1, (int) ceil($wait / 60))]])]);
+        }
+
+        $given = (string) rcube_utils::get_input_string('_secret', rcube_utils::INPUT_POST, true);
+        $ok = synapse_gate::password_matches($rcmail->decrypt((string) ($_SESSION['password'] ?? '')), $given);
+        if (!$ok && ($otp = $this->otp()) && preg_match('/^\d{3}\s?\d{3}$/', trim($given))) {
+            $used = false;
+            if ($new = $this->otp_check($otp, $given, $used)) {
+                $this->save_prefs(['synapse_otp' => $new]);
+                $ok = true;
+            }
+        }
+        if (!$ok) {
+            $this->rl_fail(['stepup' => $user]);
+            $this->security_log('security change not confirmed (wrong password or code) for ' . $user);
+            $this->json(['ok' => false, 'message' => $this->gettext('stepup_wrong')]);
+        }
+
+        $this->rl_clear('stepup', $user);
+        $_SESSION['synapse_stepup_until'] = time() + synapse_gate::STEPUP_SECONDS;
+        $this->json(['ok' => true, 'until' => $_SESSION['synapse_stepup_until']]);
     }
 
     private function save_prefs(array $prefs)
@@ -613,7 +687,7 @@ class synapse_core extends rcube_plugin
         if ($new = $this->otp_check($otp, rcube_utils::get_input_string('_code', rcube_utils::INPUT_POST), $used_recovery)) {
             $_SESSION['synapse_otp_state'] = null; $_SESSION['synapse_otp_tries'] = null;
             $this->save_prefs(['synapse_otp' => $new, 'synapse_otp_fails' => 0]);
-            $this->json(['ok' => true, 'recovery_used' => $used_recovery, 'recovery_left' => count($new['recovery']), 'next' => $this->next_gate()]);
+            $this->json(['ok' => true, 'recovery_used' => $used_recovery, 'recovery_left' => count($new['recovery']), 'next' => $this->gate_step_done()]);
         }
 
         $this->rl_fail(['otpip' => $ip]);
@@ -646,7 +720,8 @@ class synapse_core extends rcube_plugin
     {
         $rcmail = rcmail::get_instance();
         $this->require_post();
-        $gate = ($_SESSION['synapse_otp_state'] ?? null) === 'enroll';
+        // in the gate only as the last step (after the passcode); from Settings only after a fresh step-up
+        $gate = synapse_gate::enroll_step($_SESSION['synapse_pin_state'] ?? null, $_SESSION['synapse_otp_state'] ?? null);
 
         if (!$gate && (!empty($_SESSION['synapse_otp_state']) || !empty($_SESSION['synapse_pin_state']))) {
             $this->json(['ok' => false, 'message' => $this->gettext('finishsignin')], 403);
@@ -659,6 +734,9 @@ class synapse_core extends rcube_plugin
         }
 
         if (rcube_utils::get_input_string('_do', rcube_utils::INPUT_POST) === 'start') {
+            if (!$gate) {
+                $this->require_stepup();
+            }
             $secret = synapse_totp::secret();
             $_SESSION['synapse_otp_new'] = synapse_secret::encrypt($secret, $this->install_key());
             $this->json(['ok' => true, 'secret' => $secret, 'uri' => synapse_totp::uri('SynapseMail', (string) $rcmail->get_user_name(), $secret)]);
@@ -690,7 +768,7 @@ class synapse_core extends rcube_plugin
             $_SESSION['synapse_otp_state'] = null;
         }
 
-        $this->json(['ok' => true, 'codes' => $codes, 'next' => $gate ? $this->next_gate() : null]);
+        $this->json(['ok' => true, 'codes' => $codes, 'next' => $gate ? $this->gate_step_done() : null]);
     }
 
     /** Settings: new set of recovery codes (needs a current authenticator or recovery code) */

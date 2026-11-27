@@ -186,10 +186,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($S['admin']['totp'])) {
                     break;
                 }
-                if (synapse_totp::verify($S['admin']['totp'], $_POST['code'] ?? '') === false) {
+                $step = synapse_totp::verify($S['admin']['totp'], $_POST['code'] ?? '');
+                if ($step === false) {
                     $error = 'That code is not valid. Check the time on your phone and enter the current code.';
                 } else {
                     $S['admin']['verified'] = true;
+                    // stored with the admin: this code (and older ones) cannot be used again to sign in
+                    $S['admin']['last_step'] = $step;
                     $S['admin']['recovery'] = synapse_totp::recovery_codes();
                     $S['admin_stage'] = 'recovery';
                 }
@@ -503,11 +506,12 @@ function install($root, $S, $cfg_file, $lock_file, $db_file)
         . ' recovery_codes TEXT NOT NULL, created_at INTEGER NOT NULL, last_login INTEGER)');
     $pdo->beginTransaction();
     $pdo->exec('DELETE FROM synapse_admins');
-    $st = $pdo->prepare('INSERT INTO synapse_admins (username, password_hash, totp_secret, recovery_codes, created_at) VALUES (?, ?, ?, ?, ?)');
+    $st = $pdo->prepare('INSERT INTO synapse_admins (username, password_hash, totp_secret, totp_last_step, recovery_codes, created_at) VALUES (?, ?, ?, ?, ?, ?)');
     $st->execute([
         $S['admin']['user'],
         $S['admin']['hash'],
         synapse_secret::encrypt($S['admin']['totp'], $des_key),
+        (int) ($S['admin']['last_step'] ?? 0),
         json_encode(array_map(static function ($c) { return password_hash($c, PASSWORD_DEFAULT); }, $S['admin']['recovery'])),
         time(),
     ]);

@@ -1443,6 +1443,33 @@ var UI = (function () {
       app.querySelectorAll('[data-otp]').forEach(function (b) { b.addEventListener('click', function () { otpFlow(b.dataset.otp); }); });
       icons();
     }
+    // confirm it's you (mailbox password, or an authenticator code when 2FA is on) before a first passcode or
+    // an authenticator is set up; the server keeps the confirmation for a few minutes
+    function stepUp(then) {
+      if ((st.stepup_until || 0) > Date.now() / 1000 + 15) return then();
+      cleanup();
+      var otp = st.otp && st.otp.enabled;
+      app.innerHTML = '<section class="sec-card sec-wizard"><div class="reader-kicker">' + esc(t('verifyyou')) + '</div><h2>' + esc(t('stepup_title')) + '</h2>'
+        + '<p>' + esc(t(otp ? 'stepup_text_otp' : 'stepup_text')) + '</p>'
+        + '<form class="settings-form sec-form" id="secStepUp"><label class="sec-field"><span>' + esc(t(otp ? 'stepup_field_otp' : 'stepup_field')) + '</span>'
+        + '<input type="password" id="secStepSecret" autocomplete="current-password" required></label></form>'
+        + '<p class="pin-message" id="secMessage" role="alert"></p>'
+        + '<div class="sec-actions"><button class="ghost-btn" id="secBack">' + esc(t('cancel_caps')) + '</button><span class="spacer"></span><button class="solid-btn" id="secNext">' + esc(t('continue_caps')) + '</button></div></section>';
+      var input = byId('secStepSecret'), nb = byId('secNext');
+      byId('secBack').onclick = overview;
+      var go = function (e) {
+        if (e) e.preventDefault();
+        if (!input.value) return input.focus();
+        nb.disabled = true;
+        api('stepup', { _secret: input.value }, token).then(function (res) {
+          nb.disabled = false;
+          if (!res.ok) { input.value = ''; input.focus(); byId('secMessage').textContent = String(res.message || '').toUpperCase(); return; }
+          st.stepup_until = res.until; then();
+        });
+      };
+      nb.onclick = go; byId('secStepUp').onsubmit = go;
+      input.focus(); icons();
+    }
     function wizard(mode) {
       // steps: [current] -> [length] -> code -> confirm -> details   (settings: current -> details; remove: current)
       var data = { len: 6, current: '', code: '' }, steps = [];
@@ -1500,19 +1527,26 @@ var UI = (function () {
           var nb = byId('secNext'); nb.hidden = false; nb.textContent = t('savepasscode');
           nb.onclick = function () {
             nb.disabled = true;
-            api('pin-save', { _current: data.current, _pin: data.code, _len: data.len, _hint: byId('secHint').value, _interval: app.querySelector('[name=secInterval]').value }, token).then(function (res) {
-              nb.disabled = false;
-              if (!res.ok) return say(res.message);
-              st.has_pin = true; st.hint = byId('secHint').value.trim(); st.interval = app.querySelector('[name=secInterval]').value;
-              if (data.code) { st.len = data.len; st.set_at = Math.floor(Date.now() / 1000); }
-              toast(t(mode == 'settings' ? 'passcodesaved' : 'passcodeactive'), 'confirmation');
-              overview(); setNavState();
-            });
+            var hint = byId('secHint').value, interval = app.querySelector('[name=secInterval]').value;
+            var save = function () {
+              api('pin-save', { _current: data.current, _pin: data.code, _len: data.len, _hint: hint, _interval: interval }, token).then(function (res) {
+                // the confirmation ran out while the passcode was chosen: confirm again, then save
+                if (res.stepup) { st.stepup_until = 0; return stepUp(save); }
+                nb.disabled = false;
+                if (!res.ok) return byId('secMessage') ? say(res.message) : toast(res.message, 'error');
+                st.has_pin = true; st.hint = hint.trim(); st.interval = interval;
+                if (data.code) { st.len = data.len; st.set_at = Math.floor(Date.now() / 1000); }
+                toast(t(mode == 'settings' ? 'passcodesaved' : 'passcodeactive'), 'confirmation');
+                overview(); setNavState();
+              });
+            };
+            save();
           };
           byId('secHint').focus();
         }
       }
-      show();
+      // a first passcode needs a fresh confirmation; a change needs the current passcode (first step)
+      if (!st.has_pin) stepUp(show); else show();
     }
     /* two-factor authentication (authenticator app) */
     function otpCard() {
@@ -1527,6 +1561,7 @@ var UI = (function () {
         + '</section>';
     }
     function otpFlow(mode) {
+      if (mode == 'setup' && !((st.stepup_until || 0) > Date.now() / 1000 + 15)) return stepUp(function () { otpFlow('setup'); });
       cleanup();
       var title = t('otptitle_' + mode);
       app.innerHTML = '<section class="sec-card sec-wizard"><div class="reader-kicker">' + esc(t('twofactor_kicker')) + ' // ' + esc(t(mode == 'setup' ? 'authenticatorapp_caps' : 'verifyyou')) + '</div><h2>' + esc(title) + '</h2>'
@@ -1545,6 +1580,7 @@ var UI = (function () {
       var fail = function (res) { keypad.shake(); keypad.reset(); say(res.message || t('otp_wrong')); };
       if (mode == 'setup') {
         api('otp-enroll', { _do: 'start' }, token).then(function (res) {
+          if (res.stepup) { st.stepup_until = 0; return otpFlow('setup'); }
           if (!res.ok) return say(res.message);
           var box = byId('otpSetup');
           box.innerHTML = '<p>' + esc(t('otpstep1')) + '</p><div class="otp-qr"></div><p class="sec-note">' + esc(t('cantscan')) + ' <code class="otp-secret"></code></p><p>' + esc(t('otpstep2')) + '</p>';

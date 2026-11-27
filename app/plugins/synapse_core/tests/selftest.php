@@ -312,4 +312,29 @@ $check(strpos($editor_src, '[id$="_rc_sig"]') === false && strpos($editor_src, '
 $check(strpos($editor_src, 'document.createElement(\'div\'), nodes') === false && strpos($editor_src, 'createHTMLDocument') !== false, 'compose: mail HTML is split in an inert document');
 $check(preg_match('/\.lx-signature, \.lx-quoted-body \{[^}]*contain: paint/', (string) file_get_contents(__DIR__ . '/../../../skins/synapse/synapse.css')) === 1, 'compose: quote and signature boxes clip their content');
 
+// sign-in gate and security changes (SEC-R02)
+require_once __DIR__ . '/../lib/synapse_gate.php';
+$check(synapse_gate::next_factor('pending', 'pending') === 'otp', 'gate: an enrolled authenticator comes before the passcode');
+$check(synapse_gate::next_factor('pending', 'enroll') === 'pin', 'gate: a first enrolment waits until the passcode is entered');
+$check(synapse_gate::next_factor(null, 'enroll') === 'enroll' && synapse_gate::next_factor(null, null) === null && synapse_gate::next_factor('locked', 'pending') === 'pin', 'gate: enrolment last, nothing owed when signed in, lock first');
+$check(!synapse_gate::pin_step('pending', 'pending') && synapse_gate::pin_step('pending', null) && synapse_gate::pin_step('pending', 'enroll'), 'gate: passcode, hint and forgot-passcode only after a pending authenticator code');
+$check(!synapse_gate::enroll_step('pending', 'enroll') && synapse_gate::enroll_step(null, 'enroll') && !synapse_gate::enroll_step(null, 'pending'), 'gate: enrolment in the gate only as the last step');
+$check(synapse_gate::stepup_valid(time() + 10, time()) && !synapse_gate::stepup_valid(time() - 1, time()) && !synapse_gate::stepup_valid(0, time()), 'step-up: valid only inside its window');
+$check(synapse_gate::STEPUP_SECONDS > 0 && synapse_gate::STEPUP_SECONDS <= 600, 'step-up: the window is short (at most ten minutes)');
+$check(synapse_gate::password_matches('mail pass', 'mail pass') && !synapse_gate::password_matches('mail pass', 'mail') && !synapse_gate::password_matches('', '') && !synapse_gate::password_matches(null, 'x'), 'step-up: only the session password matches, never an empty one');
+$body = static function ($name) use ($core_src) {
+    return preg_match('/function ' . $name . '\(.*?(?=\n    (public|private|protected) (static )?function |\n}\s*$)/s', $core_src, $m) ? $m[0] : '';
+};
+$check(preg_match("/'stepup'\] as \\\$action/", $core_src) === 1 && !preg_match("/GATE_ACTIONS = \[[^\]]*stepup/s", $core_src), 'step-up: action registered, and not allowed while the gate is up');
+$check(strpos($body('action_stepup'), 'rl_blocked') !== false && strpos($body('action_stepup'), 'rl_fail') !== false && strpos($body('action_stepup'), "\$_SESSION['password']") !== false, 'step-up: checks the session password and is rate limited');
+$check(preg_match('/if \(!\$current\) \{\s*\$this->require_stepup\(\);/', $body('action_pin_save')) === 1, 'step-up: a first passcode needs it (a change needs the current passcode)');
+$check(preg_match("/=== 'start'\) \{\s*if \(!\\\$gate\) \{\s*\\\$this->require_stepup\(\);/", $body('action_otp_enroll')) === 1, 'step-up: authenticator enrolment from Settings needs it');
+$check(strpos($body('action_otp_recovery'), 'otp_check') !== false && strpos($body('action_otp_disable'), 'otp_check') !== false && strpos($body('action_pin_remove'), 'current_pin_ok') !== false, 'factor changes: new codes and 2FA off need a current code, passcode removal the passcode');
+$check(strpos($body('action_pin_forgot'), 'synapse_gate::pin_step') !== false && strpos($body('action_pin_verify'), 'synapse_gate::pin_step') !== false, 'gate: forgot-passcode and passcode checks follow the gate order');
+$check(strpos($body('gate_step_done'), 'regenerate_id(true)') !== false && substr_count($core_src, 'gate_step_done()') >= 4, 'gate: a new session id once the last gate step passes');
+$inst = (string) file_get_contents(__DIR__ . '/../installer/installer.php');
+$check(strpos($inst, "\$S['admin']['last_step'] = \$step") !== false && preg_match('/INSERT INTO synapse_admins \([^)]*totp_last_step/', $inst) === 1, 'installer: the setup code cannot be used again to sign in');
+$ui_src = (string) file_get_contents(__DIR__ . '/../../../skins/synapse/ui.js');
+$check(strpos($ui_src, "api('stepup'") !== false && strpos($ui_src, 'if (!st.has_pin) stepUp(show)') !== false, 'step-up: Settings asks for it before a first passcode or an authenticator');
+
 exit($fail ? 1 : 0);
