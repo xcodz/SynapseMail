@@ -8,7 +8,7 @@
 
 **Built on Roundcube 1.7.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.5.5-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.5.6-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.7-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
@@ -21,7 +21,7 @@
 ![Docker](https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-2496ed)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.5](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.6](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -41,6 +41,17 @@ Sample data only. No mail server is connected and nothing is sent.
 ---
 
 <a id="new"></a>
+
+## ✨ New in 3.5.6: security update
+
+- 🛡️ **Security fixes** for the compose window, sign-in and two-factor settings, rate limits, Send As and other-inbox
+  server tests, and the admin panel. Please update every copy of SynapseMail.
+- 🔑 **Confirm it's you:** setting a first passcode or turning on two-factor authentication asks for your mailbox
+  password or a current authenticator code.
+- 🗄️ **Admin backups** now need your authenticator code, like restore and updates.
+- 📦 **Release packages** are built from a clean copy of one version and checked file by file before signing.
+
+<a id="new-355"></a>
 
 ## ✨ New in 3.5.5: security update
 

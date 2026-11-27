@@ -1,5 +1,16 @@
 # SynapseMail changelog
 
+## 3.5.6
+- **Security fixes.** Fixes for the compose window, sign-in and two-factor settings, rate limits, Send As and
+  other-inbox server tests, the admin panel, its logs and request checks. Update every copy.
+- Setting a first passcode or turning on two-factor authentication now asks you to confirm it is you, with your
+  mailbox password or a current authenticator code.
+- Creating a backup in the admin panel now needs your authenticator code, like restore and updates.
+- When a Send As or other-inbox server does not accept a sign-in, the message is the same for every account reason:
+  check the user name and password, and whether the provider needs an App Password.
+- Release packages are built from a clean copy of one version and checked file by file before they are signed.
+- Every change is now checked automatically (PHP syntax and the built-in self test).
+
 ## 3.5.5
 - **Security fixes.** Several fixes for sign-in, Send As, backups and updates. Update every copy.
 - **Roundcube core 1.7.7**, with the security fixes of Roundcube 1.7.6 and 1.7.7.

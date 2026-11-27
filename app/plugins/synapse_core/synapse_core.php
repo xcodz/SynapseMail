@@ -23,7 +23,7 @@ require_once __DIR__ . '/lib/synapse_atomic.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.5.5';
+    public const VERSION = '3.5.6';
     public const THEMES = ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'];
 
     // "remember this device": sliding window, renewed while the account is used
