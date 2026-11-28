@@ -277,6 +277,11 @@
   font-size: 13px; font-weight: 500; color: var(--text); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 :root[data-look="lumen"] .template-credit { font-size: 11px; opacity: .8; color: var(--dim); right: calc(var(--gap) + 18px); bottom: 2px; }
 @media (max-width: 1100px) { :root[data-look="lumen"] .template-credit { right: 12px; } }
+/* phones: the credit sits over the panels, so it gets its own small glass pill and the list scrolls clear of it */
+@media (max-width: 680px) {
+  :root[data-look="lumen"] .template-credit { bottom: 4px; padding: 1px 8px; border-radius: 999px; background: var(--glass-3); opacity: 1; }
+  :root[data-look="lumen"] .message-list { padding-bottom: 26px; }
+}
 
 /* buttons */
 :root[data-look="lumen"] :is(.solid-btn, .ghost-btn, .access-button, .popover-actions button) { min-height: 38px; padding: 0 16px; border-radius: 999px; font-size: 13px; font-weight: 600; }
@@ -361,7 +366,7 @@
 :root[data-look="lumen"] :is(.reader-kicker, #readerClass) { display: none; }
 :root[data-look="lumen"] .reader-body { background: transparent; padding: 26px clamp(20px, 3vw, 44px); }
 :root[data-look="lumen"] body.action-preview .reader-body, :root[data-look="lumen"] body.action-show .reader-body { background: transparent; }
-:root[data-look="lumen"] .reader-body h1 { margin: 0 0 18px; font-size: clamp(22px, 1.8vw, 28px); line-height: 1.25; font-weight: 650; color: var(--text); letter-spacing: -.01em !important; }
+:root[data-look="lumen"] .reader-body h1 { margin: 0 0 18px; font-size: clamp(22px, 1.8vw, 28px); line-height: 1.25; font-weight: 650; color: var(--text); font-family: var(--font) !important; letter-spacing: -.01em !important; }
 :root[data-look="lumen"] .reader-meta { gap: 4px 14px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 :root[data-look="lumen"] .reader-avatar { width: 44px; height: 44px; border: 0; border-radius: 50%; background: linear-gradient(140deg, #8f7cf0, #d27bb8); color: #fff; font-size: 15px; font-weight: 600; }
 :root[data-lumen="lagoon"] .reader-avatar { background: linear-gradient(140deg, #2fa5b5, #6f86ea); }
@@ -569,7 +574,7 @@
 :root[data-look="lumen"] .field-control::before, :root[data-look="lumen"] .field-control::after { display: none; }
 :root[data-look="lumen"] .field-control:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 4px var(--pick); }
 :root[data-look="lumen"] .field-control svg { color: var(--dim); }
-:root[data-look="lumen"] .field-control input { font-size: 15px; color: var(--text); }
+:root[data-look="lumen"] .field-control input { font-size: 15px; color: var(--text); outline: 0; } /* the field's own ring shows focus */
 :root[data-look="lumen"] .field-control input::placeholder { color: var(--dim); }
 :root[data-look="lumen"] .form-options { font-size: 13px; color: var(--text-2); margin: 4px 0 18px; }
 :root[data-look="lumen"] .secure-check span { border-radius: 6px; }
@@ -596,7 +601,7 @@
 :root:not([data-look="lumen"]) .theme-dock [data-look="lumen"], :root[data-look="lumen"] .theme-dock [data-look="cyber"] { display: none; }
 :root[data-look="lumen"] .field-control > em { display: none; }
 :root[data-look="lumen"] .secure-check { font-size: 13px; color: var(--text-2); gap: 8px; }
-:root[data-look="lumen"] .security-footer { position: fixed; z-index: 4; left: 0; right: 0; bottom: 0; justify-content: center; gap: 18px; padding: 14px; border: 0; background: transparent; font-size: 12px; color: var(--muted); }
+:root[data-look="lumen"] .security-footer { position: fixed; z-index: 4; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 18px; height: auto; padding: 14px; border: 0; background: transparent; font-size: 12px; color: var(--muted); }
 :root[data-look="lumen"] .security-footer span:first-child, :root[data-look="lumen"] .security-footer span:nth-child(2) { display: none; }
 :root[data-look="lumen"] .security-footer .credit-link { font-size: 12px; color: var(--muted); opacity: 1; }
 :root[data-look="lumen"] .booting .auth-shell { animation: lw-in .5s cubic-bezier(.2, .8, .2, 1) both; }
@@ -870,7 +875,7 @@
 :root[data-look="lumen"] .error-panel .ghost-btn { margin-top: 18px; display: inline-flex; align-items: center; gap: 6px; }
 :root[data-look="lumen"] .error-panel .ghost-btn svg { width: 16px; }
 /* Roundcube's own error titles are upper case ("SERVER ERROR!"): sentence case in Lumen */
-:root[data-look="lumen"] .error-copy :is(h3, .boxtitle):not(#sx-none) { text-transform: lowercase !important; } /* :not(#..) outranks the general "no upper case" rule */
+:root[data-look="lumen"] .error-copy :is(h3, .boxtitle):not(#sx-none) { text-transform: lowercase !important; font-family: var(--font) !important; letter-spacing: normal !important; } /* :not(#..) outranks the general "no upper case" rule */
 :root[data-look="lumen"] .error-copy :is(h3, .boxtitle)::first-letter { text-transform: uppercase; }
 /* bulk actions for selected messages: one pill with the count and round buttons */
 :root[data-look="lumen"] .bulk-actions.visible { gap: 2px; margin-left: 8px; padding: 3px 4px 3px 14px; border: 0; border-radius: 999px; background: var(--pick); }

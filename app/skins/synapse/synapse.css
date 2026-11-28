@@ -1071,7 +1071,7 @@ label:has(> input:is([type=checkbox], [type=radio])) { cursor: pointer; }
 .ap-section:first-of-type { border-top: 0; padding-top: 4px; }
 .ap-section > h2 { margin: 0 0 10px; color: var(--text); font: 700 15px Barlow Condensed, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .ap-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
-.ap-theme { position: relative; display: grid; gap: 10px; padding: 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 70%, transparent); cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.ap-theme { position: relative; display: grid; align-content: start; gap: 10px; padding: 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 70%, transparent); cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
 .ap-theme:hover { border-color: var(--line-strong); }
 .ap-theme input { position: absolute; opacity: 0; pointer-events: none; }
 .ap-theme:has(input:checked) { border-color: var(--green); background: color-mix(in srgb, var(--green) 9%, transparent); }
