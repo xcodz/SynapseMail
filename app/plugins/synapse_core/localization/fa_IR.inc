@@ -834,3 +834,7 @@ $labels['lw_close'] = 'بستن';
 $labels['lw_later'] = 'هر زمان خواستید می‌توانید از تنظیمات › ظاهر آن را تغییر دهید.';
 $labels['lw_saved'] = 'ظاهر ذخیره شد. هر زمان خواستید می‌توانید از تنظیمات › ظاهر آن را تغییر دهید.';
 $labels['switchto_caps'] = 'رفتن به $look';
+$labels['showdetails'] = 'نمایش جزئیات';
+$labels['showplain'] = 'نمایش به‌صورت متن ساده';
+$labels['showformatted'] = 'نمایش متن قالب‌بندی‌شده';
+$labels['format_desc'] = 'برای پیام باز';

@@ -833,3 +833,7 @@ $labels['lw_close'] = 'Close';
 $labels['lw_later'] = 'You can change this any time in Settings › Appearance.';
 $labels['lw_saved'] = 'Look saved. You can change it any time in Settings › Appearance.';
 $labels['switchto_caps'] = 'SWITCH TO $look';
+$labels['showdetails'] = 'Show details';
+$labels['showplain'] = 'Show as plain text';
+$labels['showformatted'] = 'Show formatted text';
+$labels['format_desc'] = 'For the open message';

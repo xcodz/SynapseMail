@@ -834,3 +834,7 @@ $labels['lw_close'] = 'إغلاق';
 $labels['lw_later'] = 'يمكنك تغيير ذلك في أي وقت من الإعدادات › المظهر.';
 $labels['lw_saved'] = 'تم حفظ المظهر. يمكنك تغييره في أي وقت من الإعدادات › المظهر.';
 $labels['switchto_caps'] = 'التبديل إلى $look';
+$labels['showdetails'] = 'عرض التفاصيل';
+$labels['showplain'] = 'عرض كنص عادي';
+$labels['showformatted'] = 'عرض النص المنسق';
+$labels['format_desc'] = 'للرسالة المفتوحة';

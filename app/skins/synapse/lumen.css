@@ -618,3 +618,23 @@
 @media (max-width: 1100px) {
   :root[data-look="lumen"] .reader-pane { background: var(--pop); border-radius: var(--r-card) 0 0 var(--r-card); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
 }
+
+/* ---------- reader: Details as (i) beside the sender, plain text in the More menu (Lumen only) ---------- */
+:root:not([data-look="lumen"]) :is(.reader-info, #formatChoice) { display: none !important; }
+:root[data-look="lumen"] #toggleHeaders { display: none; }
+/* in the reading pane the More menu has it; the full-page view and separate window keep the button */
+:root[data-look="lumen"].iframe .reader-actions a[onclick*="change-format"] { display: none; }
+:root[data-look="lumen"] .reader-meta { grid-template-columns: 44px minmax(0, max-content) auto minmax(0, 1fr) auto; }
+:root[data-look="lumen"] .reader-meta time { grid-column: 5; grid-row: 1; align-self: start; padding-top: 4px; text-align: right; }
+:root[data-look="lumen"] .reader-info { grid-column: 3; grid-row: 1; align-self: start; width: 28px; height: 28px; margin-top: 1px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--dim); cursor: pointer; }
+:root[data-look="lumen"] .reader-info:hover, :root[data-look="lumen"] .reader-info[aria-expanded="true"] { background: var(--pick); color: var(--accent); }
+:root[data-look="lumen"] .reader-info svg { width: 17px; height: 17px; }
+:root[data-look="lumen"] .reader-body h1 { text-align: left; }
+/* the message fills the reader; only plain text keeps a readable line length, right-to-left text on the right */
+:root[data-look="lumen"] .reader-copy .message-part:not(.message-htmlpart) .pre { max-width: 96ch; }
+:root[data-look="lumen"] .reader-copy .message-part:not(.message-htmlpart) .pre[dir="rtl"] { margin-left: auto; }
+@media (max-width: 680px) {
+  :root[data-look="lumen"] .reader-meta { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  :root[data-look="lumen"] .reader-meta time { grid-column: 2 / -1; grid-row: 2; text-align: left; padding: 0; }
+}

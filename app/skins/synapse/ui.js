@@ -1360,8 +1360,8 @@ var UI = (function () {
     doc.querySelectorAll('.category-tab').forEach(function (t) { t.addEventListener('click', function () { setFilter(t.dataset.filter); }); });
     byId('clearFilters').addEventListener('click', function () { byId('searchInput').value = ''; rc.command('reset-search'); setFilter('ALL'); });
     byId('closeReader').addEventListener('click', closeReader);
-    byId('moreButton').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('moreMenu', this); });
-    byId('readerMore').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('moreMenu', this); });
+    byId('moreButton').addEventListener('click', function (e) { e.stopPropagation(); syncFormatChoice(); toggleMenu('moreMenu', this); });
+    byId('readerMore').addEventListener('click', function (e) { e.stopPropagation(); syncFormatChoice(); toggleMenu('moreMenu', this); });
 
     var orig_show = rc.show_contentframe;
     rc.show_contentframe = function (show) { orig_show.apply(rc, arguments); if (!show) { var s = byId('mailStage'); s && s.classList.remove('reader-active'); scrim(false); } };
@@ -2236,6 +2236,21 @@ var UI = (function () {
     icons();
   }
 
+  // More menu (Lumen): plain text or formatted text for the message open in the reading pane
+  function frameFormatEnv() { try { var w = rc.get_frame_window(rc.env.contentframe); return w && w.rcmail && readerShown() ? w.rcmail.env.optional_format : null; } catch (e) { return null; } }
+  function readerShown() { var s = byId('mailStage'); return !!(s && s.classList.contains('reader-active')); }
+  function syncFormatChoice() {
+    var item = byId('formatChoice'); if (!item) return;
+    var fmt = frameFormatEnv();
+    item.hidden = !fmt;
+    if (fmt) item.querySelector('b').textContent = t(fmt == 'text' ? 'showplain' : 'showformatted');
+  }
+  function frameFormat() {
+    var fmt = frameFormatEnv(), w = rc.get_frame_window(rc.env.contentframe);
+    closeMenus();
+    try { if (fmt) w.rcmail.command('change-format', fmt); } catch (e) { }
+    return false;
+  }
   function frameCommand(cmd) {
     var w = rc.get_frame_window(rc.env.contentframe);
     try { if (w && w.rcmail) w.rcmail.command(cmd, '', w.document.body); } catch (e) { }
@@ -2347,7 +2362,9 @@ var UI = (function () {
     byId('readerSender').innerHTML = from.innerHTML;
     byId('readerEmail').textContent = email && email != name ? '<' + email + '>' : '';
     byId('readerAvatar').textContent = initials(name || email);
-    byId('toggleHeaders').addEventListener('click', function () { var h = byId('readerHeaders'); h.hidden = !h.hidden; });
+    // Details: the bottom button (Cyber) and the (i) beside the sender (Lumen) show the full headers
+    var toggleHeaders = function () { var h = byId('readerHeaders'); h.hidden = !h.hidden; if (byId('readerInfo')) byId('readerInfo').setAttribute('aria-expanded', String(!h.hidden)); };
+    ['toggleHeaders', 'readerInfo'].forEach(function (id) { if (byId(id)) byId(id).addEventListener('click', toggleHeaders); });
     var cls = t(rc.env.is_draft ? 'draft_caps' : 'encryptedemail') + ' // ' + (rc.env.synapse_box_name || rc.env.mailbox || 'INBOX').toUpperCase();
     var tui = topUI();
     var inWindow = false;
@@ -2540,6 +2557,6 @@ var UI = (function () {
     toast: toast, applyTheme: applyTheme, palette: function () { openPalette(); return false; }, about: about,
     openReader: openReader, closeReader: closeReader, openCompose: openCompose, closeCompose: closeCompose, composeReady: composeReady, popOut: popOut,
     closeMenus: closeMenus, toggleMenu: toggleMenu, listOptions: listOptions, saveListOptions: saveListOptions,
-    search: search, confirm: confirmBox, frameCommand: frameCommand, icons: icons, decorateFolders: decorateFolders, sendAs: sendAs, inboxSetup: inboxSetup
+    search: search, confirm: confirmBox, frameCommand: frameCommand, frameFormat: frameFormat, icons: icons, decorateFolders: decorateFolders, sendAs: sendAs, inboxSetup: inboxSetup
   };
 })();
