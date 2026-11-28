@@ -7,11 +7,9 @@
   sign-in page.
 - Smooth animated transition when switching looks (a short fade with reduced motion, none with animations off).
 - On phones, the sign-in, two-factor and passcode steps fit above the keyboard, without scrolling.
-- Fixed:
-  - plain-text messages showed every line break twice;
-  - the mailbox menu was cut off by the folder column, and long lists could not scroll;
-  - pressing Escape on list pages, and the "request check failed" page, caused script errors;
-  - light themes: empty panes, contact pictures and the import dialog.
+- Fixed: plain-text messages showed every line break twice. The mailbox menu was cut off by the folder column, and
+  long lists could not scroll. Escape on list pages, and the "request check failed" page, caused script errors. Light
+  themes now draw empty panes, contact pictures and the import dialog correctly.
 - Smaller changes: image attachments show as cards with Show and Download; the plain or formatted text switch is in
   the message's More menu and in the header of message windows; Identities, Responses, Folders and Contacts open
   their first item on wide screens.
