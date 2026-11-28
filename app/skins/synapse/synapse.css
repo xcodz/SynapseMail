@@ -1158,3 +1158,8 @@ label:has(> input:is([type=checkbox], [type=radio])) { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { :root.sx-arrive body { animation: none; } }
 /* reduced motion: no spreading shape, only a short crossfade (colour change is not motion, WCAG 2.3.3) */
 :root.theme-fade::view-transition-old(root), :root.theme-fade::view-transition-new(root) { animation-duration: .18s; animation-timing-function: ease-out; }
+
+/* sign-in: Appearance button beside the colour dots (opens the small look dialog, ui.js initLoginLook) */
+.theme-dock .theme-look { width: 26px; height: 26px; display: grid; place-items: center; margin-left: 4px; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+.theme-dock .theme-look:hover, .theme-dock .theme-look:focus-visible { color: var(--text); border-color: var(--green); }
+.theme-dock .theme-look svg { width: 14px; height: 14px; }

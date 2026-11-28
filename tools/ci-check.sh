@@ -31,4 +31,13 @@ echo "php -l: $count files, $bad with errors"
 [ "$count" -gt 0 ] || { echo "no SynapseMail PHP files found"; exit 1; }
 [ "$bad" -eq 0 ] || exit 1
 
+# SynapseMail's own JavaScript (skin and plugins; vendored and minified files are not ours to check), when node is there
+if command -v node >/dev/null 2>&1; then
+    js=$(git ls-files -- '*.js' | grep -E '^app/(skins/synapse|plugins/synapse_[a-z_]+)/' | grep -vE '(/vendor/|\.min\.js$|\.bundle\.js$)')
+    jsbad=0
+    for f in $js; do node --check "$f" || jsbad=$((jsbad + 1)); done
+    echo "node --check: $(echo "$js" | wc -w | tr -d ' ') files, $jsbad with errors"
+    [ "$jsbad" -eq 0 ] || exit 1
+fi
+
 "$php" app/plugins/synapse_core/tests/selftest.php

@@ -136,10 +136,11 @@ class synapse_core extends rcube_plugin
             if (preg_match('/^((motion-(reduce|off)|effects-off|density-compact|text-(small|large|larger)|contrast-more|links-underline|open-(split|window))(\.|$))*$/', $ui)) {
                 $rcmail->output->set_env('synapse_ui', $ui);
             }
-            // one-time look chooser (Lumen or Cyber) in the mail view: for new accounts and, once, for accounts that
-            // existed before Lumen; read from the account's own prefs, so an admin default does not count
+            // look chooser (Lumen or Cyber) in the mail view: once for a new account and once after every update
+            // (synapse_look_seen holds the version it was last shown for); read from the account's own prefs, so an
+            // admin default does not count
             $own = (array) $rcmail->user->get_prefs();
-            if ($rcmail->task === 'mail' && empty($own['synapse_look_seen'])) {
+            if ($rcmail->task === 'mail' && (string) ($own['synapse_look_seen'] ?? '') !== self::VERSION) {
                 $rcmail->output->set_env('synapse_look_wizard', true);
             }
             if ($prompt = $this->prompt_state()) {

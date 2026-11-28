@@ -830,6 +830,7 @@ $labels['lw_back'] = 'Back';
 $labels['lw_done'] = 'Use this look';
 $labels['lw_skip'] = 'Keep current look';
 $labels['lw_close'] = 'Close';
+$labels['ll_intro'] = 'Changes apply at once on this device. After you sign in, your account\'s own look is used.';
 $labels['lw_later'] = 'You can change this any time in Settings › Appearance.';
 $labels['lw_saved'] = 'Look saved. You can change it any time in Settings › Appearance.';
 $labels['switchto_caps'] = 'SWITCH TO $look';

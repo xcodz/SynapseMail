@@ -574,12 +574,13 @@ foreach (preg_split('/\}\s*/', preg_replace('~/\*.*?\*/~s', '', $lumen_css)) as 
 }
 $check($scoped, 'designs: lumen.css only styles Lumen, plus the shared design pictures and the look chooser (Cyber is untouched)');
 $check(strpos($core_now, "public \$allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_look_seen'];") !== false && strpos($core_now, 'synapse_tip_theme') === false, 'look chooser: the seen flag is an allowed pref saved like the theme (no extra action)');
-$check(preg_match("/\\\$own = \(array\) \\\$rcmail->user->get_prefs\(\);\s*if \(\\\$rcmail->task === 'mail' && empty\(\\\$own\['synapse_look_seen'\]\)\)/", $core_now) === 1, 'look chooser: offered once per account in the mail view (an admin default does not count)');
+$check(strpos($core_now, "if (\$rcmail->task === 'mail' && (string) (\$own['synapse_look_seen'] ?? '') !== self::VERSION) {") !== false && strpos($core_now, '$own = (array) $rcmail->user->get_prefs();') !== false,
+    'look chooser: offered in the mail view once per account and once after every update (an admin default does not count)');
 $wiz = preg_match('/function initLookWizard\(\) \{.*?\n  \}/s', $ui, $m) ? $m[0] : '';
 $check(strpos($wiz, "doc.createElement('dialog')") !== false && strpos($wiz, 'dlg.showModal()') !== false && strpos($wiz, "aria-labelledby', 'lwTitle'") !== false
     && strpos($wiz, "addEventListener('cancel'") !== false && strpos($wiz, 'type="radio" name="lwlook"') !== false && strpos($wiz, 'type="radio" name="lwstyle"') !== false, 'look chooser: a labelled native modal dialog with radio cards; Escape counts as skip');
-$check(strpos($wiz, "savePref(topRc(), 'synapse_look_seen', '1')") !== false && strpos($wiz, 'applyTheme(start, false, false)') !== false && strpos($wiz, 'applyTheme(style, false, true)') !== false
-    && strpos($wiz, 'rc.env.action') !== false && strpos($wiz, 'framed') !== false, 'look chooser: skip puts the earlier look back, finish saves it, both end it for good; not in frames or other views');
+$check(strpos($wiz, "savePref(topRc(), 'synapse_look_seen', String(rc.env.synapse_version || '1'))") !== false && strpos($wiz, 'LOOK_DEFAULT[look]') !== false && strpos($wiz, 'applyTheme(start, false, false)') !== false && strpos($wiz, 'applyTheme(style, false, true)') !== false
+    && strpos($wiz, 'rc.env.action') !== false && strpos($wiz, 'framed') !== false, 'look chooser: skip puts the earlier look back, finish saves it, both end it until the next update; other design opens on Blush / Secure Blue; not in frames or other views');
 $check(strpos($ui, "if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) {\n          reloadAfterSave = true;") !== false && strpos($core_now, "set_env('synapse_labels', \$lumen ? 'lumen' : 'cyber')") !== false, 'designs: a new design reloads once saved, so every text matches it');
 $check(strpos($lumen_css, ':root:not([data-look="lumen"]) #themePopover [data-look="lumen"], :root[data-look="lumen"] #themePopover [data-look="cyber"] { display: none; }') !== false
     && strpos($lumen_css, ':root:not([data-look="lumen"]) .theme-dock [data-look="lumen"], :root[data-look="lumen"] .theme-dock [data-look="cyber"] { display: none; }') !== false
@@ -613,6 +614,10 @@ $check(strpos($ui, 'function morphTheme(apply, from)') !== false && strpos($ui, 
     && substr_count($ui, 'morphTheme(function () {') >= 6 && strpos($syn_css, "@property --sx-r") !== false && strpos($syn_css, ':root.theme-fade::view-transition-old(root)') !== false
     && strpos($layout, "sessionStorage.getItem('synapsemail-arrive')") !== false,
     'theme morph: native view transition from the chosen card, crossfade under reduced motion, none when motion is off or unsupported; soft reload');
+$login_tpl = (string) file_get_contents("$skin/templates/login.html");
+$check(strpos($login_tpl, 'id="loginLookButton"') !== false && strpos($ui, 'function initLoginLook()') !== false && strpos($ui, "persistTheme(LOOK_DEFAULT[el.value]);") !== false
+    && strpos($ui, "applyTheme(accountTheme || themeCookie() || store('synapsemail-theme2') || 'agency');") !== false,
+    'sign-in: the look saved in this browser, else Cyber Secure Blue; an Appearance dialog changes design and style');
 $cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
     'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP',
     'BUILT ON ROUNDCUBE' => 'Built on Roundcube', 'CHECK CSF: ALLOW TCP_OUT' => 'Check CSF: allow TCP_OUT', 'USE STARTTLS' => 'Use STARTTLS', 'POP3/IMAP وSMTP' => 'POP3/IMAP وSMTP'];

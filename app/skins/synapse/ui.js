@@ -611,6 +611,48 @@ var UI = (function () {
     };
   }
 
+  /* ---------- sign-in: Appearance dialog (design and style for this device; the account's own look wins after sign-in) ---------- */
+  function initLoginLook() {
+    var btn = byId('loginLookButton'); if (!btn) return;
+    if (!window.HTMLDialogElement) { btn.hidden = true; return; }
+    var dlg = null;
+    var close = function () { if (!dlg) return; dlg.close(); dlg.remove(); dlg = null; btn.focus(); };
+    var open = function () {
+      if (dlg) return;
+      var look = lookOf(currentTheme);
+      var styleName = function (th) { return lookOf(th) == 'lumen' ? t('theme_' + th.replace('-', '_')) : t('themename_' + th); };
+      dlg = doc.createElement('dialog');
+      dlg.id = 'loginLook'; dlg.className = 'look-wizard lw-compact'; dlg.setAttribute('aria-labelledby', 'llTitle');
+      dlg.innerHTML = '<form method="dialog" class="lw-form">'
+        + '<header class="lw-head"><h2 id="llTitle">' + esc(t('appearance')) + '</h2><p>' + esc(t('ll_intro')) + '</p>'
+        + '<button type="button" class="lw-x" data-ll="close" aria-label="' + esc(t('lw_close')) + '" title="' + esc(t('lw_close')) + '"><i data-lucide="x"></i></button></header>'
+        + '<p class="lw-label">' + esc(t('ap_design')) + '</p><fieldset class="lw-looks"><legend class="sr-only">' + esc(t('ap_design')) + '</legend>'
+        + ['lumen', 'cyber'].map(function (l) { return '<label class="lw-look"><input type="radio" name="lllook" value="' + l + '"' + (l == look ? ' checked' : '') + '>' + lookShot(l) + '<span class="lw-text"><b>' + esc(t('look_' + l)) + '</b></span></label>'; }).join('')
+        + '</fieldset><p class="lw-label">' + esc(t('ap_style')) + '</p><fieldset class="lw-styles ' + look + '"><legend class="sr-only">' + esc(t('ap_style')) + '</legend>'
+        + LOOKS[look].map(function (th) { return '<label class="lw-style"><input type="radio" name="llstyle" value="' + th + '"' + (th == currentTheme ? ' checked' : '') + '><span class="ap-preview ' + th + '" aria-hidden="true"><i></i><i></i><i></i></span><span class="lw-text"><b>' + esc(styleName(th)) + '</b></span></label>'; }).join('')
+        + '</fieldset></form>';
+      dlg.addEventListener('change', function (e) {
+        var el = e.target;
+        if (el.name == 'lllook' && el.value != lookOf(currentTheme)) {
+          // the page texts belong to a design: save its default style and reload, then this dialog opens again
+          persistTheme(LOOK_DEFAULT[el.value]);
+          try { sessionStorage.setItem('synapsemail-loginlook', '1'); } catch (err) { }
+          reloadSoftly(window);
+        }
+        if (el.name == 'llstyle') { morphTheme(function () { applyTheme(el.value, false, false); }, morphFrom(el)); persistTheme(el.value); }
+      });
+      dlg.addEventListener('click', function (e) { if (e.target === dlg || e.target.closest('[data-ll="close"]')) close(); });
+      dlg.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
+      dlg.addEventListener('keydown', function (e) { e.stopPropagation(); }); // not the sign-in page's own Escape (it clears the password)
+      doc.body.appendChild(dlg);
+      icons();
+      dlg.showModal();
+      var f = dlg.querySelector('input:checked'); if (f) f.focus();
+    };
+    btn.addEventListener('click', open);
+    try { if (sessionStorage.getItem('synapsemail-loginlook')) { sessionStorage.removeItem('synapsemail-loginlook'); open(); } } catch (e) { }
+  }
+
   /* ================= LOGIN ================= */
   function initLogin() {
     if (!byId('loginForm')) return; // error pages of the logout task (e.g. a failed request check) have no form
@@ -934,6 +976,7 @@ var UI = (function () {
       if (other) { reloadSoftly(window); return; } // the page texts are written for the design the cookie names
       morphTheme(function () { applyTheme(d.dataset.theme, false, false); }, d);
     }); });
+    initLoginLook();
     [user, pass].forEach(function (i) { i.addEventListener('input', clearError); });
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !busy) { clearError(); pass.value = ''; } });
 
@@ -1591,7 +1634,7 @@ var UI = (function () {
     };
     var seen = function () {
       rc.env.synapse_look_wizard = false;
-      try { savePref(topRc(), 'synapse_look_seen', '1'); } catch (e) { }
+      try { savePref(topRc(), 'synapse_look_seen', String(rc.env.synapse_version || '1')); } catch (e) { } // shown again after the next update
     };
     var finish = function (keep) {
       if (dlg._done) return; dlg._done = true;
@@ -1603,7 +1646,8 @@ var UI = (function () {
     };
     dlg.addEventListener('change', function (e) {
       var el = e.target;
-      if (el.name == 'lwlook') { look = el.value; style = lookOf(start) == look ? start : lookStyle(look); morphTheme(function () { applyTheme(style, false, false); }, morphFrom(el)); }
+      // the other design opens on its default style: Lumen on Blush, Cyber on Secure Blue
+      if (el.name == 'lwlook') { look = el.value; style = lookOf(start) == look ? start : LOOK_DEFAULT[look]; morphTheme(function () { applyTheme(style, false, false); }, morphFrom(el)); }
       if (el.name == 'lwstyle') { style = el.value; morphTheme(function () { applyTheme(style, false, false); }, morphFrom(el)); }
     });
     dlg.addEventListener('click', function (e) {
