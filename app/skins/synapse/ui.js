@@ -16,7 +16,7 @@ var UI = (function () {
   var framed = html.classList.contains('iframe');
   // texts: plugins/synapse_core/localization (sent by synapse_core); vars fill $name placeholders
   function t(key, vars) { return rc ? rc.gettext(key, 'synapse_core', vars) : key; }
-  // HUD texts are upper case in Cyber; Lumen keeps sentence case (its labels already are, see synapse_core::lumen_text)
+  // HUD texts are upper case in Cyber; Lumen keeps sentence case (the server already converts its labels, see synapse_look::text)
   function caps(s) { s = String(s || ''); return rc && rc.env.synapse_labels == 'lumen' ? s : s.toUpperCase(); }
   var themeLabels = { warfare: t('theme_warfare'), blackops: t('theme_blackops'), night: t('theme_night'), agency: t('theme_agency'), soft: t('theme_soft'), auto: t('theme_auto'),
     'lumen-blush': t('theme_lumen_blush'), 'lumen-lagoon': t('theme_lumen_lagoon'), 'lumen-dusk': t('theme_lumen_dusk'), 'lumen-auto': t('theme_lumen_auto') };

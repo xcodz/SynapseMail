@@ -433,7 +433,6 @@ class synapse_core extends rcube_plugin
         $rcmail->output->send('plugin');
     }
 
-    /** Settings > Appearance: theme, animations and display options (the page is built by ui.js, saved with save_pref) */
     /** The Lumen design is in use: the account's theme, else (also before sign-in) the browser's theme cookie. */
     public static function lumen_active($rcmail): bool
     {
@@ -446,6 +445,7 @@ class synapse_core extends rcube_plugin
         return in_array($theme, synapse_look::LUMEN, true);
     }
 
+    /** Settings > Appearance: design, style, animations and display options (the page is built by ui.js, saved with save_pref) */
     public function action_appearance()
     {
         $rcmail = rcmail::get_instance();

@@ -640,8 +640,11 @@ foreach (['en_US', 'ar_SA', 'fa_IR'] as $l) {
         'switchto', 'switchto_caps', 'lw_title', 'lw_intro', 'lw_step', 'lw_style_title', 'lw_style_intro', 'lw_next', 'lw_back', 'lw_done', 'lw_skip', 'lw_close', 'lw_later', 'lw_saved'] as $k) {
         $langs_ok = $langs_ok && !empty($labels[$k]);
     }
-    $langs_ok = $langs_ok && !isset($labels['themetip_title']) && strpos($labels['lw_step'], '$n') !== false && strpos($labels['switchto'], '$look') !== false;
+    $langs_ok = $langs_ok && !isset($labels['themetip_title']) && strpos($labels['lw_step'], '$n') !== false && strpos($labels['switchto'], '$look') !== false
+        && strpos($labels['ws4'], 'Lumen') !== false && strpos($labels['ws4'], 'Cyber') !== false; // About: the two designs, not the old theme count
 }
-$check($langs_ok, 'designs: texts in English, Arabic and Persian (the old light theme tip is gone)');
+$check($langs_ok, 'designs: texts in English, Arabic and Persian (the old light theme tip is gone; About names both designs)');
+$check(strpos($ui, 'lumen_text') === false && preg_match('~/\*\* Settings > Appearance:[^\n]*\*/\s*public function action_appearance\(\)~', $core_now) === 1,
+    'designs: comments name the real functions (synapse_look::text, action_appearance)');
 
 exit($fail ? 1 : 0);
