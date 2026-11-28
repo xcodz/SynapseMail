@@ -1246,7 +1246,12 @@ var UI = (function () {
     scrim(true);
   }
   function expandCompose(on) {
-    byId('composeDrawer').classList.toggle('expanded', on);
+    var drawer = byId('composeDrawer');
+    // closed: move to the new place without animating, so the opening starts there (not from the small drawer's place)
+    var closed = !drawer.classList.contains('open');
+    if (closed) drawer.style.transition = 'none';
+    drawer.classList.toggle('expanded', on);
+    if (closed) { void drawer.offsetWidth; drawer.style.transition = ''; }
     byId('expandCompose').innerHTML = '<i data-lucide="' + (on ? 'minimize-2' : 'maximize-2') + '"></i>'; icons();
   }
   function composeReady() { var d = byId('composeDrawer'); if (d) d.classList.remove('loading'); clearTimeout(openCompose.guard); }
@@ -1262,7 +1267,8 @@ var UI = (function () {
         { label: t('savedraft_caps'), primary: true, action: function () { var w = composeWindow(); w.rcmail.command('savedraft'); UI._closeAfterSave = true; } }
       ]);
     }
-    drawer.classList.remove('open', 'minimized', 'expanded');
+    // Lumen closes in place (fade); Cyber drops back to the small drawer as before
+    drawer.classList.remove('open', 'minimized'); if (doc.documentElement.dataset.look != 'lumen') drawer.classList.remove('expanded');
     drawer.setAttribute('aria-hidden', 'true');
     scrim(false);
     setTimeout(function () {

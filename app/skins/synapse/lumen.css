@@ -383,6 +383,53 @@
 :root[data-look="lumen"] .compose-drawer { border: 1px solid var(--glass-edge); border-radius: 22px 22px 0 0; background: var(--pop); box-shadow: var(--shadow-pop); overflow: hidden;
   -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); }
 :root[data-look="lumen"] .compose-drawer.expanded { border-radius: 22px 22px 0 0; }
+/* opening: the window rises a few pixels and settles while it fades in; closing reverses it, in place */
+:root[data-look="lumen"] #composeDrawer:not(.compose-standalone) { opacity: 0; visibility: hidden; transform: translateY(18px) scale(.97); transform-origin: 50% 100%;
+  transition: opacity .22s cubic-bezier(.4, 0, 1, 1), transform .3s cubic-bezier(.4, 0, 1, 1), visibility 0s linear .3s; }
+:root[data-look="lumen"] #composeDrawer.open:not(.compose-standalone) { opacity: 1; visibility: visible; transform: none;
+  transition: opacity .32s cubic-bezier(.2, 0, 0, 1), transform .56s cubic-bezier(.16, 1, .3, 1), visibility 0s; }
+:root[data-look="lumen"] #composeDrawer.expanded:not(.compose-standalone) { transform: translate(50%, 18px) scale(.97); }
+:root[data-look="lumen"] #composeDrawer.expanded.open:not(.compose-standalone) { transform: translateX(50%); }
+:root[data-look="lumen"] #composeDrawer.open.minimized:not(.compose-standalone) { transform: translateY(calc(100% - 58px)); }
+:root[data-look="lumen"] #composeDrawer.expanded.open.minimized:not(.compose-standalone) { transform: translate(50%, calc(100% - 58px)); }
+@media (max-width: 680px) {
+  :root[data-look="lumen"] #composeDrawer.expanded:not(.compose-standalone) { transform: translateY(18px) scale(.97); }
+  :root[data-look="lumen"] #composeDrawer.expanded.open:not(.compose-standalone) { transform: none; }
+  :root[data-look="lumen"] #composeDrawer.expanded.open.minimized:not(.compose-standalone) { transform: translateY(calc(100% - 58px)); }
+}
+/* loading: an outline of the form, then the editor fades in over it */
+:root[data-look="lumen"] .compose-drawer.loading .compose-loader { display: none; }
+:root[data-look="lumen"] .compose-drawer > iframe { transition: opacity .38s cubic-bezier(.2, 0, 0, 1) .04s; }
+:root[data-look="lumen"] .compose-drawer.loading > iframe { visibility: visible; opacity: 0; transition: none; }
+:root[data-look="lumen"] .compose-skeleton { position: absolute; inset: 58px 0 0; z-index: 2; display: flex; flex-direction: column; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
+:root[data-look="lumen"] .compose-drawer.loading .compose-skeleton { opacity: 1; transition: none; }
+:root[data-look="lumen"] .compose-skeleton :is(i, b) { display: block; height: 12px; border-radius: 999px;
+  background: linear-gradient(100deg, var(--line) 30%, var(--line-strong) 50%, var(--line) 70%) 0 0 / 300% 100%; animation: cs-shimmer 1.6s cubic-bezier(.4, 0, .2, 1) infinite; }
+:root[data-look="lumen"] .cs-row { display: grid; grid-template-columns: 84px 1fr; align-items: center; min-height: 50px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+:root[data-look="lumen"] .cs-row i { width: 44px; height: 10px; }
+:root[data-look="lumen"] .cs-row b { width: 46%; }
+:root[data-look="lumen"] .cs-row:nth-child(2) b { width: 34%; }
+:root[data-look="lumen"] .cs-row:nth-child(3) b { width: 58%; }
+:root[data-look="lumen"] .cs-tools { display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+:root[data-look="lumen"] .cs-tools b { width: 120px; height: 40px; border-radius: 12px; }
+:root[data-look="lumen"] .cs-tools i { width: 22px; height: 22px; border-radius: 7px; }
+:root[data-look="lumen"] .cs-body { flex: 1; display: grid; align-content: start; gap: 14px; padding: 28px 22px; }
+:root[data-look="lumen"] .cs-body b:nth-child(1) { width: 72%; }
+:root[data-look="lumen"] .cs-body b:nth-child(2) { width: 88%; }
+:root[data-look="lumen"] .cs-body b:nth-child(3) { width: 64%; }
+:root[data-look="lumen"] .cs-body b:nth-child(4) { width: 40%; }
+:root[data-look="lumen"] .cs-foot { display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 0 16px; border-top: 1px solid var(--line); }
+:root[data-look="lumen"] .cs-foot i { width: 40px; height: 40px; }
+:root[data-look="lumen"] .cs-foot b { width: 128px; height: 40px; margin-left: auto; }
+@keyframes cs-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (max-width: 680px) { :root[data-look="lumen"] .cs-tools b:nth-child(2) { display: none; } :root[data-look="lumen"] .cs-row { grid-template-columns: 62px 1fr; padding: 0 14px; } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-look="lumen"] #composeDrawer:not(.compose-standalone), :root[data-look="lumen"] #composeDrawer.open:not(.compose-standalone) { transition: opacity .2s linear, visibility 0s; }
+  :root[data-look="lumen"] .compose-skeleton :is(i, b) { animation: none; }
+}
+:root[data-look="lumen"][data-motion="off"] #composeDrawer, :root[data-look="lumen"][data-motion="off"] .compose-drawer > iframe { transition: none !important; }
+:root[data-look="lumen"]:is([data-motion="off"], [data-motion="reduce"]) .compose-skeleton :is(i, b) { animation: none; }
+:root[data-look="lumen"][data-motion="reduce"] #composeDrawer:not(.compose-standalone) { transition: opacity .2s linear, visibility 0s !important; }
 :root[data-look="lumen"].iframe .compose-drawer, :root[data-look="lumen"] #composePane { border: 0; border-radius: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 :root[data-look="lumen"] .compose-drawer > iframe { background: transparent; }
 :root[data-look="lumen"] .drawer-header { height: 58px; padding: 0 10px 0 20px; background: transparent; border-bottom: 1px solid var(--line); }

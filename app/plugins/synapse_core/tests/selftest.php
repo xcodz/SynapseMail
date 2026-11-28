@@ -599,6 +599,11 @@ $check(substr_count($compose_tpl, 'cf-extra') === 3 && strpos($lumen_css, ':root
     'compose: Lumen opens the large window, without the signature, responses and options buttons (Cyber keeps them)');
 $check(strpos($ui, 'function openFirstItem()') !== false && strpos($ui, "!rc.env.search_request && !rc.env.group && rc.commands.add") !== false,
     'lists: responses, folders and contacts open the first item, or the add form when empty');
+$drawer_tpl = (string) file_get_contents("$skin/templates/includes/compose-drawer.html");
+$check(strpos($drawer_tpl, 'class="compose-skeleton"') !== false && strpos((string) file_get_contents("$skin/synapse.css"), '.compose-loader, .compose-skeleton { display: none; }') !== false
+    && strpos($lumen_css, ':root[data-look="lumen"] .compose-drawer.loading .compose-skeleton { opacity: 1;') !== false && strpos($lumen_css, '@media (prefers-reduced-motion: reduce)') !== false
+    && strpos($ui, "if (closed) drawer.style.transition = 'none';") !== false,
+    'compose: Lumen fades the window in with a form outline while the editor loads (Cyber keeps its loader)');
 $cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
     'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP'];
 $texts_ok = true;
