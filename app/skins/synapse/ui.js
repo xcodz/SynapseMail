@@ -172,6 +172,7 @@ var UI = (function () {
     html.classList.add(cls);
     var run;
     try { run = morphRun = doc.startViewTransition(apply); } catch (e) { html.classList.remove(cls); return apply(); }
+    run.ready.catch(function () { }); // a skipped transition (another switch, or a design reload) rejects ready: expected, not an error
     run.finished.catch(function () { }).then(function () { if (morphRun === run) { morphRun = null; html.classList.remove('theme-morph', 'theme-fade'); } });
   }
   // a click's own element, for the morph origin (keyboard choices start from the focused card)

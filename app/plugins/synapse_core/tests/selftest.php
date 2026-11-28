@@ -612,8 +612,8 @@ $check(strpos($ui, "if (!byId('loginForm')) return;") !== false && strpos($ui, "
 $syn_css = (string) file_get_contents("$skin/synapse.css");
 $check(strpos($ui, 'function morphTheme(apply, from)') !== false && strpos($ui, "if (!doc.startViewTransition || html.dataset.motion == 'off' || doc.hidden || framed) return apply();") !== false
     && substr_count($ui, 'morphTheme(function () {') >= 6 && strpos($syn_css, "@property --sx-r") !== false && strpos($syn_css, ':root.theme-fade::view-transition-old(root)') !== false
-    && strpos($layout, "sessionStorage.getItem('synapsemail-arrive')") !== false,
-    'theme morph: native view transition from the chosen card, crossfade under reduced motion, none when motion is off or unsupported; soft reload');
+    && strpos($layout, "sessionStorage.getItem('synapsemail-arrive')") !== false && strpos($ui, 'run.ready.catch(function () { });') !== false,
+    'theme morph: native view transition from the chosen card, crossfade under reduced motion, none when motion is off or unsupported; soft reload; a skipped transition is not reported as an error');
 $login_tpl = (string) file_get_contents("$skin/templates/login.html");
 $check(strpos($login_tpl, 'id="loginLookButton"') !== false && strpos($ui, 'function initLoginLook()') !== false && strpos($ui, "persistTheme(LOOK_DEFAULT[el.value]);") !== false
     && strpos($ui, "applyTheme(accountTheme || themeCookie() || store('synapsemail-theme2') || 'agency');") !== false,
