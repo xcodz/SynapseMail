@@ -608,6 +608,11 @@ $check(strpos($ui, "if (!byId('loginForm')) return;") !== false && strpos($ui, "
     && strpos($ui, 'data-act="format"') !== false && strpos($ui, "remembered.forEach(function (kv) { store(kv[0], kv[1]); });") !== false
     && strpos($ui, "menu.style.maxHeight = ") !== false && strpos((string) file_get_contents("$skin/synapse.css"), '.reader-copy div.pre { white-space: normal;') !== false,
     'release checks: error pages, Escape on list pages, format in message windows, chooser previews, long inbox menus, plain-text line breaks');
+$syn_css = (string) file_get_contents("$skin/synapse.css");
+$check(strpos($ui, 'function morphTheme(apply, from)') !== false && strpos($ui, "if (!doc.startViewTransition || html.dataset.motion == 'off' || doc.hidden || framed) return apply();") !== false
+    && substr_count($ui, 'morphTheme(function () {') >= 6 && strpos($syn_css, "@property --sx-r") !== false && strpos($syn_css, ':root.theme-fade::view-transition-old(root)') !== false
+    && strpos($layout, "sessionStorage.getItem('synapsemail-arrive')") !== false,
+    'theme morph: native view transition from the chosen card, crossfade under reduced motion, none when motion is off or unsupported; soft reload');
 $cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
     'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP',
     'BUILT ON ROUNDCUBE' => 'Built on Roundcube', 'CHECK CSF: ALLOW TCP_OUT' => 'Check CSF: allow TCP_OUT', 'USE STARTTLS' => 'Use STARTTLS', 'POP3/IMAP وSMTP' => 'POP3/IMAP وSMTP'];

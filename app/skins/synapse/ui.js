@@ -154,6 +154,29 @@ var UI = (function () {
   }
   function motionReduced() { return html.dataset.motion == 'reduce' || html.dataset.motion == 'off' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
 
+  /* ---------- theme morph: the new look spreads from the card or button that chose it ----------
+   * Native View Transitions (no library): the browser snapshots the page, apply() changes the theme, and the new
+   * page is revealed through a soft-edged circle from the click point (CSS in synapse.css, "theme morph").
+   * Without the API, with reduced motion, or in a hidden tab, the theme just changes. */
+  var morphRun = null;
+  function morphTheme(apply, from) {
+    // motion off, no API, hidden tab: the theme just changes; reduced motion: a short crossfade, no movement
+    if (!doc.startViewTransition || html.dataset.motion == 'off' || doc.hidden || framed) return apply();
+    var calm = motionReduced();
+    var r = from && from.getBoundingClientRect ? from.getBoundingClientRect() : null;
+    var x = r && r.width ? r.left + r.width / 2 : window.innerWidth / 2, y = r && r.height ? r.top + r.height / 2 : window.innerHeight / 2;
+    var end = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + 140; // past the farthest corner, feather included
+    if (morphRun) { try { morphRun.skipTransition(); } catch (e) { } }
+    html.style.setProperty('--sx-x', Math.round(x) + 'px'); html.style.setProperty('--sx-y', Math.round(y) + 'px'); html.style.setProperty('--sx-end', Math.round(end) + 'px');
+    var cls = calm ? 'theme-fade' : 'theme-morph';
+    html.classList.add(cls);
+    var run;
+    try { run = morphRun = doc.startViewTransition(apply); } catch (e) { html.classList.remove(cls); return apply(); }
+    run.finished.catch(function () { }).then(function () { if (morphRun === run) { morphRun = null; html.classList.remove('theme-morph', 'theme-fade'); } });
+  }
+  // a click's own element, for the morph origin (keyboard choices start from the focused card)
+  function morphFrom(el) { return el && el.closest ? el.closest('label, button, a, .theme-dot') || el : null; }
+
   // An empty detail pane (the blank page in contacts, settings, mail) takes the theme's --bg-soft. Done from here too,
   // because browsers keep the blank page itself cached for days after an update.
   function paintBlank(f) {
@@ -176,11 +199,19 @@ var UI = (function () {
       saveHooked = true;
       trc.addEventListener('responseaftersave-pref', function () {
         pendingSaves = Math.max(0, pendingSaves - 1);
-        if (!pendingSaves && reloadAfterSave) { reloadAfterSave = false; topWin().location.reload(); }
+        if (!pendingSaves && reloadAfterSave) { reloadAfterSave = false; reloadSoftly(topWin()); }
       });
     }
     pendingSaves++;
     trc.save_pref({ name: name, value: value, env: name });
+  }
+  // the one reload of a design switch: a short fade out, and the next page fades in (head script, layout.html)
+  function reloadSoftly(w) {
+    if (morphRun) { try { morphRun.skipTransition(); } catch (e) { } } // a reload is never animated by the browser itself
+    if (motionReduced()) return w.location.reload();
+    try { w.sessionStorage.setItem('synapsemail-arrive', '1'); } catch (e) { }
+    w.document.documentElement.classList.add('sx-leave');
+    setTimeout(function () { w.location.reload(); }, 180);
   }
   function topWin() { try { return window.top.rcmail ? window.top : window; } catch (e) { return window; } }
 
@@ -418,18 +449,18 @@ var UI = (function () {
     });
     add(t('cmd_density'), t('cmd_density_desc'), 'rows-3', 'D', 'compact dense rows', toggleDensity);
     if (lookOf(currentTheme) == 'cyber') {
-      add(t('cmd_loadtheme', { theme: t('themename_warfare') }), t('theme_warfare_desc'), 'shield', '01', 'theme olive dark green', function () { applyTheme('warfare', true, true); });
-      add(t('cmd_loadtheme', { theme: t('themename_blackops') }), t('theme_blackops_desc'), 'flame', '02', 'theme orange amber cyber', function () { applyTheme('blackops', true, true); });
-      add(t('cmd_loadtheme', { theme: t('themename_night') }), t('theme_night_desc'), 'scan-eye', '03', 'theme terminal green', function () { applyTheme('night', true, true); });
-      add(t('cmd_loadtheme', { theme: t('themename_agency') }), t('theme_agency_desc'), 'mail-check', '04', 'theme blue secure email', function () { applyTheme('agency', true, true); });
-      add(t('cmd_loadtheme', { theme: t('themename_soft') }), t('theme_soft_desc'), 'sun', '05', 'theme light soft day bright', function () { applyTheme('soft', true, true); });
-      add(t('cmd_loadtheme', { theme: t('themename_auto') }), t('theme_auto_desc'), 'sun-moon', '06', 'theme system auto light dark', function () { applyTheme('auto', true, true); });
-      add(t('switchto', { look: t('look_lumen') }), t('look_lumen_desc'), 'sparkles', '', 'design lumen glass light theme switch', function () { switchLook('lumen', true); });
+      add(t('cmd_loadtheme', { theme: t('themename_warfare') }), t('theme_warfare_desc'), 'shield', '01', 'theme olive dark green', function () { morphTheme(function () { applyTheme('warfare', true, true); }); });
+      add(t('cmd_loadtheme', { theme: t('themename_blackops') }), t('theme_blackops_desc'), 'flame', '02', 'theme orange amber cyber', function () { morphTheme(function () { applyTheme('blackops', true, true); }); });
+      add(t('cmd_loadtheme', { theme: t('themename_night') }), t('theme_night_desc'), 'scan-eye', '03', 'theme terminal green', function () { morphTheme(function () { applyTheme('night', true, true); }); });
+      add(t('cmd_loadtheme', { theme: t('themename_agency') }), t('theme_agency_desc'), 'mail-check', '04', 'theme blue secure email', function () { morphTheme(function () { applyTheme('agency', true, true); }); });
+      add(t('cmd_loadtheme', { theme: t('themename_soft') }), t('theme_soft_desc'), 'sun', '05', 'theme light soft day bright', function () { morphTheme(function () { applyTheme('soft', true, true); }); });
+      add(t('cmd_loadtheme', { theme: t('themename_auto') }), t('theme_auto_desc'), 'sun-moon', '06', 'theme system auto light dark', function () { morphTheme(function () { applyTheme('auto', true, true); }); });
+      add(t('switchto', { look: t('look_lumen') }), t('look_lumen_desc'), 'sparkles', '', 'design lumen glass light theme switch', function () { morphTheme(function () { switchLook('lumen', true); }); });
     } else {
       LOOKS.lumen.forEach(function (th, i) {
-        add(t('cmd_loadtheme', { theme: themeLabels[th] }), t('theme_' + th.replace('-', '_') + '_desc'), ['sun', 'waves', 'moon', 'sun-moon'][i], '0' + (i + 1), 'theme style lumen ' + th.slice(6), function () { applyTheme(th, true, true); });
+        add(t('cmd_loadtheme', { theme: themeLabels[th] }), t('theme_' + th.replace('-', '_') + '_desc'), ['sun', 'waves', 'moon', 'sun-moon'][i], '0' + (i + 1), 'theme style lumen ' + th.slice(6), function () { morphTheme(function () { applyTheme(th, true, true); }); });
       });
-      add(t('switchto', { look: t('look_cyber') }), t('look_cyber_desc'), 'shield', '', 'design cyber dark hud theme switch', function () { switchLook('cyber', true); });
+      add(t('switchto', { look: t('look_cyber') }), t('look_cyber_desc'), 'shield', '', 'design cyber dark hud theme switch', function () { morphTheme(function () { switchLook('cyber', true); }); });
     }
     add(t('appearance'), t('appearance_desc'), 'palette', '', 'appearance theme animation motion contrast text size density', function () { rc.goto_url('settings/plugin.synapse-appearance'); });
     add(t('aboutsynapsemail'), t('cmd_about_desc'), 'info', '?', 'about version credits developer', function () { about(true); });
@@ -895,8 +926,9 @@ var UI = (function () {
     byId('recoveryButton').addEventListener('click', function () { toast(t('contactadmin')); });
     doc.querySelectorAll('.theme-dot').forEach(function (d) { d.addEventListener('click', function () {
       var other = lookOf(d.dataset.theme) != lookOf(currentTheme);
-      applyTheme(d.dataset.theme, false, false); persistTheme(d.dataset.theme);
-      if (other) location.reload(); // the page texts are written for the design the cookie names
+      persistTheme(d.dataset.theme);
+      if (other) { reloadSoftly(window); return; } // the page texts are written for the design the cookie names
+      morphTheme(function () { applyTheme(d.dataset.theme, false, false); }, d);
     }); });
     [user, pass].forEach(function (i) { i.addEventListener('input', clearError); });
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !busy) { clearError(); pass.value = ''; } });
@@ -1438,8 +1470,8 @@ var UI = (function () {
     byId('themeMenuButton').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('themePopover'); });
     byId('avatarButton').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('accountPopover'); });
     byId('settingsButton').addEventListener('click', openPalette);
-    doc.querySelectorAll('.theme-choice[data-theme]').forEach(function (c) { c.addEventListener('click', function () { applyTheme(c.dataset.theme, true, true); }); });
-    doc.querySelectorAll('[data-switch-look]').forEach(function (c) { c.addEventListener('click', function () { switchLook(c.dataset.switchLook, true); }); });
+    doc.querySelectorAll('.theme-choice[data-theme]').forEach(function (c) { c.addEventListener('click', function () { morphTheme(function () { applyTheme(c.dataset.theme, true, true); }, c); }); });
+    doc.querySelectorAll('[data-switch-look]').forEach(function (c) { c.addEventListener('click', function () { morphTheme(function () { switchLook(c.dataset.switchLook, true); }, c); }); });
     byId('scrim').addEventListener('click', function () {
       var c = byId('composeDrawer'), composing = c && c.classList.contains('open') && !c.classList.contains('minimized');
       // the mobile menu sits above everything: a tap outside only closes the menu
@@ -1562,13 +1594,13 @@ var UI = (function () {
       seen();
       remembered.forEach(function (kv) { store(kv[0], kv[1]); });
       if (keep) { store('synapsemail-toast', t('lw_saved')); applyTheme(style, false, true); if (!reloadAfterSave) { store('synapsemail-toast', null); toast(t('lw_saved')); } }
-      else applyTheme(start, false, false);
+      else if (currentTheme != start) morphTheme(function () { applyTheme(start, false, false); });
       dlg.close(); dlg.remove();
     };
     dlg.addEventListener('change', function (e) {
       var el = e.target;
-      if (el.name == 'lwlook') { look = el.value; style = lookOf(start) == look ? start : lookStyle(look); applyTheme(style, false, false); }
-      if (el.name == 'lwstyle') { style = el.value; applyTheme(style, false, false); }
+      if (el.name == 'lwlook') { look = el.value; style = lookOf(start) == look ? start : lookStyle(look); morphTheme(function () { applyTheme(style, false, false); }, morphFrom(el)); }
+      if (el.name == 'lwstyle') { style = el.value; morphTheme(function () { applyTheme(style, false, false); }, morphFrom(el)); }
     });
     dlg.addEventListener('click', function (e) {
       var b = e.target.closest('[data-lw]'); if (!b) return;
@@ -2234,7 +2266,7 @@ var UI = (function () {
     app.addEventListener('change', function (e) {
       var el = e.target, A = app._ap;
       if (el.name == 'look') { switchLook(el.value, true); initAppearance(); var f = app.querySelector('input[name="look"]:checked'); if (f) f.focus(); app._ap.flash(); return; }
-      if (el.name == 'theme') { applyTheme(el.value, false, true); A.flash(); return; }
+      if (el.name == 'theme') { morphTheme(function () { applyTheme(el.value, false, true); }, morphFrom(el)); A.flash(); return; }
       if (el.type == 'radio') A.p[el.name] = el.value;
       else if (el.name == 'effects') A.p.effects = el.checked ? 'on' : 'off';
       else if (el.name == 'contrast') A.p.contrast = el.checked ? 'more' : 'normal';

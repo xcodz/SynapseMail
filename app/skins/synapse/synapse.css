@@ -1140,3 +1140,21 @@ label:has(> input:is([type=checkbox], [type=radio])) { cursor: pointer; }
 .reader-copy p.image-attachment > br { display: none; }
 @media (max-width: 680px) { .reader-copy p.image-attachment { width: calc(50% - 6px); margin-right: 8px; } .reader-copy p.image-attachment:nth-of-type(2n) { margin-right: 0; } }
 @media (max-width: 380px) { .reader-copy p.image-attachment { width: 100%; margin-right: 0; } }
+
+/* ---------- theme morph (ui.js morphTheme): the new look spreads from the click in a soft-edged circle ----------
+   The old page stays still underneath; the new page is masked by a radial gradient whose radius grows (registered
+   custom property, so it animates); the feather keeps the edge soft instead of a hard wipe. */
+@property --sx-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
+:root.theme-morph::view-transition-group(root) { animation-duration: .52s; }
+:root.theme-morph::view-transition-old(root) { animation: none; }
+:root.theme-morph::view-transition-new(root) { mix-blend-mode: normal; animation: sx-morph .52s cubic-bezier(.05, .7, .1, 1) both; /* emphasized decelerate */
+  -webkit-mask-image: radial-gradient(circle at var(--sx-x, 50%) var(--sx-y, 50%), #000 calc(var(--sx-r) - 120px), transparent var(--sx-r));
+  mask-image: radial-gradient(circle at var(--sx-x, 50%) var(--sx-y, 50%), #000 calc(var(--sx-r) - 120px), transparent var(--sx-r)); }
+@keyframes sx-morph { from { --sx-r: 0px; } to { --sx-r: var(--sx-end, 150vmax); } }
+/* the one reload of a design switch: out and in softly */
+:root.sx-leave body { opacity: 0; transition: opacity .18s ease-in; }
+:root.sx-arrive body { animation: sx-arrive .42s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes sx-arrive { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { :root.sx-arrive body { animation: none; } }
+/* reduced motion: no spreading shape, only a short crossfade (colour change is not motion, WCAG 2.3.3) */
+:root.theme-fade::view-transition-old(root), :root.theme-fade::view-transition-new(root) { animation-duration: .18s; animation-timing-function: ease-out; }
