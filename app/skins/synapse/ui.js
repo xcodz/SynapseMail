@@ -2240,18 +2240,22 @@ var UI = (function () {
   }
 
   // More menu (Lumen): plain text or formatted text for the message open in the reading pane
-  function frameFormatEnv() { try { var w = rc.get_frame_window(rc.env.contentframe); return w && w.rcmail && readerShown() ? w.rcmail.env.optional_format : null; } catch (e) { return null; } }
+  function formatTarget() {
+    if (rc.env.action == 'show') return rc; // full-page view or separate window: this page is the message
+    try { var w = rc.get_frame_window(rc.env.contentframe); return w && w.rcmail && readerShown() ? w.rcmail : null; } catch (e) { return null; }
+  }
+  function frameFormatEnv() { var trc = formatTarget(); return trc ? trc.env.optional_format : null; }
   function readerShown() { var s = byId('mailStage'); return !!(s && s.classList.contains('reader-active')); }
   function syncFormatChoice() {
     var item = byId('formatChoice'); if (!item) return;
     var fmt = frameFormatEnv();
     item.hidden = !fmt;
-    if (fmt) item.querySelector('b').textContent = t(fmt == 'text' ? 'showplain' : 'showformatted');
+    if (fmt) item.querySelector('b').textContent = caps(t(fmt == 'text' ? 'showplain' : 'showformatted'));
   }
   function frameFormat() {
-    var fmt = frameFormatEnv(), w = rc.get_frame_window(rc.env.contentframe);
+    var trc = formatTarget(), fmt = frameFormatEnv();
     closeMenus();
-    try { if (fmt) w.rcmail.command('change-format', fmt); } catch (e) { }
+    try { if (fmt) trc.command('change-format', fmt); } catch (e) { }
     return false;
   }
   function frameCommand(cmd) {
@@ -2488,6 +2492,9 @@ var UI = (function () {
     initNoAutofill();
     if (rc.env.task != 'login' && rc.env.task != 'logout') mirrorMessages();
     doc.addEventListener('click', function (e) { if (!e.target.closest('.theme-popover, .synapse-dialog')) closeMenus(); });
+    // a click or tap inside a frame (the open message, a settings form) also closes the page's own menus: frame
+    // events never reach the page
+    if (framed) doc.addEventListener('pointerdown', function () { try { var tui = topUI(); if (tui && tui.closeMenus) tui.closeMenus(); } catch (e) { } }, true);
     // core popup menus (folder selector, …) are closed by the skin: outside press, or after picking an item
     var hideCore = function (menu, e) { if (rc.menu_stack.length) rc.hide_menu(menu.id, e); else $(menu).hide(); };
     doc.addEventListener('mousedown', function (e) {
@@ -2520,6 +2527,8 @@ var UI = (function () {
       if (store('synapsemail-toast')) { toast(store('synapsemail-toast')); store('synapsemail-toast', null); } // a message from before a design reload
       if (rc.env.task == 'mail' && rc.message_list) { initMailList(); initReaderWindows(); }
       if (rc.env.task == 'mail' && (rc.env.action == 'show' || rc.env.action == 'preview')) initPreview();
+      // full-page view and separate window: their own More menu (the list page wires it in initMailList)
+      if (rc.env.action == 'show' && byId('readerMore') && !rc.message_list) byId('readerMore').addEventListener('click', function (e) { e.stopPropagation(); syncFormatChoice(); toggleMenu('moreMenu', this); });
       initCompose();
       decorateFolders();
       if (rc.env.task == 'settings') { initSettings(); initSecurity(); initSendAs(); initAppearance(); }

@@ -28,6 +28,7 @@
 					<roundcube:endif />
 					<roundcube:button command="delete" type="link" title="deletemessage" data-icon="trash-2" />
 					<roundcube:button command="print" type="link" title="print" data-icon="printer" />
+					<button type="button" id="readerMore" title="<roundcube:label name="more" />" aria-haspopup="menu"><i data-lucide="ellipsis"></i></button>
 				</div>
 			</div>
 			<roundcube:include file="includes/reader-body.html" />
@@ -35,5 +36,18 @@
 	</main>
 </div>
 <roundcube:include file="includes/compose-drawer.html" />
+<section class="theme-popover menu-popover" id="moreMenu" aria-label="<roundcube:label name="synapse_core.messageactions" />" aria-hidden="true">
+	<div class="popover-heading"><span><roundcube:label name="synapse_core.messageactions_caps" /></span><small><roundcube:label name="synapse_core.selection_caps" /></small></div>
+	<button class="theme-choice format-choice" type="button" id="formatChoice" hidden onclick="return UI.frameFormat()"><i data-lucide="file-text"></i><span><b></b><small><roundcube:label name="synapse_core.format_desc" /></small></span><em></em></button>
+	<roundcube:button command="forward-attachment" type="link" class="theme-choice" data-icon="paperclip" data-label="synapse_core.forwardatt_caps" data-detail="synapse_core.forwardatt_desc" data-key="" />
+	<roundcube:button command="unread" type="link" class="theme-choice" data-icon="mail" data-label="synapse_core.markunread_caps" data-detail="synapse_core.markunread_desc" data-key="" />
+	<roundcube:button command="flag" type="link" class="theme-choice" data-icon="star" data-label="synapse_core.flag_caps" data-detail="synapse_core.flag_desc" data-key="" />
+	<roundcube:button command="unflag" type="link" class="theme-choice" data-icon="star-off" data-label="synapse_core.unflag_caps" data-detail="synapse_core.unflag_desc" data-key="" />
+	<roundcube:button command="copy" type="link" class="theme-choice" data-icon="copy" data-label="synapse_core.copyto_caps" data-detail="synapse_core.copyto_desc" data-key="" />
+	<roundcube:button command="move" type="link" class="theme-choice" data-icon="folder-input" data-label="synapse_core.moveto_caps" data-detail="synapse_core.moveto_desc" data-key="" />
+	<roundcube:button command="download" type="link" class="theme-choice" data-icon="download" data-label="synapse_core.downloademl_caps" data-detail="synapse_core.downloademl_desc" data-key="" />
+	<roundcube:button command="viewsource" type="link" class="theme-choice" data-icon="code" data-label="synapse_core.showsource_caps" data-detail="synapse_core.showsource_desc" data-key="" />
+	<roundcube:button command="edit" prop="new" type="link" class="theme-choice" data-icon="file-pen-line" data-label="synapse_core.editasnew_caps" data-detail="synapse_core.editasnew_desc" data-key="" />
+</section>
 <roundcube:endif />
 <roundcube:include file="includes/footer.html" />

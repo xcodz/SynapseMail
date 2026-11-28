@@ -22,11 +22,6 @@
 		<roundcube:button command="forward" type="link" data-icon="forward" data-label="synapse_core.forward_caps" />
 		<button type="button" id="toggleHeaders"><i data-lucide="list"></i> <roundcube:label name="synapse_core.details_caps" /></button>
 		<button type="button" id="toggleOriginal" title="<roundcube:label name="synapse_core.colors_title" />"><i data-lucide="palette"></i> <roundcube:label name="synapse_core.originalcolors" /></button>
-		<roundcube:if condition="env:optional_format=='text'" />
-			<roundcube:button command="change-format" prop="text" type="link" data-icon="file-text" data-label="synapse_core.plaintext_caps" />
-		<roundcube:elseif condition="env:optional_format=='html'" />
-			<roundcube:button command="change-format" prop="html" type="link" data-icon="file-code" data-label="HTML" />
-		<roundcube:endif />
 	</div>
 </div>
 

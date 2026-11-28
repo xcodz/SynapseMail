@@ -586,6 +586,13 @@ $check(strpos($lumen_css, ':root:not([data-look="lumen"]) #themePopover [data-lo
     && strpos($ui, "LOOKS[look].map(function (th)") !== false, 'designs: the theme menu, sign-in dots and Appearance show only the active design\'s styles');
 $check(strpos($lumen_css, 'Powered') === false && strpos($lumen_css, '.template-credit { display: none') === false && strpos($lumen_css, ':root[data-look="lumen"] .template-credit { font-size: 11px;') !== false
     && strpos($lumen_css, ':root[data-look="lumen"] .security-footer .credit-link { font-size: 12px;') !== false, 'designs: the "Powered by SynapseCyber" credit stays visible in Lumen');
+$reader_tpl = (string) file_get_contents("$skin/templates/includes/reader-body.html");
+$message_tpl = (string) file_get_contents("$skin/templates/message.html");
+$mail_tpl = (string) file_get_contents("$skin/templates/mail.html");
+$check(strpos($reader_tpl, 'change-format') === false && strpos($mail_tpl, 'id="formatChoice"') !== false && strpos($message_tpl, 'id="formatChoice"') !== false && strpos($message_tpl, 'id="readerMore"') !== false,
+    'reader: plain or formatted text is only in the More menu, in the reading pane and the full-page view');
+$check(strpos($ui, "if (framed) doc.addEventListener('pointerdown', function () { try { var tui = topUI(); if (tui && tui.closeMenus) tui.closeMenus(); } catch (e) { } }, true);") !== false,
+    'menus: a click or tap inside the open message closes the page\'s menus');
 $cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
     'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP'];
 $texts_ok = true;
