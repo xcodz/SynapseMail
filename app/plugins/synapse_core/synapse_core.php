@@ -437,8 +437,8 @@ class synapse_core extends rcube_plugin
     public static function lumen_active($rcmail): bool
     {
         // as ui.js decides: the account's theme (or the admin default), else the browser's last theme
-        $theme = $rcmail->user && $rcmail->user->ID ? (string) $rcmail->config->get('synapse_theme') : '';
-        if (!in_array($theme, self::THEMES, true)) {
+        $theme = $rcmail->user && $rcmail->user->ID ? $rcmail->config->get('synapse_theme') : '';
+        if (!is_string($theme) || !in_array($theme, self::THEMES, true)) {
             $theme = (string) ($_COOKIE['synapsemail_theme2'] ?? '');
         }
 

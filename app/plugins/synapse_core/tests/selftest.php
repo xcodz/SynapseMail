@@ -580,7 +580,7 @@ $check(strpos($wiz, "doc.createElement('dialog')") !== false && strpos($wiz, 'dl
     && strpos($wiz, "addEventListener('cancel'") !== false && strpos($wiz, 'type="radio" name="lwlook"') !== false && strpos($wiz, 'type="radio" name="lwstyle"') !== false, 'look chooser: a labelled native modal dialog with radio cards; Escape counts as skip');
 $check(strpos($wiz, "savePref(topRc(), 'synapse_look_seen', '1')") !== false && strpos($wiz, 'applyTheme(start, false, false)') !== false && strpos($wiz, 'applyTheme(style, false, true)') !== false
     && strpos($wiz, 'rc.env.action') !== false && strpos($wiz, 'framed') !== false, 'look chooser: skip puts the earlier look back, finish saves it, both end it for good; not in frames or other views');
-$check(strpos($ui, "if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) reloadAfterSave = true;") !== false && strpos($core_now, "set_env('synapse_labels', \$lumen ? 'lumen' : 'cyber')") !== false, 'designs: a new design reloads once saved, so every text matches it');
+$check(strpos($ui, "if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) {\n          reloadAfterSave = true;") !== false && strpos($core_now, "set_env('synapse_labels', \$lumen ? 'lumen' : 'cyber')") !== false, 'designs: a new design reloads once saved, so every text matches it');
 $check(strpos($lumen_css, ':root:not([data-look="lumen"]) #themePopover [data-look="lumen"], :root[data-look="lumen"] #themePopover [data-look="cyber"] { display: none; }') !== false
     && strpos($lumen_css, ':root:not([data-look="lumen"]) .theme-dock [data-look="lumen"], :root[data-look="lumen"] .theme-dock [data-look="cyber"] { display: none; }') !== false
     && strpos($ui, "LOOKS[look].map(function (th)") !== false, 'designs: the theme menu, sign-in dots and Appearance show only the active design\'s styles');
@@ -604,8 +604,13 @@ $check(strpos($drawer_tpl, 'class="compose-skeleton"') !== false && strpos((stri
     && strpos($lumen_css, ':root[data-look="lumen"] .compose-drawer.loading .compose-skeleton { opacity: 1;') !== false && strpos($lumen_css, '@media (prefers-reduced-motion: reduce)') !== false
     && strpos($ui, "if (closed) drawer.style.transition = 'none';") !== false,
     'compose: Lumen fades the window in with a form outline while the editor loads (Cyber keeps its loader)');
+$check(strpos($ui, "if (!byId('loginForm')) return;") !== false && strpos($ui, "!s.classList.contains('settings-stage'); }") !== false
+    && strpos($ui, 'data-act="format"') !== false && strpos($ui, "remembered.forEach(function (kv) { store(kv[0], kv[1]); });") !== false
+    && strpos($ui, "menu.style.maxHeight = ") !== false && strpos((string) file_get_contents("$skin/synapse.css"), '.reader-copy div.pre { white-space: normal;') !== false,
+    'release checks: error pages, Escape on list pages, format in message windows, chooser previews, long inbox menus, plain-text line breaks');
 $cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
-    'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP'];
+    'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP',
+    'BUILT ON ROUNDCUBE' => 'Built on Roundcube', 'CHECK CSF: ALLOW TCP_OUT' => 'Check CSF: allow TCP_OUT', 'USE STARTTLS' => 'Use STARTTLS', 'POP3/IMAP وSMTP' => 'POP3/IMAP وSMTP'];
 $texts_ok = true;
 foreach ($cases as $in => $want) {
     $texts_ok = $texts_ok && synapse_look::text($in) === $want;

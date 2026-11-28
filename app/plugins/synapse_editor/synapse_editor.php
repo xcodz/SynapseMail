@@ -24,6 +24,16 @@ class synapse_editor extends rcube_plugin
         $this->add_hook('html_editor', [$this, 'html_editor']);
         $this->add_hook('message_compose_body', [$this, 'compose_body']);
         $this->add_texts('localization/', true);
+        // Lumen design: the HUD's upper-case texts in sentence case (synapse_core loads first and holds the rule)
+        $rcmail = rcmail::get_instance();
+        if (class_exists('synapse_look', false) && !empty($rcmail->output) && synapse_core::lumen_active($rcmail)) {
+            $add = [];
+            foreach (['quoted_above', 'quoted'] as $key) {
+                $add['synapse_editor.' . $key] = synapse_look::text($this->gettext($key));
+            }
+            $rcmail->load_language($_SESSION['language'] ?? null, [], $add); // merge: these keys are already loaded
+            $rcmail->output->add_label(...array_keys($add)); // labels are copied when added: send the new texts
+        }
     }
 
     /** Reply, forward, draft and edit bodies (already washed by core): no form controls reach the compose form */

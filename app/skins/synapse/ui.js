@@ -206,7 +206,12 @@ var UI = (function () {
       if (trc && trc.env.task && trc.env.task != 'login' && trc.env.task != 'logout' && trc.env.synapse_theme != theme) {
         savePref(trc, 'synapse_theme', theme);
         // the page's texts follow the design (sentence case in Lumen): a new design reloads once it is saved
-        if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) reloadAfterSave = true;
+        if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) {
+          reloadAfterSave = true;
+          if (announce) store('synapsemail-toast', lookOf(theme) == 'lumen' ? t('lumen_applied', { theme: themeLabels[theme] }) : t('themeloaded', { theme: themeLabels[theme] }).toUpperCase()); // shown after the reload
+          // a save that never answers (network, expired session): give up waiting, so later toasts and saves work
+          setTimeout(function () { if (reloadAfterSave) { reloadAfterSave = false; pendingSaves = 0; store('synapsemail-toast', null); } }, 15000);
+        }
       }
     }
     closeMenus();
@@ -468,6 +473,8 @@ var UI = (function () {
     closeMenus(); closePalette();
     var ab = byId('aboutDialog'); if (ab && ab.classList.contains('open')) { ab.classList.remove('open'); ab.setAttribute('aria-hidden', 'true'); }
     if (readerOpen()) closeReader();
+    // tablets and phones: Escape slides a settings or contact editor away, like its back button (wide screens keep it)
+    var ss = doc.querySelector('.settings-stage.reader-active:not(.reader-full)'); if (ss && window.innerWidth <= 1100) ss.classList.remove('reader-active');
     var c = byId('composeDrawer');
     if (!(c && c.classList.contains('open') && !c.classList.contains('minimized'))) scrim(false);
   }
@@ -571,6 +578,7 @@ var UI = (function () {
 
   /* ================= LOGIN ================= */
   function initLogin() {
+    if (!byId('loginForm')) return; // error pages of the logout task (e.g. a failed request check) have no form
     var form = byId('loginForm'), user = byId('rcmloginuser'), pass = byId('rcmloginpwd'),
       authShell = byId('authShell'), authError = byId('authError'), accessButton = byId('accessButton'),
       processing = byId('processingScreen'), failed = 0, busy = false;
@@ -885,7 +893,11 @@ var UI = (function () {
       icons(); pass.focus();
     });
     byId('recoveryButton').addEventListener('click', function () { toast(t('contactadmin')); });
-    doc.querySelectorAll('.theme-dot').forEach(function (d) { d.addEventListener('click', function () { applyTheme(d.dataset.theme, false, false); persistTheme(d.dataset.theme); }); });
+    doc.querySelectorAll('.theme-dot').forEach(function (d) { d.addEventListener('click', function () {
+      var other = lookOf(d.dataset.theme) != lookOf(currentTheme);
+      applyTheme(d.dataset.theme, false, false); persistTheme(d.dataset.theme);
+      if (other) location.reload(); // the page texts are written for the design the cookie names
+    }); });
     [user, pass].forEach(function (i) { i.addEventListener('input', clearError); });
     doc.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !busy) { clearError(); pass.value = ''; } });
 
@@ -1053,7 +1065,8 @@ var UI = (function () {
   }
 
   /* reader pane (preview frame) */
-  function readerOpen() { var s = byId('mailStage'); return s && s.classList.contains('reader-active') && !s.classList.contains('reader-full'); }
+  // the mail reading pane only: list + detail pages (settings, contacts) use reader-active for their editor pane
+  function readerOpen() { var s = byId('mailStage'); return s && s.classList.contains('reader-active') && !s.classList.contains('reader-full') && !s.classList.contains('settings-stage'); }
   function openReader(cls) {
     var stage = byId('mailStage'); if (!stage || stage.classList.contains('reader-full')) return;
     stage.classList.add('reader-active');
@@ -1106,6 +1119,7 @@ var UI = (function () {
     w.style.top = Math.max(76, 90 + offset) + 'px';
     var tMin = esc(t('minimize')), tMax = esc(t('maximize')), tClose = esc(rc.gettext('close'));
     w.innerHTML = '<div class="drawer-header"><div><span>' + esc(t('emailwindow_kicker', { n: rc.env.synapse_labels == 'lumen' ? n : pad(n) })) + '</span><h2 class="msg-window-title">' + esc(t('loading_caps')) + '</h2></div><div>'
+      + '<button type="button" data-act="format" hidden><i data-lucide="file-text"></i></button>'
       + '<button type="button" data-act="min" title="' + tMin + '" aria-label="' + tMin + '"><i data-lucide="minus"></i></button>'
       + '<button type="button" data-act="max" title="' + tMax + '" aria-label="' + tMax + '"><i data-lucide="maximize-2"></i></button>'
       + '<button type="button" data-act="close" title="' + tClose + '" aria-label="' + tClose + '"><i data-lucide="x"></i></button></div></div>'
@@ -1122,6 +1136,10 @@ var UI = (function () {
       try {
         var d = frame.contentDocument;
         d.addEventListener('pointerdown', function () { raiseWindow(w); });
+        // plain or formatted text: the window has no More menu, so the switch sits in its header
+        var fmt = frame.contentWindow.rcmail && frame.contentWindow.rcmail.env.optional_format, fb = w.querySelector('[data-act="format"]');
+        fb.hidden = !fmt;
+        if (fmt) { var fl = t(fmt == 'text' ? 'showplain' : 'showformatted'); fb.title = fl; fb.setAttribute('aria-label', fl); }
         var subj = d.getElementById('readerSubject');
         w.querySelector('.msg-window-title').textContent = (subj ? subj.textContent.trim() : d.title.replace(/^.*?::\s*/, '')) || t('email_caps');
       } catch (e) { }
@@ -1132,6 +1150,7 @@ var UI = (function () {
     w.querySelector('.drawer-header').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-act]'); if (!b) return;
       if (b.dataset.act == 'close') return closeWindow(w);
+      if (b.dataset.act == 'format') { try { var wr = frame.contentWindow.rcmail; wr.command('change-format', wr.env.optional_format); } catch (err) { } return; }
       if (b.dataset.act == 'min') { w.classList.remove('maximized'); w.classList.toggle('minimized'); }
       if (b.dataset.act == 'max') {
         w.classList.remove('minimized');
@@ -1504,6 +1523,8 @@ var UI = (function () {
   function initLookWizard() {
     if (!rc.env.synapse_look_wizard || framed || rc.env.action || byId('lookWizard') || !window.HTMLDialogElement) return;
     var start = currentTheme, look = lookOf(start), style = start, step = 1;
+    // previews write each design's remembered styles (applyTheme): put them back, so only the final choice counts
+    var remembered = ['synapsemail-dark', 'synapsemail-lumen-light', 'synapsemail-last-cyber', 'synapsemail-last-lumen'].map(function (k) { return [k, store(k)]; });
     var dlg = doc.createElement('dialog');
     dlg.id = 'lookWizard'; dlg.className = 'look-wizard';
     dlg.setAttribute('aria-labelledby', 'lwTitle'); dlg.setAttribute('aria-describedby', 'lwIntro');
@@ -1539,6 +1560,7 @@ var UI = (function () {
     var finish = function (keep) {
       if (dlg._done) return; dlg._done = true;
       seen();
+      remembered.forEach(function (kv) { store(kv[0], kv[1]); });
       if (keep) { store('synapsemail-toast', t('lw_saved')); applyTheme(style, false, true); if (!reloadAfterSave) { store('synapsemail-toast', null); toast(t('lw_saved')); } }
       else applyTheme(start, false, false);
       dlg.close(); dlg.remove();
@@ -1555,7 +1577,7 @@ var UI = (function () {
       else finish(b.dataset.lw == 'done');
     });
     dlg.addEventListener('cancel', function (e) { e.preventDefault(); finish(false); }); // Escape
-    dlg.addEventListener('keydown', function (e) { if (e.key == 'Escape') e.stopPropagation(); }); // not the page's own Escape handling
+    dlg.addEventListener('keydown', function (e) { e.stopPropagation(); }); // no page shortcuts (compose, palette, Escape) behind the modal
     doc.body.appendChild(dlg);
     render();
     dlg.showModal();
@@ -2071,7 +2093,8 @@ var UI = (function () {
         var r = button.getBoundingClientRect();
         menu.style.top = (r.bottom + 8) + 'px'; menu.style.left = r.left + 'px';
         menu.style.width = Math.min(Math.max(r.width, 330), window.innerWidth - r.left - 12) + 'px';
-      } else { menu.style.top = menu.style.left = menu.style.width = ''; }
+        menu.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 20) + 'px'; menu.style.overflowY = 'auto'; // many inboxes: scroll
+      } else { menu.style.top = menu.style.left = menu.style.width = menu.style.maxHeight = menu.style.overflowY = ''; }
       if (show) { if (data) render(); var f = menu.querySelector('.ib-item.active') || menu.querySelector('.ib-item'); if (f) f.focus(); }
     };
     var open = function (iid) {
@@ -2092,7 +2115,8 @@ var UI = (function () {
     });
     doc.addEventListener('click', function (e) { if (!menu.hidden && !host.contains(e.target)) toggle(false); });
     var side = host.closest('.mail-sidebar');
-    if (side) side.addEventListener('scroll', function () { if (!menu.hidden) toggle(false); }, { passive: true });
+    // a placed menu would drift from its button; the phone menu scrolls with the panel, so it stays open there
+    if (side) side.addEventListener('scroll', function () { if (!menu.hidden && menu.style.position == 'fixed') toggle(false); }, { passive: true });
     window.addEventListener('resize', function () { if (!menu.hidden) toggle(false); });
     load(false);
     // new mail check refreshes the other inboxes' counts too (cached on the server for two minutes)
