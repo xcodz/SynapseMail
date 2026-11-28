@@ -638,3 +638,14 @@
   :root[data-look="lumen"] .reader-meta { grid-template-columns: 44px minmax(0, 1fr) auto; }
   :root[data-look="lumen"] .reader-meta time { grid-column: 2 / -1; grid-row: 2; text-align: left; padding: 0; }
 }
+
+/* image attachment cards (base in synapse.css) */
+:root[data-look="lumen"] .reader-copy p.image-attachment { border: 1px solid var(--glass-edge); border-radius: var(--r-card); background: var(--glass-3); box-shadow: 0 10px 26px -18px rgba(60, 40, 120, .45); }
+:root[data-lumen="dusk"] .reader-copy p.image-attachment { background: rgba(255, 255, 255, .06); }
+:root[data-look="lumen"] .reader-copy p.image-attachment .image-filename { font: 600 13px/1.4 var(--font); }
+:root[data-look="lumen"] .reader-copy p.image-attachment .image-filesize { font: 400 12px/1.4 var(--font); }
+:root[data-look="lumen"] .reader-copy p.image-attachment .attachment-links a { min-height: 32px; border-radius: 999px; border-color: var(--line-strong); background: transparent; color: var(--text);
+  font: 600 12px var(--font); letter-spacing: normal; text-transform: none; }
+:root[data-look="lumen"] .reader-copy p.image-attachment .attachment-links a:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); background: var(--pick); }
+:root[data-look="lumen"] .reader-copy p.image-attachment .attachment-links a.download { border-color: var(--solid); background: var(--solid); color: var(--on-solid); }
+:root[data-lumen="dusk"] .reader-copy p.image-attachment .attachment-links a.download { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
