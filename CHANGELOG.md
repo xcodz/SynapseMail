@@ -1,5 +1,21 @@
 # SynapseMail changelog
 
+## 3.5.7
+- **New design: Lumen.** A light, formal glass design next to Cyber, with the Blush, Lagoon and Dusk styles and
+  Match system. Choose it in Settings › Appearance.
+- A short look chooser on first sign-in and after each update (it can be skipped), and an Appearance button on the
+  sign-in page.
+- Smooth animated transition when switching looks (a short fade with reduced motion, none with animations off).
+- On phones, the sign-in, two-factor and passcode steps fit above the keyboard, without scrolling.
+- Fixed:
+  - plain-text messages showed every line break twice;
+  - the mailbox menu was cut off by the folder column, and long lists could not scroll;
+  - pressing Escape on list pages, and the "request check failed" page, caused script errors;
+  - light themes: empty panes, contact pictures and the import dialog.
+- Smaller changes: image attachments show as cards with Show and Download; the plain or formatted text switch is in
+  the message's More menu and in the header of message windows; Identities, Responses, Folders and Contacts open
+  their first item on wide screens.
+
 ## 3.5.6
 - **Security fixes.** Fixes for the compose window, sign-in and two-factor settings, rate limits, Send As and
   other-inbox server tests, the admin panel, its logs and request checks. Update every copy.

@@ -24,7 +24,7 @@ require_once __DIR__ . '/lib/synapse_look.php';
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
-    public const VERSION = '3.5.6';
+    public const VERSION = '3.5.7';
     // Cyber styles, then Lumen styles (the design is the "lumen-" prefix)
     public const THEMES = [...synapse_look::CYBER, ...synapse_look::LUMEN];
 

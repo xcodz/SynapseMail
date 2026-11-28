@@ -8,7 +8,7 @@
 
 **Built on Roundcube 1.7.7 · Works with cPanel, Plesk, DirectAdmin and any IMAP/SMTP mail server**
 
-![Version](https://img.shields.io/badge/version-3.5.6-7fb8cc)
+![Version](https://img.shields.io/badge/version-3.5.7-7fb8cc)
 ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)
 ![Roundcube](https://img.shields.io/badge/Roundcube-1.7.7-37beff)
 ![2FA](https://img.shields.io/badge/2FA-TOTP-2ea44f)
@@ -21,7 +21,7 @@
 ![Docker](https://img.shields.io/badge/Docker-amd64%20%7C%20arm64-2496ed)
 ![License](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-lightgrey)
 
-[✨ New in 3.5.6](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
+[✨ New in 3.5.7](#new) · [🚀 Install](#install) · [🐳 Docker](#docker) · [🖥️ WHM](#whm) · [📸 Screenshots](#screenshots) · [🛡️ Security](#security) · [📤 Send As](#send-as) · [📱 Mobile](#mobile) · [🧭 Roadmap](#roadmap) · [❓ FAQ](#faq)
 
 <img src="docs/screenshots/inbox.webp" alt="SynapseMail secure webmail inbox: modern Roundcube interface with passcode reminder" width="100%">
 
@@ -42,7 +42,35 @@ Sample data only. No mail server is connected and nothing is sent.
 
 <a id="new"></a>
 
-## ✨ New in 3.5.6: security update
+## ✨ New in 3.5.7: Lumen, a new light design
+
+<img src="docs/screenshots/lumen-inbox.webp" alt="SynapseMail Lumen design: light glass inbox in the Blush style" width="100%">
+
+- 🎨 **Lumen, a new design next to Cyber.** Light, formal glass panels over soft colour backgrounds, in three styles:
+  **Blush**, **Lagoon** and **Dusk** (dark), or **Match system**. Cyber, the original security console look, keeps
+  all its themes.
+- 🧭 **Choose your look.** A short chooser on first sign-in and after each update shows both designs live. Skip it,
+  or change your choice any time in Settings › Appearance. The sign-in page has its own Appearance button.
+- ✨ **A smooth transition** when you switch looks: shorter with reduced motion, none with animations off.
+- 📱 **Phones:** the sign-in, two-factor and passcode steps now fit above the keyboard, without scrolling.
+- 🐞 **Fixes:** plain-text mail no longer shows double line breaks, the mailbox menu is no longer cut off and long
+  lists scroll, and light themes draw empty panes, contact pictures and the import dialog correctly.
+
+| 🌙 Lumen Dusk: split view | ✍️ Writing in Lumen Lagoon |
+|:---:|:---:|
+| <img src="docs/screenshots/lumen-reader-dusk.webp" alt="SynapseMail Lumen Dusk: message list and reading pane side by side in dark glass" width="100%"> | <img src="docs/screenshots/lumen-compose-lagoon.webp" alt="SynapseMail Lumen Lagoon: writing a reply in the large compose window" width="100%"> |
+| 🧭 **Choose your look** | 🎨 **Settings › Appearance** |
+| <img src="docs/screenshots/lumen-chooser.webp" alt="SynapseMail look chooser: pick Lumen or Cyber and see it right away" width="100%"> | <img src="docs/screenshots/lumen-appearance.webp" alt="SynapseMail Appearance settings: design first, then the styles of that design" width="100%"> |
+
+<img src="docs/screenshots/lumen-signin.webp" alt="SynapseMail sign-in page in Lumen Blush, with the colour dots and the Appearance button" width="100%">
+
+| 📱 Inbox | 📱 Reading | 📱 Two-factor code |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/lumen-mobile-inbox.webp" alt="SynapseMail Lumen on a phone: inbox with two-line rows" width="240"> | <img src="docs/screenshots/lumen-mobile-reader.webp" alt="SynapseMail Lumen on a phone: reading a message" width="240"> | <img src="docs/screenshots/lumen-mobile-2fa.webp" alt="SynapseMail Lumen on a phone: the authenticator code step above the keyboard" width="240"> |
+
+<a id="new-356"></a>
+
+## 🛡️ 3.5.6 and 3.5.5: security updates
 
 - 🛡️ **Security fixes** for the compose window, sign-in and two-factor settings, rate limits, Send As and other-inbox
   server tests, and the admin panel. Please update every copy of SynapseMail.
@@ -116,7 +144,7 @@ installer and a private admin panel.**
 | | Roundcube (default) | **SynapseMail** |
 |---|:---:|:---:|
 | Read and send email (IMAP/SMTP) | ✅ | ✅ |
-| Modern interface with 5 themes (4 dark + Soft Light) | ➖ | ✅ |
+| Modern interface with two designs: Lumen (light glass) and Cyber (5 themes) | ➖ | ✅ |
 | 🎨 Appearance settings: reduced motion, text size, contrast | ➖ | ✅ |
 | Phone and tablet layouts | ✅ | ✅ **redesigned for touch** |
 | 🔢 Passcode lock after the password | ❌ | ✅ |
@@ -249,7 +277,7 @@ SynapseMail has **separate layouts for desktop, tablet and phone**, not a deskto
 - 👆 Big touch targets and simple navigation on small screens
 - 📨 Read, write, search and manage folders on the phone
 - 🔐 The passcode and 2FA screens are designed for one-hand use
-- 🌗 5 themes (4 dark and a calm **Soft Light**), or follow the system, on every device
+- 🌗 Two designs, **Lumen** and **Cyber**, with light and dark styles, or follow the system, on every device
 - 🪟 On desktop: **floating reading windows** and a **command palette** (⌘K / Ctrl+K)
 
 ---
@@ -258,7 +286,9 @@ SynapseMail has **separate layouts for desktop, tablet and phone**, not a deskto
 
 Settings › Appearance puts the look in the user's hands, and it is saved to the account:
 
-- 🌗 **Theme**: Synapse Dark, Amber Shield, Terminal Green, Secure Blue, **Soft Light**, or **Match system**
+- 🎨 **Design**: **Lumen**, light glass panels over soft colour backgrounds, or **Cyber**, the security console look
+- 🌗 **Style**: in Lumen, Blush, Lagoon, Dusk or **Match system**; in Cyber, Synapse Dark, Amber Shield, Terminal
+  Green, Secure Blue, **Soft Light** or **Match system**
 - 🎞️ **Animations**: follow the system, reduced (no background effects, short fades only) or off
 - 🔠 **Text size** for the message list, the reader and the editor, and a compact message list
 - ♿ **Higher contrast** and **underlined links**, so nothing depends on colour alone
@@ -459,7 +489,7 @@ step, together with the people who use it. 💪
 - 📤 Send As: other addresses with their own SMTP server, a setup wizard and a code check
 - 📥 All inboxes in one list: read those addresses in SynapseMail, without importing them
 - ⬆️ Signed updates installed from the admin panel
-- 🎨 Appearance settings and the Soft Light theme
+- 🎨 Two designs, Lumen and Cyber, with Appearance settings and a look chooser
 - Modern interface for desktop, tablet and phone, in English, Persian and Arabic
 - Web installer with hosting panel detection, and a private admin panel with health checks and backups
 - 🖥️ WHM plugin: cPanel's Webmail logins open SynapseMail, with a WHM page, rollback and uninstall
@@ -555,7 +585,7 @@ Copyright © 2026 SynapseCyber.io
 <sub>Keywords: secure webmail, self-hosted webmail, Roundcube alternative, Roundcube 2FA, webmail two-factor authentication,
 TOTP, passcode, cPanel webmail, Plesk webmail, DirectAdmin webmail, mobile webmail, responsive webmail, RTL email,
 Persian email client, Arabic email client, PHP webmail, IMAP client, send as, multiple email addresses, SMTP per
-identity, email aliases, multiple inboxes, read other mailboxes, light theme webmail, accessible webmail, reduced
+identity, email aliases, multiple inboxes, read other mailboxes, light theme webmail, glass design webmail, accessible webmail, reduced
 motion, signed updates, one-click webmail update</sub>
 
 </div>
