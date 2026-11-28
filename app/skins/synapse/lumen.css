@@ -402,6 +402,7 @@
 :root[data-look="lumen"] .compose-footer :is(.attach-btn) { border: 1px solid var(--line-strong); background: var(--glass-2); color: var(--muted); }
 :root[data-look="lumen"] .compose-footer .attach-btn:hover { color: var(--text); background: var(--glass-3); border-color: var(--line-strong); }
 :root[data-look="lumen"] .compose-footer .icon-only { width: 40px; padding: 0; justify-content: center; }
+:root[data-look="lumen"] .compose-footer .cf-extra { display: none; } /* signature, responses and options live in Settings in Lumen */
 :root[data-look="lumen"] .transmit-btn { padding: 0 20px; border: 1px solid var(--solid) !important; background: var(--solid); color: var(--on-solid); }
 :root[data-lumen="dusk"] .transmit-btn { border-color: var(--accent) !important; background: var(--accent); color: var(--on-accent); }
 :root[data-look="lumen"] .compose-attachment-list li .attachment-name, :root[data-look="lumen"] .compose-attachment-list li .uploading { font-size: 13px; }

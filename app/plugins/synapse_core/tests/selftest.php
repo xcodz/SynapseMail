@@ -593,6 +593,12 @@ $check(strpos($reader_tpl, 'change-format') === false && strpos($mail_tpl, 'id="
     'reader: plain or formatted text is only in the More menu, in the reading pane and the full-page view');
 $check(strpos($ui, "if (framed) doc.addEventListener('pointerdown', function () { try { var tui = topUI(); if (tui && tui.closeMenus) tui.closeMenus(); } catch (e) { } }, true);") !== false,
     'menus: a click or tap inside the open message closes the page\'s menus');
+$compose_tpl = (string) file_get_contents("$skin/templates/includes/compose-form.html");
+$check(substr_count($compose_tpl, 'cf-extra') === 3 && strpos($lumen_css, ':root[data-look="lumen"] .compose-footer .cf-extra { display: none; }') !== false
+    && strpos($ui, "expandCompose(doc.documentElement.dataset.look == 'lumen')") !== false,
+    'compose: Lumen opens the large window, without the signature, responses and options buttons (Cyber keeps them)');
+$check(strpos($ui, 'function openFirstItem()') !== false && strpos($ui, "!rc.env.search_request && !rc.env.group && rc.commands.add") !== false,
+    'lists: responses, folders and contacts open the first item, or the add form when empty');
 $cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
     'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP'];
 $texts_ok = true;

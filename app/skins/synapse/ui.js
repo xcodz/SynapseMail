@@ -1240,9 +1240,14 @@ var UI = (function () {
     byId('composeKicker').textContent = t(/_reply_uid/.test(url) ? 'kicker_reply' : /_forward_uid/.test(url) ? 'kicker_forward' : /_draft_uid/.test(url) ? 'kicker_draft' : 'kicker_new');
     frame.src = url;
     drawer.classList.remove('minimized');
+    if (!drawer.classList.contains('open')) expandCompose(doc.documentElement.dataset.look == 'lumen'); // Lumen writes in the large window; the button still shrinks it
     drawer.classList.add('open', 'loading');
     drawer.setAttribute('aria-hidden', 'false');
     scrim(true);
+  }
+  function expandCompose(on) {
+    byId('composeDrawer').classList.toggle('expanded', on);
+    byId('expandCompose').innerHTML = '<i data-lucide="' + (on ? 'minimize-2' : 'maximize-2') + '"></i>'; icons();
   }
   function composeReady() { var d = byId('composeDrawer'); if (d) d.classList.remove('loading'); clearTimeout(openCompose.guard); }
   function composeDirty() {
@@ -1388,10 +1393,7 @@ var UI = (function () {
     }
     if (frame) byId('closeCompose').addEventListener('click', function () { closeCompose(); });
     byId('minimizeCompose').addEventListener('click', function () { drawer.classList.toggle('minimized'); scrim(!drawer.classList.contains('minimized')); });
-    byId('expandCompose').addEventListener('click', function () {
-      var on = drawer.classList.toggle('expanded');
-      this.innerHTML = '<i data-lucide="' + (on ? 'minimize-2' : 'maximize-2') + '"></i>'; icons();
-    });
+    byId('expandCompose').addEventListener('click', function () { expandCompose(!drawer.classList.contains('expanded')); });
   }
 
   /* ---------- shared app chrome ---------- */
@@ -1766,9 +1768,25 @@ var UI = (function () {
     if (id) list.select(id);
   }
 
+  // Responses, folders and contacts on a wide screen: open the first item, or the add form when the list is empty,
+  // instead of an empty editor pane. Same limits as openStandardIdentity; an empty search result opens nothing.
+  function openFirstItem() {
+    if (!window.matchMedia('(min-width: 1101px)').matches) return;
+    var win = rc.get_frame_window(rc.env.contentframe);
+    try { if (!win || !/watermark\.html|about:blank/.test(win.location.href)) return; } catch (e) { return; }
+    var list = rc.env.action == 'responses' ? rc.responses_list : rc.env.action == 'folders' ? rc.subscription_list : rc.task == 'addressbook' ? rc.contact_list : null;
+    if (!list) return;
+    if (rc.env.action == 'folders') { var f = doc.querySelector('#subscription-table li.mailbox:not(.root)'); if (f && !list.get_selection()) list.select(rc.html_identifier_decode(f.id.replace(/^rcmli/, ''))); return; }
+    if (list.get_single_selection()) return;
+    var row = list.get_first_row();
+    if (row) list.select(row);
+    else if (!rc.env.search_request && !rc.env.group && rc.commands.add) rc.command('add');
+  }
+
   function initSendAs() {
     var env = rc.env.synapse_sendas;
     openStandardIdentity(env);
+    openFirstItem();
     if (!env) return;
     var add = byId('sendasAdd'); if (add && !env.on) add.hidden = true;
     var decorate = function () {
@@ -2550,6 +2568,7 @@ var UI = (function () {
       if (rc.env.task == 'addressbook') {
         decorateDirectory();
         ['group_insert', 'group_update', 'listupdate'].forEach(function (ev) { rc.addEventListener(ev, function () { setTimeout(decorateDirectory, 0); }); });
+        openFirstItem(); rc.addEventListener('listupdate', function () { setTimeout(openFirstItem, 0); });
       }
     }
     icons();
