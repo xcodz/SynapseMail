@@ -803,3 +803,40 @@
 :root[data-look="lumen"] .msg-window .drawer-header { background: transparent; }
 :root[data-look="lumen"] .msg-window-title { text-transform: none; }
 :root[data-look="lumen"] .msg-window .msg-window-frame { background: transparent; }
+
+/* ---------- error pages ---------- */
+:root[data-look="lumen"] .error-panel { padding: 30px 32px; border: 1px solid var(--glass-edge); border-radius: 24px; background: var(--glass-2); box-shadow: var(--shadow-win);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); }
+:root[data-look="lumen"] .error-copy :is(h1, h2, h3) { font-size: 22px; font-weight: 650; color: var(--text); text-transform: none !important; }
+:root[data-look="lumen"] .error-copy { font-size: 14px; color: var(--text-2); }
+:root[data-look="lumen"] .error-panel .ghost-btn { margin-top: 18px; display: inline-flex; align-items: center; gap: 6px; }
+:root[data-look="lumen"] .error-panel .ghost-btn svg { width: 16px; }
+/* Roundcube's own error titles are upper case ("SERVER ERROR!"): sentence case in Lumen */
+:root[data-look="lumen"] .error-copy :is(h3, .boxtitle) { text-transform: lowercase !important; }
+:root[data-look="lumen"] .error-copy :is(h3, .boxtitle)::first-letter { text-transform: uppercase; }
+/* bulk actions for selected messages: one pill with the count and round buttons */
+:root[data-look="lumen"] .bulk-actions.visible { gap: 2px; margin-left: 8px; padding: 3px 4px 3px 14px; border: 0; border-radius: 999px; background: var(--pick); }
+:root[data-look="lumen"] .bulk-actions span, :root[data-look="lumen"] #selectedCount { margin-right: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+:root[data-look="lumen"] .bulk-actions :is(button, a) { width: 32px; height: 32px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--text-2); }
+:root[data-look="lumen"] .bulk-actions :is(button, a):hover { background: var(--glass-3); color: var(--text); }
+:root[data-look="lumen"] .bulk-actions svg { width: 17px; height: 17px; }
+/* tablets: icon-only folder column; the mailbox chooser is a round button, unread counts sit on the icon */
+@media (max-width: 900px) and (min-width: 681px) {
+  :root[data-look="lumen"] .ib-switch { margin: 0 auto 14px; width: 48px; }
+  :root[data-look="lumen"] .ib-current { grid-template-columns: 1fr; justify-items: center; width: 48px; min-height: 48px; padding: 0; border-radius: 50%; }
+  :root[data-look="lumen"] .ib-current .ib-text, :root[data-look="lumen"] .ib-current > svg { display: none; }
+  :root[data-look="lumen"] :is(#mailboxlist, .rc-tree) li > a { position: relative; }
+  :root[data-look="lumen"] :is(#mailboxlist, .rc-tree) li > a .unreadcount { position: absolute; top: 3px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 10px; }
+}
+/* the subject uses the reader's width (Cyber caps it for its condensed headline type) */
+:root[data-look="lumen"] .reader-body h1 { max-width: none; }
+/* split view on wide screens: the list is narrow, so rows use two lines (sender and time, then subject) */
+@media (min-width: 1101px) {
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row { grid-template-columns: 26px 22px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 6px; row-gap: 2px; min-height: 62px; padding: 9px 12px; }
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row :is(.row-check, .star-btn) { grid-row: 1 / span 2; }
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row .pin-btn { display: none; }
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row .sender { grid-column: 3; grid-row: 1; min-width: 0; }
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row .message-time { grid-column: 4; grid-row: 1; }
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row .message-content { grid-column: 3 / -1; grid-row: 2; min-width: 0; }
+  :root[data-look="lumen"] .mail-stage.reader-active:not(.reader-max) .message-row .preview { display: none; }
+}
