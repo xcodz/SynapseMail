@@ -13,13 +13,16 @@ PHP=${PHP:-php}
 die() { echo "ABORT: $*" >&2; exit 1; }
 
 tools/build_release.sh >/dev/null
-V=$(sed -n "s/.*const VERSION = '\([0-9.]*\)'.*/\1/p" app/plugins/synapse_core/synapse_core.php)
-SRC=dist/SynapseMail_v$V
+# the same commit the release was built from (build_release.sh checks that the tree is clean)
+C=$(git rev-parse --verify "${COMMIT:-HEAD}^{commit}")
+V=$(git show "$C:app/plugins/synapse_core/synapse_core.php" | sed -n "s/.*const VERSION = '\([0-9.]*\)'.*/\1/p")
+ZIP=dist/SynapseMail_v$V.zip
 OUT=dist/SynapseMail_demo_v$V
-[[ -d $SRC ]] || die "release staging folder $SRC missing"
+[[ -f $ZIP ]] || die "release package $ZIP missing"
 rm -rf "$OUT" "$OUT.zip"
-cp -R "$SRC" "$OUT"
-rsync -a --exclude '.DS_Store' app/plugins/synapse_demo/ "$OUT/plugins/synapse_demo/"
+mkdir -p "$OUT"
+unzip -q "$ZIP" -d "$OUT"   # the signed release package, not the working folder
+git archive "$C" app/plugins/synapse_demo | tar -x --strip-components=2 -C "$OUT/plugins"
 rm -f "$OUT/setup.key"
 
 # database, admin account and configuration (fresh secrets every build)
