@@ -1058,6 +1058,9 @@ var UI = (function () {
     stage.classList.add('reader-active');
     byId('readerDrawer').setAttribute('aria-hidden', 'false');
     if (cls) byId('readerClass').textContent = cls;
+    // Lumen labels the back button with the folder the list shows ("Inbox", "Sent", ...)
+    var box = (rc.env.mailboxes || {})[rc.env.mailbox], back = byId('readerBackLabel');
+    if (back) back.textContent = rc.env.synapse_box_name || (box && box.name) || rc.gettext('inbox');
     if (window.innerWidth <= 1100) scrim(true);
   }
   function closeReader() {

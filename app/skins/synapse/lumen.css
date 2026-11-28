@@ -649,3 +649,11 @@
 :root[data-look="lumen"] .reader-copy p.image-attachment .attachment-links a:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); background: var(--pick); }
 :root[data-look="lumen"] .reader-copy p.image-attachment .attachment-links a.download { border-color: var(--solid); background: var(--solid); color: var(--on-solid); }
 :root[data-lumen="dusk"] .reader-copy p.image-attachment .attachment-links a.download { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+
+/* back to the list: a left arrow with the folder name (Cyber: the arrow only) */
+:root:not([data-look="lumen"]) .back-label { display: none; }
+:root[data-look="lumen"] .reader-header #closeReader { width: auto; min-width: 38px; gap: 6px; padding: 0 12px 0 9px; display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--glass-3); color: var(--text); font: 600 13px var(--font); }
+:root[data-look="lumen"] .reader-header #closeReader:hover { background: var(--selected); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+:root[data-look="lumen"] .back-label { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-look="lumen"] .back-label:empty { display: none; }
