@@ -211,7 +211,11 @@ var UI = (function () {
     if (motionReduced()) return w.location.reload();
     try { w.sessionStorage.setItem('synapsemail-arrive', '1'); } catch (e) { }
     w.document.documentElement.classList.add('sx-leave');
-    setTimeout(function () { w.location.reload(); }, 180);
+    setTimeout(function () {
+      w.location.reload();
+      // "Leave site?" (an unsent draft) answered with Stay: the page stays, so it must show again (timers wait for the dialog)
+      setTimeout(function () { w.document.documentElement.classList.remove('sx-leave'); try { w.sessionStorage.removeItem('synapsemail-arrive'); } catch (e) { } }, 1500);
+    }, 180);
   }
   function topWin() { try { return window.top.rcmail ? window.top : window; } catch (e) { return window; } }
 
