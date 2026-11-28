@@ -750,6 +750,26 @@ body.action-preview .reader-body, body.action-show .reader-body { background: li
 .pin-links button.danger { color: var(--red); }
 .pin-links button.danger.confirm { border: 1px solid var(--red); padding: 6px 10px; }
 @media (max-width: 680px) { .pin-pad { --key: 52px; } .pin-slots i { width: 34px; height: 42px; } .processing-screen.pin-mode .verification-grid { margin-top: 18px; } }
+/* touch phones: the code boxes are the field; the system keyboard types into an input laid over them, so there is
+   no second box and nothing to scroll to */
+.pin-pad.touch { position: relative; }
+.pin-pad.touch .pin-input { position: absolute; top: 0; left: 50%; width: min(100%, 340px); height: 100%; max-height: 52px; margin: 0; padding: 0; border: 0; transform: translateX(-50%);
+  opacity: 0; font-size: 16px; color: transparent; caret-color: transparent; background: transparent; box-shadow: none; pointer-events: auto; cursor: text; }
+.pin-pad.touch:focus-within .pin-slots i.current { box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 25%, transparent); }
+/* phones, sign-in: a short headline and the form right below it (the status readout and lead text are for wide screens) */
+@media (max-width: 600px) {
+  .mission-brief .system-readout, .mission-brief > p { display: none; }
+  .mission-brief .glitch-title { font-size: clamp(38px, 12vw, 52px); margin-bottom: 18px; }
+}
+/* phones, code steps (authenticator, passcode): only what is needed, near the top, above the keyboard */
+@media (max-width: 680px) {
+  .processing-screen.pin-mode { place-items: start center; overflow-y: auto; padding: 14px 0 24px; }
+  .processing-screen.pin-mode :is(.scan-emblem, .progress-track, .progress-meta, .verification-grid) { display: none !important; }
+  .processing-screen.pin-mode .processing-core h2 { margin: 4px 0 4px; font-size: 22px; }
+  .processing-screen.pin-mode #processingDetail { margin: 0; }
+  .processing-screen.pin-mode .pin-stage { margin-top: 16px; padding-top: 16px; }
+  .processing-screen.pin-mode .pin-links { margin-top: 10px; }
+}
 
 /* ---------- recommendation widget ---------- */
 .pin-prompt { margin-top: 14px; border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--amber) 9%, transparent), transparent); animation: hud-in .5s cubic-bezier(.2,.9,.25,1) both; }
