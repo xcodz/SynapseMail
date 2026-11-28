@@ -218,11 +218,8 @@
   :root[data-look="lumen"] .message-row .sender-name { font-size: 14px; }
   :root[data-look="lumen"] .message-row .subject { font-size: 13px; }
 }
-:root[data-look="lumen"] .message-row { border: 0; border-bottom: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: transparent; box-shadow: none; }
-:root[data-look="lumen"] .message-row:hover { background: var(--hover); border-bottom-color: transparent; box-shadow: none; }
 :root[data-look="lumen"] .message-row.unread { background: transparent; color: var(--text); }
 :root[data-look="lumen"] .message-row.unread .sender-name, :root[data-look="lumen"] .message-row.unread .subject { color: var(--text); font-weight: 600; }
-:root[data-look="lumen"] .message-row.selected, :root[data-look="lumen"] .message-row.focused.selected { background: var(--selected); box-shadow: inset 3px 0 var(--accent), 0 6px 18px -12px rgba(60, 40, 120, .5); border-bottom-color: transparent; }
 :root[data-look="lumen"] .sender-name { font-size: 14px; font-weight: 500; color: var(--text-2); }
 :root[data-look="lumen"] .subject { font-size: 14px; color: var(--text-2); }
 :root[data-look="lumen"] .preview { font-size: 13px; color: var(--dim); }
@@ -339,8 +336,8 @@
   .lw-styles .ap-preview, .lw-styles.lumen .ap-preview { height: 60px; }
   .lw-looks { grid-template-columns: 1fr; }
   .lw-look { grid-template-columns: 120px 1fr; align-items: center; }
-  .lw-foot div { width: 100%; }
-  .lw-foot button { flex: 1; }
+  .lw-foot div { width: 100%; flex-direction: column-reverse; gap: 8px; }
+  .lw-foot button { width: 100%; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .look-wizard[open] { animation: none; } }
 :root[data-motion="off"] .look-wizard[open], :root[data-motion="reduce"] .look-wizard[open] { animation: none; }
@@ -620,8 +617,8 @@
 /* ---------- reader: Details as (i) beside the sender, plain text in the More menu (Lumen only) ---------- */
 :root:not([data-look="lumen"]) .reader-info { display: none !important; }
 :root[data-look="lumen"] #toggleHeaders { display: none; }
-:root[data-look="lumen"] .reader-meta { grid-template-columns: 44px minmax(0, max-content) auto minmax(0, 1fr) auto; }
-:root[data-look="lumen"] .reader-meta time { grid-column: 5; grid-row: 1; align-self: start; padding-top: 4px; text-align: right; }
+:root[data-look="lumen"] .reader-meta:not(.contact-meta) { grid-template-columns: 44px minmax(0, max-content) auto minmax(0, 1fr) auto; }
+:root[data-look="lumen"] .reader-meta:not(.contact-meta) time { grid-column: 5; grid-row: 1; align-self: start; padding-top: 4px; text-align: right; }
 :root[data-look="lumen"] .reader-info { grid-column: 3; grid-row: 1; align-self: start; width: 28px; height: 28px; margin-top: 1px; display: grid; place-items: center; padding: 0;
   border: 0; border-radius: 50%; background: transparent; color: var(--dim); cursor: pointer; }
 :root[data-look="lumen"] .reader-info:hover, :root[data-look="lumen"] .reader-info[aria-expanded="true"] { background: var(--pick); color: var(--accent); }
@@ -631,8 +628,8 @@
 :root[data-look="lumen"] .reader-copy .message-part:not(.message-htmlpart) .pre { max-width: 96ch; }
 :root[data-look="lumen"] .reader-copy .message-part:not(.message-htmlpart) .pre[dir="rtl"] { margin-left: auto; }
 @media (max-width: 680px) {
-  :root[data-look="lumen"] .reader-meta { grid-template-columns: 44px minmax(0, 1fr) auto; }
-  :root[data-look="lumen"] .reader-meta time { grid-column: 2 / -1; grid-row: 2; text-align: left; padding: 0; }
+  :root[data-look="lumen"] .reader-meta:not(.contact-meta) { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  :root[data-look="lumen"] .reader-meta:not(.contact-meta) time { grid-column: 2 / -1; grid-row: 2; text-align: left; padding: 0; }
 }
 
 /* image attachment cards (base in synapse.css) */
@@ -661,3 +658,148 @@
   :root[data-look="lumen"] .mail-stage { padding: 0 8px 8px; }
 }
 :root[data-look="lumen"] .header-actions > * { flex: none; }
+
+/* ---------- message list rows: states (overrides the first pass above) ---------- */
+/* separators are a background line inset from the rounded corners, so highlighted rows stay clean pills */
+:root[data-look="lumen"] .rc-messagelist tr.message-row { border: 0; border-radius: 12px; box-shadow: none;
+  background: linear-gradient(var(--line), var(--line)) center bottom / calc(100% - 28px) 1px no-repeat; transition: background-color .12s ease; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row:hover { background: var(--hover); }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected,
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected:hover { background: var(--pick); box-shadow: none; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row:has(+ tr.message-row:is(.selected, :hover)) { background-size: 0 0; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected:has(+ tr.message-row.selected) { border-radius: 12px 12px 0 0; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected + tr.message-row.selected { border-radius: 0 0 12px 12px; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected + tr.message-row.selected:has(+ tr.message-row.selected) { border-radius: 0; }
+/* the bar: a short rounded accent mark inside the row, not the row's edge */
+:root[data-look="lumen"] .rc-messagelist tr.message-row::before { left: 4px; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: transparent; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row:hover::before { background: transparent; }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected::before { background: var(--accent); }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.focused:not(.selected)::before { background: var(--line-strong); }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected :is(.sender-name, .subject) { color: var(--text); }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.selected .row-check span { background: var(--accent); border-color: var(--accent); }
+:root[data-look="lumen"] .rc-messagelist tr.message-row.priority::after { right: 14px; top: 8px; width: 6px; height: 6px; border-radius: 50%; }
+:root[data-look="lumen"] .rc-messagelist .row-check span::after { left: 5px; top: 1px; }
+
+/* ---------- mailbox chooser (All inboxes / each address) ---------- */
+:root[data-look="lumen"] .ib-switch { margin: 0 0 16px; }
+:root[data-look="lumen"] .ib-current { min-height: 54px; padding: 8px 12px 8px 10px; gap: 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-card); background: var(--glass-2);
+  box-shadow: 0 6px 18px -14px rgba(60, 40, 120, .45); transition: background-color .15s ease, border-color .15s ease; }
+:root[data-look="lumen"] .ib-current:hover, :root[data-look="lumen"] .ib-current[aria-expanded="true"] { background: var(--glass-3); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+:root[data-look="lumen"] .ib-current > svg { transition: transform .2s ease; }
+:root[data-look="lumen"] .ib-current[aria-expanded="true"] > svg { transform: rotate(180deg); }
+:root[data-look="lumen"] .ib-switch.other .ib-current { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--pick); }
+:root[data-look="lumen"] .ib-avatar { width: 34px; height: 34px; background: var(--pick); color: var(--accent); font-size: 12px; font-weight: 600; }
+:root[data-look="lumen"] .ib-avatar svg { width: 17px; height: 17px; }
+:root[data-look="lumen"] .ib-text b { font-size: 14px; color: var(--text); }
+:root[data-look="lumen"] .ib-text small { font-size: 12px; color: var(--muted); }
+:root[data-look="lumen"] .ib-menu { top: calc(100% + 8px); padding: 6px; border: 1px solid var(--glass-edge); border-radius: var(--r-card); background: var(--pop); box-shadow: var(--shadow-pop);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4); backdrop-filter: blur(28px) saturate(1.4); animation: lw-in .16s ease-out; }
+:root[data-look="lumen"] .ib-menu-h { padding: 6px 10px 6px; font-size: 12px; color: var(--dim); }
+:root[data-look="lumen"] .ib-item { grid-template-columns: 34px minmax(0, 1fr) auto 16px; gap: 10px; min-height: 52px; padding: 8px 10px; border-radius: 12px; }
+:root[data-look="lumen"] .ib-item:hover, :root[data-look="lumen"] .ib-item:focus-visible { background: color-mix(in srgb, var(--text) 6%, transparent); }
+:root[data-look="lumen"] .ib-item.active { background: var(--pick); }
+:root[data-look="lumen"] .ib-item > svg { color: var(--accent); }
+:root[data-look="lumen"] .ib-item:not(.active)::after { content: ""; width: 16px; }
+:root[data-look="lumen"] .ib-count { padding: 2px 7px; background: var(--accent); color: var(--on-accent); font-size: 11px; }
+:root[data-look="lumen"] .ib-manage { margin: 4px 4px 0; padding: 12px 6px 6px; font-size: 13px; color: var(--muted); }
+:root[data-look="lumen"] .ib-manage:hover { color: var(--accent); }
+:root[data-look="lumen"] .ib-current.has-new .ib-avatar::after { border-color: var(--glass-3); }
+
+/* ---------- compose on phones (inside the compose frame) ---------- */
+@media (max-width: 680px) {
+  :root[data-look="lumen"] .compose-drawer label { grid-template-columns: 62px minmax(0, 1fr); padding: 0 14px; min-height: 52px; }
+  :root[data-look="lumen"] .compose-addons button { padding: 0 6px; }
+  /* the editor toolbar is one row that scrolls sideways, not three ragged rows */
+  :root[data-look="lumen"] .lx-toolbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 8px 10px; gap: 2px; }
+  :root[data-look="lumen"] .lx-toolbar::-webkit-scrollbar { display: none; }
+  :root[data-look="lumen"] .lx-toolbar > * { flex: none; }
+  :root[data-look="lumen"] .lx-select { max-width: 116px; }
+  /* footer: the secondary actions become round icon buttons, Send keeps its label; room below for the credit */
+  :root[data-look="lumen"] .compose-footer { min-height: 84px; padding: 8px 12px 26px; gap: 8px; }
+  :root[data-look="lumen"] .compose-footer-left { gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  :root[data-look="lumen"] .compose-footer .attach-btn { flex: none; width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; font-size: 0; }
+  :root[data-look="lumen"] .compose-footer .attach-btn svg { width: 17px; height: 17px; }
+  :root[data-look="lumen"] .transmit-btn { flex: none; padding: 0 16px; }
+  :root[data-look="lumen"] .compose-drawer .drawer-header { padding-left: 16px; }
+}
+
+/* ---------- popover forms: search options, sort and view ---------- */
+:root[data-look="lumen"] .option-grid { gap: 4px 10px; }
+:root[data-look="lumen"] .secure-option { min-height: 34px; gap: 9px; font-size: 13px; color: var(--text-2); border-radius: 10px; padding: 0 6px; }
+:root[data-look="lumen"] .secure-option:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+:root[data-look="lumen"] .field-row { gap: 10px; }
+:root[data-look="lumen"] .field-row > span { font-size: 13px; font-weight: 500; color: var(--text-2); }
+:root[data-look="lumen"] :is(.field-row, .theme-popover) select, :root[data-look="lumen"] .theme-popover option { font-size: 13px; }
+:root[data-look="lumen"] .popover-actions { gap: 8px; padding-top: 10px; }
+:root[data-look="lumen"] .theme-choice em:empty { display: none; }
+
+/* contact view and edit: photo on the left, fields beside it */
+:root[data-look="lumen"] .reader-meta.contact-meta { grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: 16px 20px; padding: 6px 0 20px; }
+:root[data-look="lumen"] .contact-photo { width: 76px; }
+:root[data-look="lumen"] .contact-photo :is(#contactpic, img) { display: block; }
+:root[data-look="lumen"] .contact-photo img { width: 76px; height: 76px; padding: 14px; border-radius: 50%; border: 1px solid var(--glass-edge); background: var(--pick); object-fit: cover; }
+:root[data-look="lumen"] .contact-photo img:not([src*="contact-person"]):not([src*="contact-group"]) { padding: 0; }
+:root[data-look="lumen"] .contact-head.propform :is(input, select) { max-width: 420px; }
+
+/* ---------- core dialogs (import, folder pickers, confirmations from Roundcube) ---------- */
+:root[data-look="lumen"] body .ui-dialog { border: 1px solid var(--glass-edge); border-radius: 22px; background: var(--pop); box-shadow: var(--shadow-pop); overflow: hidden;
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-titlebar { height: 58px; padding: 0 10px 0 22px; background: transparent; border-bottom: 1px solid var(--line); }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-title { font-size: 16px; font-weight: 600; color: var(--text); }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-titlebar-close { border-radius: 50%; }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-titlebar-close:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-content { padding: 18px 22px; font-size: 14px; }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-buttonpane { min-height: 66px; padding: 0 18px; }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-buttonpane button { height: 40px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--glass-2); color: var(--text); font-size: 13px; font-weight: 600; }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-buttonpane button:is(.mainaction, .btn-primary, :first-child) { background: var(--solid); border-color: var(--solid); color: var(--on-solid); }
+:root[data-lumen="dusk"] body .ui-dialog .ui-dialog-buttonpane button:is(.mainaction, .btn-primary, :first-child) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+:root[data-look="lumen"] body .ui-dialog .ui-dialog-buttonpane button:is(.delete, .btn-danger) { background: transparent; border-color: var(--red); color: var(--red); }
+:root[data-look="lumen"] body .ui-dialog :is(input[type=text], input[type=password], select, textarea) { border-radius: var(--r-ctl); border-color: var(--line-strong); background: var(--field); }
+:root[data-look="lumen"] body .ui-dialog .ui-resizable-handle { display: none !important; }
+:root[data-look="lumen"] .ui-widget-overlay { background: var(--overlay); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+:root[data-look="lumen"] input[type=file] { font-size: 13px; }
+:root[data-look="lumen"] input[type=file]::file-selector-button { margin-right: 10px; height: 34px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--glass-2); color: var(--text); font: 600 13px var(--font); cursor: pointer; }
+
+/* ---------- Send As and other-inbox setup dialog ---------- */
+:root[data-look="lumen"] .sa-modal { background: var(--overlay); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+:root[data-look="lumen"] .sa-panel { padding: 26px 28px 22px; border: 1px solid var(--glass-edge); border-radius: 22px; background: var(--pop); box-shadow: var(--shadow-pop);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); }
+:root[data-look="lumen"] .sa-panel h2 { font-size: 21px; font-weight: 650; color: var(--text); }
+:root[data-look="lumen"] .sa-panel :is(input[type=text], input[type=password], input[type=email], input[type=number], select, textarea) { min-height: 42px; border-radius: var(--r-ctl); border-color: var(--line-strong); background: var(--field); font-size: 14px; }
+:root[data-look="lumen"] .sa-panel :is(input, select, textarea):focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 4px var(--pick); }
+:root[data-look="lumen"] .sa-panel label > span, :root[data-look="lumen"] .sa-panel .sec-field > span { font-size: 13px; font-weight: 500; color: var(--text-2); }
+:root[data-look="lumen"] .sa-tip { border-radius: 12px; font-size: 13px; }
+@media (max-width: 680px) { :root[data-look="lumen"] .sa-panel { border-radius: 0; border: 0; } }
+/* the address list beside it */
+:root[data-look="lumen"] .sendas-list :is(li, .sa-row, tr) { border-radius: 12px; }
+
+/* ---------- the message area's grid without Cyber's status row, for every state Cyber has (styles.css, synapse.css) ---------- */
+@media (max-width: 1100px) {
+  :root[data-look="lumen"] .mail-stage, :root[data-look="lumen"] .mail-stage.reader-active { grid-template-columns: minmax(0, 1fr); grid-template-areas: "inbox"; }
+  :root[data-look="lumen"] .mail-stage.reader-full { grid-template-columns: minmax(0, 1fr); grid-template-areas: "reader"; }
+}
+/* settings lists: addresses, folders, responses */
+:root[data-look="lumen"] .settings-list-panel .rc-list td { font-size: 14px; color: var(--text-2); }
+:root[data-look="lumen"] .settings-list-panel .rc-list tr.selected td { color: var(--text); }
+:root[data-look="lumen"] .settings-list-panel .rc-list tr { border-radius: 12px; }
+:root[data-look="lumen"] .settings-list-panel .rc-list tr.selected { background: var(--pick); box-shadow: none; }
+:root[data-look="lumen"] .sa-meta { font-size: 12px; }
+:root[data-look="lumen"] .form-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+:root[data-look="lumen"] .recovery-link { white-space: nowrap; }
+/* touch phones: the passcode / code field instead of the keypad */
+:root[data-look="lumen"] .pin-pad.touch .pin-input { width: min(280px, 100%); height: 54px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--field);
+  font: 600 22px var(--font) !important; letter-spacing: .5em !important; color: var(--text); caret-color: var(--accent); }
+:root[data-look="lumen"] .pin-pad.touch .pin-input:focus { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 4px var(--pick); }
+@media (max-width: 680px) {
+  :root[data-look="lumen"] .processing-core { padding: 26px 20px; border-radius: 24px; }
+  :root[data-look="lumen"] .verification-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  :root[data-look="lumen"] .verification-grid span { padding: 8px 4px; }
+}
+
+/* ---------- floating message windows ---------- */
+:root[data-look="lumen"] .msg-window { border: 1px solid var(--glass-edge); border-radius: 20px; background: var(--pop); box-shadow: var(--shadow-pop); overflow: hidden;
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); }
+:root[data-look="lumen"] .msg-window.focused { border-color: color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: var(--shadow-pop), 0 0 0 3px var(--pick); }
+:root[data-look="lumen"] .msg-window .drawer-header { background: transparent; }
+:root[data-look="lumen"] .msg-window-title { text-transform: none; }
+:root[data-look="lumen"] .msg-window .msg-window-frame { background: transparent; }

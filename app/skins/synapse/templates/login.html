@@ -96,7 +96,7 @@
 <footer class="security-footer">
 	<span><i data-lucide="lock-keyhole"></i> <roundcube:label name="synapse_core.secureaccess" /></span>
 	<span><roundcube:label name="synapse_core.loginmonitored" /></span>
-	<span>SYNAPSEMAIL v<roundcube:var name="env:synapse_version" /></span>
+	<span><roundcube:if condition="env:synapse_labels == 'lumen'" />SynapseMail<roundcube:else />SYNAPSEMAIL<roundcube:endif /> v<roundcube:var name="env:synapse_version" /></span>
 	<a class="credit-link" href="https://synapsecyber.io" target="_blank" rel="noopener noreferrer"><roundcube:label name="synapse_core.poweredby" /></a>
 </footer>
 

@@ -604,7 +604,7 @@ var UI = (function () {
     function updateProgress(value) {
       var v = Math.min(100, Math.round(value)), stage = byId('progressStage'), detail = byId('processingDetail');
       byId('progressBar').style.width = v + '%';
-      byId('progressValue').textContent = pad(v, 3) + '%';
+      byId('progressValue').textContent = (rc.env.synapse_labels == 'lumen' ? v : pad(v, 3)) + '%'; // Lumen: 55%, Cyber: 055%
       if (!accepted) {
         // waiting for the mail server: nothing is verified yet
         if (v < 35) { stage.textContent = t('stage_verifying'); detail.textContent = t('detail_submitting'); setVerification('verifyIdentity', 'checking'); }
@@ -689,7 +689,7 @@ var UI = (function () {
       processing.classList.add('pin-mode'); stageEl.hidden = false;
       setVerification('verifyIdentity');
       setVerification('verifyClearance', 'checking');
-      byId('progressBar').style.width = '55%'; byId('progressValue').textContent = '055%';
+      byId('progressBar').style.width = '55%'; byId('progressValue').textContent = rc.env.synapse_labels == 'lumen' ? '55%' : '055%';
       byId('pinHint').hidden = true; byId('pinErase').hidden = true; msg.textContent = '';
       byId('pinSignOut').onclick = function () { location.href = './?_task=logout&_token=' + encodeURIComponent(token); };
       if (info.state == 'locked') {
@@ -763,7 +763,7 @@ var UI = (function () {
       stopWaiting();
       processing.classList.add('pin-mode'); byId('pinStage').hidden = false;
       setVerification('verifyIdentity'); setVerification('verifyClearance', 'checking');
-      byId('progressBar').style.width = '55%'; byId('progressValue').textContent = '055%';
+      byId('progressBar').style.width = '55%'; byId('progressValue').textContent = rc.env.synapse_labels == 'lumen' ? '55%' : '055%';
       byId('processingTitle').textContent = title;
       processing.querySelector('.processing-kicker').textContent = t('passwordaccepted_kicker');
       byId('progressStage').textContent = t('stage_secondfactor');
@@ -1024,7 +1024,8 @@ var UI = (function () {
     var label = byId('rangeLabel'); if (!label) return;
     var count = rc.env.messagecount || 0, size = rc.env.pagesize || 50, page = rc.env.current_page || 1,
       first = count ? (page - 1) * size + 1 : 0, last = Math.min(count, page * size);
-    label.textContent = count ? t('rangeof', { a: pad(first) + '–' + pad(last), b: count.toLocaleString('en-US') }) : t('rangeof', { a: '00', b: 0 });
+    var p2 = rc.env.synapse_labels == 'lumen' ? String : pad; // Lumen: 1–15 of 15, Cyber: 01–15 of 15
+    label.textContent = count ? t('rangeof', { a: p2(first) + '–' + p2(last), b: count.toLocaleString('en-US') }) : t('rangeof', { a: p2(0), b: 0 });
     var empty = byId('emptyState');
     if (empty) empty.hidden = !!(rc.message_list && rc.message_list.rowcount);
   }
@@ -1104,7 +1105,7 @@ var UI = (function () {
     w.style.left = Math.max(12, Math.round((window.innerWidth - width) / 2) - 60 + offset) + 'px';
     w.style.top = Math.max(76, 90 + offset) + 'px';
     var tMin = esc(t('minimize')), tMax = esc(t('maximize')), tClose = esc(rc.gettext('close'));
-    w.innerHTML = '<div class="drawer-header"><div><span>' + esc(t('emailwindow_kicker', { n: pad(n) })) + '</span><h2 class="msg-window-title">' + esc(t('loading_caps')) + '</h2></div><div>'
+    w.innerHTML = '<div class="drawer-header"><div><span>' + esc(t('emailwindow_kicker', { n: rc.env.synapse_labels == 'lumen' ? n : pad(n) })) + '</span><h2 class="msg-window-title">' + esc(t('loading_caps')) + '</h2></div><div>'
       + '<button type="button" data-act="min" title="' + tMin + '" aria-label="' + tMin + '"><i data-lucide="minus"></i></button>'
       + '<button type="button" data-act="max" title="' + tMax + '" aria-label="' + tMax + '"><i data-lucide="maximize-2"></i></button>'
       + '<button type="button" data-act="close" title="' + tClose + '" aria-label="' + tClose + '"><i data-lucide="x"></i></button></div></div>'
@@ -2038,6 +2039,15 @@ var UI = (function () {
     var toggle = function (show) {
       show = show === undefined ? menu.hidden : show;
       menu.hidden = !show; button.setAttribute('aria-expanded', show ? 'true' : 'false');
+      // the folder column clips its content: on wide screens the menu is placed on the page, wide enough for addresses
+      // (the phone menu panel is wide enough as it is)
+      var wide = window.matchMedia('(min-width: 681px)').matches;
+      menu.style.position = show && wide ? 'fixed' : '';
+      if (show && wide) {
+        var r = button.getBoundingClientRect();
+        menu.style.top = (r.bottom + 8) + 'px'; menu.style.left = r.left + 'px';
+        menu.style.width = Math.min(Math.max(r.width, 330), window.innerWidth - r.left - 12) + 'px';
+      } else { menu.style.top = menu.style.left = menu.style.width = ''; }
       if (show) { if (data) render(); var f = menu.querySelector('.ib-item.active') || menu.querySelector('.ib-item'); if (f) f.focus(); }
     };
     var open = function (iid) {
@@ -2057,6 +2067,9 @@ var UI = (function () {
       if (e.key == 'Escape') { toggle(false); button.focus(); }
     });
     doc.addEventListener('click', function (e) { if (!menu.hidden && !host.contains(e.target)) toggle(false); });
+    var side = host.closest('.mail-sidebar');
+    if (side) side.addEventListener('scroll', function () { if (!menu.hidden) toggle(false); }, { passive: true });
+    window.addEventListener('resize', function () { if (!menu.hidden) toggle(false); });
     load(false);
     // new mail check refreshes the other inboxes' counts too (cached on the server for two minutes)
     rc.addEventListener('responseafterrefresh', function () { load(false); });
