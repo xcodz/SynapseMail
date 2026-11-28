@@ -240,6 +240,10 @@ function admin_theme()
     }
     $mail = (string) ($_COOKIE['synapsemail_theme2'] ?? '');
 
+    if (in_array($mail, ['lumen-blush', 'lumen-lagoon'], true)) {
+        return 'soft'; // the admin panel has the Cyber look only: Lumen's light styles map to Soft Light
+    }
+
     return in_array($mail, ['warfare', 'blackops', 'night', 'agency', 'soft'], true) ? $mail : 'agency';
 }
 

@@ -22,7 +22,7 @@
 		</section>
 		<section class="reader-pane" aria-label="<roundcube:label name="details" />">
 			<div class="reader-header">
-				<span id="settingsTitle"><roundcube:label name="synapse_core.edit_caps" /> // <roundcube:label name="folders" /></span>
+				<span id="settingsTitle"><roundcube:if condition="env:synapse_labels == 'lumen'" /><roundcube:label name="folders" /><roundcube:else /><roundcube:label name="synapse_core.edit_caps" /> // <roundcube:label name="folders" /><roundcube:endif /></span>
 				<div><button type="button" title="<roundcube:label name="save" />" onclick="return UI.frameCommand('save')"><i data-lucide="save"></i></button></div>
 			</div>
 			<roundcube:object name="contentframe" id="preferences-frame" name="preferences-frame" class="reader-frame" src="env:blankpage" />

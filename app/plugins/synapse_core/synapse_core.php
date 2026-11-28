@@ -19,12 +19,14 @@ require_once __DIR__ . '/lib/synapse_totp.php';
 require_once __DIR__ . '/lib/synapse_secret.php';
 require_once __DIR__ . '/lib/synapse_gate.php';
 require_once __DIR__ . '/lib/synapse_atomic.php';
+require_once __DIR__ . '/lib/synapse_look.php';
 
 class synapse_core extends rcube_plugin
 {
     // bump on every release (3.x from the first public release)
     public const VERSION = '3.5.6';
-    public const THEMES = ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'];
+    // Cyber styles, then Lumen styles (the design is the "lumen-" prefix)
+    public const THEMES = [...synapse_look::CYBER, ...synapse_look::LUMEN];
 
     // "remember this device": sliding window, renewed while the account is used
     public const REMEMBER_SECONDS = 15 * 86400;
@@ -71,9 +73,9 @@ class synapse_core extends rcube_plugin
     // sign-in attempt taken in authenticate(), settled by login_after() or login_failed()
     private $rl_login_taken = null;
 
-    // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init()); synapse_tip_theme marks
-    // the one-time light theme tip as seen
-    public $allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_tip_theme'];
+    // the skin saves the chosen theme with rcmail.save_pref() (core reads this before init()); synapse_look_seen marks
+    // the one-time look chooser (Lumen or Cyber) as done
+    public $allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_look_seen'];
 
     // requests allowed while the passcode gate is up
     private const GATE_ACTIONS = ['plugin.synapse-gate', 'plugin.synapse-pin-status', 'plugin.synapse-pin-verify', 'plugin.synapse-pin-forgot',
@@ -105,8 +107,17 @@ class synapse_core extends rcube_plugin
             return;
         }
 
-        // skin + plugin texts, also sent to the browser (ui.js reads them with rcmail.gettext)
-        $this->add_texts('localization/', true);
+        // skin + plugin texts, also sent to the browser (ui.js reads them with rcmail.gettext); the Lumen design shows
+        // the HUD's upper-case texts in sentence case
+        $texts = $rcmail->read_localization(realpath(__DIR__ . '/localization'));
+        $lumen = self::lumen_active($rcmail);
+        $add = [];
+        foreach ($texts as $key => $value) {
+            $add['synapse_core.' . $key] = $lumen ? synapse_look::text((string) $value) : $value;
+        }
+        $rcmail->load_language($_SESSION['language'] ?? null, $add);
+        $rcmail->output->add_label(array_keys($add));
+        $rcmail->output->set_env('synapse_labels', $lumen ? 'lumen' : 'cyber'); // a design switch reloads the page
         $rcmail->output->set_env('synapse_version', self::VERSION);
         $rcmail->output->add_handler('synapseservicename', [$this, 'service_name_html']);
         if ($rcmail->task === 'login' && $rcmail->output->type === 'html') {
@@ -125,12 +136,11 @@ class synapse_core extends rcube_plugin
             if (preg_match('/^((motion-(reduce|off)|effects-off|density-compact|text-(small|large|larger)|contrast-more|links-underline|open-(split|window))(\.|$))*$/', $ui)) {
                 $rcmail->output->set_env('synapse_ui', $ui);
             }
-            // one-time tip about the light themes, in the mail view, while the account itself has never picked a theme
-            // (an admin default does not count) and has not dismissed the tip; the page also checks that a dark
-            // theme is in effect
+            // one-time look chooser (Lumen or Cyber) in the mail view: for new accounts and, once, for accounts that
+            // existed before Lumen; read from the account's own prefs, so an admin default does not count
             $own = (array) $rcmail->user->get_prefs();
-            if ($rcmail->task === 'mail' && empty($own['synapse_theme']) && empty($own['synapse_tip_theme'])) {
-                $rcmail->output->set_env('synapse_theme_tip', true);
+            if ($rcmail->task === 'mail' && empty($own['synapse_look_seen'])) {
+                $rcmail->output->set_env('synapse_look_wizard', true);
             }
             if ($prompt = $this->prompt_state()) {
                 $rcmail->output->set_env('synapse_pin_prompt', $prompt);
@@ -423,6 +433,18 @@ class synapse_core extends rcube_plugin
     }
 
     /** Settings > Appearance: theme, animations and display options (the page is built by ui.js, saved with save_pref) */
+    /** The Lumen design is in use: the account's theme, else (also before sign-in) the browser's theme cookie. */
+    public static function lumen_active($rcmail): bool
+    {
+        // as ui.js decides: the account's theme (or the admin default), else the browser's last theme
+        $theme = $rcmail->user && $rcmail->user->ID ? (string) $rcmail->config->get('synapse_theme') : '';
+        if (!in_array($theme, self::THEMES, true)) {
+            $theme = (string) ($_COOKIE['synapsemail_theme2'] ?? '');
+        }
+
+        return in_array($theme, synapse_look::LUMEN, true);
+    }
+
     public function action_appearance()
     {
         $rcmail = rcmail::get_instance();

@@ -533,24 +533,82 @@ $check($fn !== '' && $bp !== null && strpos($css, "@media (min-width: {$bp}px) {
 $check(strpos($fn, 'list.get_single_selection()') !== false && strpos($fn, 'watermark\\.html|about:blank') !== false && strpos($fn, "idents[i]['default']") !== false && strpos($fn, 'list.select(id)') !== false, 'identities: it never overrides a selection or an open editor, and picks the standard identity');
 $check(strpos($ui, "var env = rc.env.synapse_sendas;\n    openStandardIdentity(env);") !== false, 'identities: it runs when the Identities page starts');
 
-// one-time light theme tip (CE-032)
+// two designs: Lumen (glass) and Cyber (HUD), and the one-time look chooser
+require_once __DIR__ . '/../lib/synapse_look.php';
 $core_now = (string) file_get_contents(__DIR__ . '/../synapse_core.php');
 $ui = (string) file_get_contents(__DIR__ . '/../../../skins/synapse/ui.js');
-$check(strpos($core_now, "public \$allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_tip_theme'];") !== false && strpos($core_now, 'plugin.synapse-tip') === false, 'theme tip: the seen flag is an allowed pref saved like the theme (no extra action)');
-$check(preg_match("/\\\$own = \(array\) \\\$rcmail->user->get_prefs\(\);\s*if \(\\\$rcmail->task === 'mail' && empty\(\\\$own\['synapse_theme'\]\) && empty\(\\\$own\['synapse_tip_theme'\]\)\)/", $core_now) === 1, 'theme tip: offered only while the account itself never picked a theme or dismissed it (admin defaults do not count)');
-$tip = preg_match('/function initThemeTip\(\) \{.*?\n  \}/s', $ui, $m) ? $m[0] : '';
-$check(strpos($tip, "html.dataset.theme == 'soft'") !== false && strpos($tip, "byId('pinPrompt')") !== false, 'theme tip: not shown on a light theme, and the passcode card comes first');
-$check(strpos($tip, "setAttribute('role', 'region')") !== false && strpos($tip, "aria-live', 'polite'") !== false && strpos($tip, "e.key == 'Escape'") !== false && strpos($tip, '.focus()') === false, 'theme tip: a labelled region, Escape dismisses, focus is not taken');
-$check(strpos($ui, "if (rc.env.synapse_theme_tip || byId('themeTip')) themeTipDone();") !== false && strpos($ui, "save_pref({ name: 'synapse_tip_theme', value: '1'") !== false, 'theme tip: any theme choice or a dismiss ends it for good');
+$skin = __DIR__ . '/../../../skins/synapse';
+$layout = (string) file_get_contents("$skin/templates/includes/layout.html");
+$lumen_css = (string) file_get_contents("$skin/lumen.css");
+$check(synapse_look::CYBER === ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'] && synapse_look::LUMEN === ['lumen-blush', 'lumen-lagoon', 'lumen-dusk', 'lumen-auto']
+    && strpos($core_now, 'public const THEMES = [...synapse_look::CYBER, ...synapse_look::LUMEN];') !== false, 'designs: every Cyber and Lumen style is a valid theme');
+$js_lists = preg_match("/var LOOKS = \{ cyber: \[([^\]]*)\], lumen: \[([^\]]*)\] \};/", $ui, $m) ? [$m[1], $m[2]] : ['', ''];
+$check($js_lists[0] === "'" . implode("', '", synapse_look::CYBER) . "'" && $js_lists[1] === "'" . implode("', '", synapse_look::LUMEN) . "'", 'designs: ui.js lists the same styles as the server');
+$check(strpos($layout, 'synapsemail_theme2=([a-z-]+)') !== false && strpos($ui, 'synapsemail_theme2=([a-z-]+)') !== false
+    && strpos($layout, "/^lumen-(blush|lagoon|dusk)$/.test(th)") !== false && strpos($layout, '<link rel="stylesheet" href="/lumen.css">') !== false, 'designs: the head script reads Lumen styles from the cookie before the page draws');
+$scoped = true;
+foreach (preg_split('/\}\s*/', preg_replace('~/\*.*?\*/~s', '', $lumen_css)) as $rule) {
+    $sel = trim(strtok($rule, '{'));
+    if ($sel === '' || $sel[0] === '@' || strpos($rule, '{') === false) continue;
+    // split the selector list on top-level commas only (not inside :is() or :not())
+    $parts = [];
+    $depth = 0;
+    $cur = '';
+    foreach (str_split($sel) as $ch) {
+        $depth += $ch === '(' ? 1 : ($ch === ')' ? -1 : 0);
+        if ($ch === ',' && $depth === 0) {
+            $parts[] = $cur;
+            $cur = '';
+        } else {
+            $cur .= $ch;
+        }
+    }
+    $parts[] = $cur;
+    foreach ($parts as $one) {
+        $one = trim($one);
+        // Lumen rules, the media query wrappers, and the design pictures / chooser / swatches shared by both designs
+        if ($one === '' || preg_match('/^(:root\[data-look="lumen"\]|:root\[data-lumen=|:root:not\(\[data-look="lumen"\]\)|from|to|\.theme-swatch\.lumen-|\.ap-preview|\.look-shot|\.look-wizard|\.lw-|\.ap-(help|looks|look)\b|\.sr-only|:root\[data-motion=)/', $one)) continue;
+        $scoped = false;
+        echo "     unscoped: $one\n";
+    }
+}
+$check($scoped, 'designs: lumen.css only styles Lumen, plus the shared design pictures and the look chooser (Cyber is untouched)');
+$check(strpos($core_now, "public \$allowed_prefs = ['synapse_theme', 'synapse_ui', 'synapse_look_seen'];") !== false && strpos($core_now, 'synapse_tip_theme') === false, 'look chooser: the seen flag is an allowed pref saved like the theme (no extra action)');
+$check(preg_match("/\\\$own = \(array\) \\\$rcmail->user->get_prefs\(\);\s*if \(\\\$rcmail->task === 'mail' && empty\(\\\$own\['synapse_look_seen'\]\)\)/", $core_now) === 1, 'look chooser: offered once per account in the mail view (an admin default does not count)');
+$wiz = preg_match('/function initLookWizard\(\) \{.*?\n  \}/s', $ui, $m) ? $m[0] : '';
+$check(strpos($wiz, "doc.createElement('dialog')") !== false && strpos($wiz, 'dlg.showModal()') !== false && strpos($wiz, "aria-labelledby', 'lwTitle'") !== false
+    && strpos($wiz, "addEventListener('cancel'") !== false && strpos($wiz, 'type="radio" name="lwlook"') !== false && strpos($wiz, 'type="radio" name="lwstyle"') !== false, 'look chooser: a labelled native modal dialog with radio cards; Escape counts as skip');
+$check(strpos($wiz, "savePref(topRc(), 'synapse_look_seen', '1')") !== false && strpos($wiz, 'applyTheme(start, false, false)') !== false && strpos($wiz, 'applyTheme(style, false, true)') !== false
+    && strpos($wiz, 'rc.env.action') !== false && strpos($wiz, 'framed') !== false, 'look chooser: skip puts the earlier look back, finish saves it, both end it for good; not in frames or other views');
+$check(strpos($ui, "if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) reloadAfterSave = true;") !== false && strpos($core_now, "set_env('synapse_labels', \$lumen ? 'lumen' : 'cyber')") !== false, 'designs: a new design reloads once saved, so every text matches it');
+$check(strpos($lumen_css, ':root:not([data-look="lumen"]) #themePopover [data-look="lumen"], :root[data-look="lumen"] #themePopover [data-look="cyber"] { display: none; }') !== false
+    && strpos($lumen_css, ':root:not([data-look="lumen"]) .theme-dock [data-look="lumen"], :root[data-look="lumen"] .theme-dock [data-look="cyber"] { display: none; }') !== false
+    && strpos($ui, "LOOKS[look].map(function (th)") !== false, 'designs: the theme menu, sign-in dots and Appearance show only the active design\'s styles');
+$check(strpos($lumen_css, 'Powered') === false && strpos($lumen_css, '.template-credit { display: none') === false && strpos($lumen_css, ':root[data-look="lumen"] .template-credit { font-size: 11px;') !== false
+    && strpos($lumen_css, ':root[data-look="lumen"] .security-footer .credit-link { font-size: 12px;') !== false, 'designs: the "Powered by SynapseCyber" credit stays visible in Lumen');
+$cases = ['01 // VERIFYING ACCOUNT' => 'Verifying account', 'PASSWORD ACCEPTED // SECOND FACTOR' => 'Password accepted · Second factor', 'SYNAPSEMAIL // SYSTEM NOTICE' => 'System notice',
+    'POWERED BY SYNAPSECYBER' => 'Powered by SynapseCyber', 'SET UP 2FA' => 'Set up 2FA', '$theme THEME LOADED' => '$theme theme loaded', 'Compose' => 'Compose', 'المظهر' => 'المظهر', 'IMAP' => 'IMAP'];
+$texts_ok = true;
+foreach ($cases as $in => $want) {
+    $texts_ok = $texts_ok && synapse_look::text($in) === $want;
+}
+$check($texts_ok, 'designs: Lumen shows the HUD\'s upper-case texts in sentence case, names and acronyms kept');
+foreach (['blush', 'lagoon', 'dusk'] as $bg) {
+    $svg = (string) @file_get_contents("$skin/assets/lumen/$bg.svg");
+    $outside = preg_replace('~xmlns(:\w+)?="http://www\.w3\.org/[^"]*"~', '', $svg);
+    $check(strpos($svg, '<svg') === 0 && strpos($svg, 'CC BY-NC-ND 4.0') !== false && !preg_match('/<script|@import|https?:|\bon\w+=/i', $outside), "designs: Lumen background $bg is a plain local SVG (no scripts, no outside links)");
+}
 $langs_ok = true;
 foreach (['en_US', 'ar_SA', 'fa_IR'] as $l) {
     $labels = [];
     include __DIR__ . "/../localization/$l.inc";
-    foreach (['themetip_label', 'themetip_kicker_caps', 'themetip_new_caps', 'themetip_title', 'themetip_text', 'themetip_try_caps', 'themetip_all_caps', 'themetip_close_caps'] as $k) {
+    foreach (['look_lumen', 'look_cyber', 'look_lumen_desc', 'look_cyber_desc', 'look_new', 'look_current', 'theme_lumen_blush', 'theme_lumen_lagoon', 'theme_lumen_dusk', 'theme_lumen_auto',
+        'theme_lumen_blush_desc', 'theme_lumen_lagoon_desc', 'theme_lumen_dusk_desc', 'theme_lumen_auto_desc', 'lumen_applied', 'ap_design', 'ap_design_help', 'ap_style', 'ap_style_help',
+        'switchto', 'switchto_caps', 'lw_title', 'lw_intro', 'lw_step', 'lw_style_title', 'lw_style_intro', 'lw_next', 'lw_back', 'lw_done', 'lw_skip', 'lw_close', 'lw_later', 'lw_saved'] as $k) {
         $langs_ok = $langs_ok && !empty($labels[$k]);
     }
-    $langs_ok = $langs_ok && strpos($labels['themetip_text'], '$soft') !== false && strpos($labels['themetip_text'], '$auto') !== false;
+    $langs_ok = $langs_ok && !isset($labels['themetip_title']) && strpos($labels['lw_step'], '$n') !== false && strpos($labels['switchto'], '$look') !== false;
 }
-$check($langs_ok, 'theme tip: texts in English, Arabic and Persian');
+$check($langs_ok, 'designs: texts in English, Arabic and Persian (the old light theme tip is gone)');
 
 exit($fail ? 1 : 0);

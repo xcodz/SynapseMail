@@ -17,7 +17,7 @@
 </div>
 <section class="compose-drawer open expanded compose-standalone" id="composeDrawer" aria-label="<roundcube:label name="synapse_core.newemail" />">
 	<div class="drawer-header">
-		<div><span><roundcube:label name="synapse_core.secureemail" /> // <roundcube:exp expression="strtoupper(env:compose_mode ?: 'new')" /></span><h2><roundcube:label name="synapse_core.composemail_caps" /></h2></div>
+		<div><span><roundcube:label name="synapse_core.secureemail" /><roundcube:if condition="env:synapse_labels == 'lumen'" /> · <roundcube:exp expression="ucfirst(env:compose_mode ?: 'new')" /><roundcube:else /> // <roundcube:exp expression="strtoupper(env:compose_mode ?: 'new')" /><roundcube:endif /></span><h2><roundcube:label name="synapse_core.composemail_caps" /></h2></div>
 		<div><button id="minimizeCompose" aria-label="<roundcube:label name="synapse_core.minimize" />" title="<roundcube:label name="synapse_core.minimize" />"><i data-lucide="minus"></i></button><button id="expandCompose" aria-label="<roundcube:label name="synapse_core.expand" />" title="<roundcube:label name="synapse_core.expand" />"><i data-lucide="minimize-2"></i></button><roundcube:button command="list" type="link" title="close" data-icon="x" id="closeCompose" /></div>
 	</div>
 	<div class="compose-page">

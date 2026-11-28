@@ -344,7 +344,7 @@
 
   function frame(now) {
     requestAnimationFrame(frame);
-    if (document.hidden || now - last < 33) return;
+    if (document.hidden || now - last < 33 || document.documentElement.dataset.look == 'lumen') return; // Lumen has no field
     var dt = Math.min(.1, (now - last) / 1000);
     last = now;
     update(now, dt);

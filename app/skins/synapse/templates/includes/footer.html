@@ -1,12 +1,18 @@
 <roundcube:if condition="!env:framed || env:extwin" />
 <section class="theme-popover" id="themePopover" aria-label="<roundcube:label name="synapse_core.interfacethemes" />" aria-hidden="true">
 	<div class="popover-heading"><span><roundcube:label name="synapse_core.colortheme_caps" /></span><small><roundcube:label name="synapse_core.chooseappearance" /></small></div>
-	<button class="theme-choice active" data-theme="warfare"><i class="theme-swatch warfare"></i><span><b><roundcube:label name="synapse_core.theme_warfare" /></b><small><roundcube:label name="synapse_core.theme_warfare_desc" /></small></span><em>01</em></button>
-	<button class="theme-choice" data-theme="blackops"><i class="theme-swatch blackops"></i><span><b><roundcube:label name="synapse_core.theme_blackops" /></b><small><roundcube:label name="synapse_core.theme_blackops_desc" /></small></span><em>02</em></button>
-	<button class="theme-choice" data-theme="night"><i class="theme-swatch night"></i><span><b><roundcube:label name="synapse_core.theme_night" /></b><small><roundcube:label name="synapse_core.theme_night_desc" /></small></span><em>03</em></button>
-	<button class="theme-choice" data-theme="agency"><i class="theme-swatch agency"></i><span><b><roundcube:label name="synapse_core.theme_agency" /></b><small><roundcube:label name="synapse_core.theme_agency_desc" /></small></span><em>04</em></button>
-	<button class="theme-choice" data-theme="soft"><i class="theme-swatch soft"></i><span><b><roundcube:label name="synapse_core.theme_soft" /></b><small><roundcube:label name="synapse_core.theme_soft_desc" /></small></span><em>05</em></button>
-	<button class="theme-choice" data-theme="auto"><i class="theme-swatch auto"></i><span><b><roundcube:label name="synapse_core.theme_auto" /></b><small><roundcube:label name="synapse_core.theme_auto_desc" /></small></span><em>06</em></button>
+	<button class="theme-choice active" data-theme="warfare" data-look="cyber"><i class="theme-swatch warfare"></i><span><b><roundcube:label name="synapse_core.theme_warfare" /></b><small><roundcube:label name="synapse_core.theme_warfare_desc" /></small></span><em>01</em></button>
+	<button class="theme-choice" data-theme="blackops" data-look="cyber"><i class="theme-swatch blackops"></i><span><b><roundcube:label name="synapse_core.theme_blackops" /></b><small><roundcube:label name="synapse_core.theme_blackops_desc" /></small></span><em>02</em></button>
+	<button class="theme-choice" data-theme="night" data-look="cyber"><i class="theme-swatch night"></i><span><b><roundcube:label name="synapse_core.theme_night" /></b><small><roundcube:label name="synapse_core.theme_night_desc" /></small></span><em>03</em></button>
+	<button class="theme-choice" data-theme="agency" data-look="cyber"><i class="theme-swatch agency"></i><span><b><roundcube:label name="synapse_core.theme_agency" /></b><small><roundcube:label name="synapse_core.theme_agency_desc" /></small></span><em>04</em></button>
+	<button class="theme-choice" data-theme="soft" data-look="cyber"><i class="theme-swatch soft"></i><span><b><roundcube:label name="synapse_core.theme_soft" /></b><small><roundcube:label name="synapse_core.theme_soft_desc" /></small></span><em>05</em></button>
+	<button class="theme-choice" data-theme="auto" data-look="cyber"><i class="theme-swatch auto"></i><span><b><roundcube:label name="synapse_core.theme_auto" /></b><small><roundcube:label name="synapse_core.theme_auto_desc" /></small></span><em>06</em></button>
+	<button class="theme-choice" data-theme="lumen-blush" data-look="lumen"><i class="theme-swatch lumen-blush"></i><span><b><roundcube:label name="synapse_core.theme_lumen_blush" /></b><small><roundcube:label name="synapse_core.theme_lumen_blush_desc" /></small></span><em>01</em></button>
+	<button class="theme-choice" data-theme="lumen-lagoon" data-look="lumen"><i class="theme-swatch lumen-lagoon"></i><span><b><roundcube:label name="synapse_core.theme_lumen_lagoon" /></b><small><roundcube:label name="synapse_core.theme_lumen_lagoon_desc" /></small></span><em>02</em></button>
+	<button class="theme-choice" data-theme="lumen-dusk" data-look="lumen"><i class="theme-swatch lumen-dusk"></i><span><b><roundcube:label name="synapse_core.theme_lumen_dusk" /></b><small><roundcube:label name="synapse_core.theme_lumen_dusk_desc" /></small></span><em>03</em></button>
+	<button class="theme-choice" data-theme="lumen-auto" data-look="lumen"><i class="theme-swatch lumen-auto"></i><span><b><roundcube:label name="synapse_core.theme_lumen_auto" /></b><small><roundcube:label name="synapse_core.theme_lumen_auto_desc" /></small></span><em>04</em></button>
+	<button class="theme-choice look-switch" data-switch-look="lumen" data-look="cyber"><i data-lucide="sparkles"></i><span><b><roundcube:label name="synapse_core.switchto_caps" look="LUMEN" /></b><small><roundcube:label name="synapse_core.look_lumen_desc" /></small></span><em></em></button>
+	<button class="theme-choice look-switch" data-switch-look="cyber" data-look="lumen"><i data-lucide="shield"></i><span><b><roundcube:label name="synapse_core.switchto" look="Cyber" /></b><small><roundcube:label name="synapse_core.look_cyber_desc" /></small></span><em></em></button>
 	<a class="theme-choice" href="./?_task=settings&amp;_action=plugin.synapse-appearance"><i data-lucide="sliders-horizontal"></i><span><b><roundcube:label name="synapse_core.appearance" /></b><small><roundcube:label name="synapse_core.appearance_desc" /></small></span><em></em></a>
 </section>
 
@@ -23,7 +29,7 @@
 		<div class="command-input-wrap"><i data-lucide="square-terminal"></i><input id="commandInput" type="text" autocomplete="off" placeholder="<roundcube:label name="synapse_core.palette_placeholder" />"><kbd>ESC</kbd></div>
 		<div class="command-hint"><span><roundcube:label name="synapse_core.quickactions_caps" /></span><small><roundcube:label name="synapse_core.palette_hint" /></small></div>
 		<div class="command-list" id="commandList" role="listbox"></div>
-		<div class="command-footer"><span><kbd>⌘</kbd><kbd>K</kbd> <roundcube:label name="synapse_core.toggle_caps" /></span><span><roundcube:object name="productname" /> // <roundcube:object name="username" /></span></div>
+		<div class="command-footer"><span><kbd>⌘</kbd><kbd>K</kbd> <roundcube:label name="synapse_core.toggle_caps" /></span><span><roundcube:object name="productname" /><roundcube:if condition="env:synapse_labels == 'lumen'" /> · <roundcube:else /> // <roundcube:endif /><roundcube:object name="username" /></span></div>
 	</div>
 </section>
 

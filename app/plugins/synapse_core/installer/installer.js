@@ -14,7 +14,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
 
-  try { var t = localStorage.getItem('synapsemail-theme2'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  // the installer has the Cyber look only: Lumen's light styles show as Soft Light, its other styles as the default
+  try { var t = localStorage.getItem('synapsemail-theme2'); if (/^lumen-(blush|lagoon)$/.test(t)) t = 'soft'; if (/^(warfare|blackops|night|agency|soft)$/.test(t)) document.documentElement.dataset.theme = t; } catch (e) { }
 
   /* ---------- environment: can the db folder be downloaded? ---------- */
   var probe = $('webProbe');

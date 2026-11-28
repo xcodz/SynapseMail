@@ -4,7 +4,7 @@
 		<a class="folder-link" href="./?_task=mail&amp;_mbox=INBOX"><i data-lucide="inbox"></i><span><roundcube:label name="inbox" /></span><b class="nav-unread"></b></a>
 	</nav>
 
-	<div class="nav-divider nav-divider-first"><span><roundcube:label name="settings" /> // <roundcube:label name="synapse_core.account_caps" /></span></div>
+	<div class="nav-divider nav-divider-first"><span><roundcube:if condition="env:synapse_labels == 'lumen'" /><roundcube:label name="synapse_core.account_caps" /><roundcube:else /><roundcube:label name="settings" /> // <roundcube:label name="synapse_core.account_caps" /><roundcube:endif /></span></div>
 	<nav class="folder-nav" aria-label="<roundcube:label name="synapse_core.accountsettings" />">
 		<a class="folder-link" data-nav="identities" href="./?_task=settings&amp;_action=identities"><i data-lucide="send"></i><span><roundcube:label name="synapse_core.sendas" /></span><b></b></a>
 		<a class="folder-link" data-nav="responses" href="./?_task=settings&amp;_action=responses"><i data-lucide="message-square-text"></i><span><roundcube:label name="responses" /></span><b></b></a>

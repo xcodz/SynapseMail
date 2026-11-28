@@ -16,7 +16,13 @@ var UI = (function () {
   var framed = html.classList.contains('iframe');
   // texts: plugins/synapse_core/localization (sent by synapse_core); vars fill $name placeholders
   function t(key, vars) { return rc ? rc.gettext(key, 'synapse_core', vars) : key; }
-  var themeLabels = { warfare: t('theme_warfare'), blackops: t('theme_blackops'), night: t('theme_night'), agency: t('theme_agency'), soft: t('theme_soft'), auto: t('theme_auto') };
+  // HUD texts are upper case in Cyber; Lumen keeps sentence case (its labels already are, see synapse_core::lumen_text)
+  function caps(s) { s = String(s || ''); return rc && rc.env.synapse_labels == 'lumen' ? s : s.toUpperCase(); }
+  var themeLabels = { warfare: t('theme_warfare'), blackops: t('theme_blackops'), night: t('theme_night'), agency: t('theme_agency'), soft: t('theme_soft'), auto: t('theme_auto'),
+    'lumen-blush': t('theme_lumen_blush'), 'lumen-lagoon': t('theme_lumen_lagoon'), 'lumen-dusk': t('theme_lumen_dusk'), 'lumen-auto': t('theme_lumen_auto') };
+  // two designs: Cyber (the HUD themes) and Lumen (glass); a theme's design is its "lumen-" prefix
+  var LOOKS = { cyber: ['warfare', 'blackops', 'night', 'agency', 'soft', 'auto'], lumen: ['lumen-blush', 'lumen-lagoon', 'lumen-dusk', 'lumen-auto'] };
+  function lookOf(theme) { return /^lumen-/.test(theme || '') ? 'lumen' : 'cyber'; }
   var lightQuery = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
 
   function store(key, value) { try { if (value === undefined) return localStorage.getItem(key); if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { return null; } }
@@ -97,9 +103,19 @@ var UI = (function () {
     }).observe(stack, { childList: true });
   }
 
-  function themeCookie() { var m = /(?:^|;\s*)synapsemail_theme2=([a-z]+)/.exec(doc.cookie); return m ? m[1] : null; }
-  // "auto" follows the system: Soft Light by day, the last dark theme chosen by night
-  function resolveTheme(theme) { return theme != 'auto' ? theme : (lightQuery && lightQuery.matches ? 'soft' : (store('synapsemail-dark') || 'agency')); }
+  function themeCookie() { var m = /(?:^|;\s*)synapsemail_theme2=([a-z-]+)/.exec(doc.cookie); return m ? m[1] : null; }
+  // "auto" follows the system: Soft Light by day, the last dark theme chosen by night;
+  // "lumen-auto": the last light Lumen style by day, Dusk by night
+  function resolveTheme(theme) {
+    var day = lightQuery && lightQuery.matches;
+    if (theme == 'lumen-auto') return day ? (store('synapsemail-lumen-light') || 'lumen-blush') : 'lumen-dusk';
+    return theme != 'auto' ? theme : (day ? 'soft' : (store('synapsemail-dark') || 'agency'));
+  }
+  // the page head script does the same before the page draws (templates/includes/layout.html)
+  function setThemeAttrs(root, shown) {
+    if (/^lumen-/.test(shown)) { root.dataset.look = 'lumen'; root.dataset.lumen = shown.slice(6); root.dataset.theme = shown == 'lumen-dusk' ? 'lumen' : 'soft'; }
+    else { delete root.dataset.look; delete root.dataset.lumen; root.dataset.theme = shown; }
+  }
   var currentTheme = null;
 
   // persist: cookie (login page, before any session), local storage, and the account (server pref) when signed in
@@ -133,7 +149,7 @@ var UI = (function () {
     store('synapsemail-density', p.density == 'compact' ? 'compact' : null);
     var str = uiString(p);
     doc.cookie = 'synapsemail_ui=' + str + '; path=/; max-age=' + (str ? 31536000 : 0) + '; SameSite=Lax' + (location.protocol == 'https:' ? '; Secure' : '');
-    if (save) { var trc = topRc(); if (trc && trc.env.task && trc.env.task != 'login') trc.save_pref({ name: 'synapse_ui', value: str, env: 'synapse_ui' }); }
+    if (save) { var trc = topRc(); if (trc && trc.env.task && trc.env.task != 'login') savePref(trc, 'synapse_ui', str); }
     return str;
   }
   function motionReduced() { return html.dataset.motion == 'reduce' || html.dataset.motion == 'off' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
@@ -153,28 +169,48 @@ var UI = (function () {
   doc.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IFRAME') paintBlank(e.target); }, true);
   doc.querySelectorAll('iframe').forEach(paintBlank);
 
+  // account prefs: count the saves in flight, so a reload waits for them
+  var pendingSaves = 0, reloadAfterSave = false, saveHooked = false;
+  function savePref(trc, name, value) {
+    if (!saveHooked) {
+      saveHooked = true;
+      trc.addEventListener('responseaftersave-pref', function () {
+        pendingSaves = Math.max(0, pendingSaves - 1);
+        if (!pendingSaves && reloadAfterSave) { reloadAfterSave = false; topWin().location.reload(); }
+      });
+    }
+    pendingSaves++;
+    trc.save_pref({ name: name, value: value, env: name });
+  }
+  function topWin() { try { return window.top.rcmail ? window.top : window; } catch (e) { return window; } }
+
   function applyTheme(theme, announce, save) {
     if (!themeLabels[theme]) theme = 'agency';
     currentTheme = theme;
-    if (theme != 'auto' && theme != 'soft') store('synapsemail-dark', theme);
+    if (LOOKS.cyber.indexOf(theme) > -1 && theme != 'auto' && theme != 'soft') store('synapsemail-dark', theme);
+    if (theme == 'lumen-blush' || theme == 'lumen-lagoon') store('synapsemail-lumen-light', theme);
+    store('synapsemail-last-' + lookOf(theme), theme); // switching design comes back to its last style
     var shown = resolveTheme(theme);
-    html.dataset.theme = shown;
-    if (theme == 'auto') html.dataset.themeAuto = '1'; else delete html.dataset.themeAuto;
+    setThemeAttrs(html, shown);
+    if (theme == 'auto' || theme == 'lumen-auto') html.dataset.themeAuto = '1'; else delete html.dataset.themeAuto;
     if (announce || save) persistTheme(theme); // only a user's choice is remembered, so the default can change
     doc.querySelectorAll('.theme-dot, .theme-choice[data-theme]').forEach(function (el) { el.classList.toggle('active', el.dataset.theme === theme); });
     doc.querySelectorAll('.ap-theme input').forEach(function (el) { el.checked = el.value === theme; });
     // keep framed views (preview, compose, settings forms) on the same theme
     doc.querySelectorAll('iframe').forEach(function (f) {
-      try { f.contentDocument.documentElement.dataset.theme = shown; } catch (e) { }
+      try { setThemeAttrs(f.contentDocument.documentElement, shown); } catch (e) { }
       paintBlank(f); // an empty pane repaints in the new theme
     });
     if (save) {
-      if (rc.env.synapse_theme_tip || byId('themeTip')) themeTipDone();
       var trc = topRc();
-      if (trc && trc.env.task && trc.env.task != 'login' && trc.env.task != 'logout' && trc.env.synapse_theme != theme) trc.save_pref({ name: 'synapse_theme', value: theme, env: 'synapse_theme' });
+      if (trc && trc.env.task && trc.env.task != 'login' && trc.env.task != 'logout' && trc.env.synapse_theme != theme) {
+        savePref(trc, 'synapse_theme', theme);
+        // the page's texts follow the design (sentence case in Lumen): a new design reloads once it is saved
+        if (trc.env.synapse_labels && lookOf(theme) != trc.env.synapse_labels) reloadAfterSave = true;
+      }
     }
     closeMenus();
-    if (announce) toast(t('themeloaded', { theme: themeLabels[theme] }));
+    if (announce && !reloadAfterSave) toast(lookOf(theme) == 'lumen' ? t('lumen_applied', { theme: themeLabels[theme] }) : t('themeloaded', { theme: themeLabels[theme] }));
   }
 
 
@@ -376,12 +412,20 @@ var UI = (function () {
       add(t('cmd_inbox_open', { email: x.email }), t('cmd_inbox_open_desc'), 'inbox', '', 'inbox mailbox switch account other ' + x.email, function () { UI.openInbox(x.iid); });
     });
     add(t('cmd_density'), t('cmd_density_desc'), 'rows-3', 'D', 'compact dense rows', toggleDensity);
-    add(t('cmd_loadtheme', { theme: t('themename_warfare') }), t('theme_warfare_desc'), 'shield', '01', 'theme olive dark green', function () { applyTheme('warfare', true, true); });
-    add(t('cmd_loadtheme', { theme: t('themename_blackops') }), t('theme_blackops_desc'), 'flame', '02', 'theme orange amber cyber', function () { applyTheme('blackops', true, true); });
-    add(t('cmd_loadtheme', { theme: t('themename_night') }), t('theme_night_desc'), 'scan-eye', '03', 'theme terminal green', function () { applyTheme('night', true, true); });
-    add(t('cmd_loadtheme', { theme: t('themename_agency') }), t('theme_agency_desc'), 'mail-check', '04', 'theme blue secure email', function () { applyTheme('agency', true, true); });
-    add(t('cmd_loadtheme', { theme: t('themename_soft') }), t('theme_soft_desc'), 'sun', '05', 'theme light soft day bright', function () { applyTheme('soft', true, true); });
-    add(t('cmd_loadtheme', { theme: t('themename_auto') }), t('theme_auto_desc'), 'sun-moon', '06', 'theme system auto light dark', function () { applyTheme('auto', true, true); });
+    if (lookOf(currentTheme) == 'cyber') {
+      add(t('cmd_loadtheme', { theme: t('themename_warfare') }), t('theme_warfare_desc'), 'shield', '01', 'theme olive dark green', function () { applyTheme('warfare', true, true); });
+      add(t('cmd_loadtheme', { theme: t('themename_blackops') }), t('theme_blackops_desc'), 'flame', '02', 'theme orange amber cyber', function () { applyTheme('blackops', true, true); });
+      add(t('cmd_loadtheme', { theme: t('themename_night') }), t('theme_night_desc'), 'scan-eye', '03', 'theme terminal green', function () { applyTheme('night', true, true); });
+      add(t('cmd_loadtheme', { theme: t('themename_agency') }), t('theme_agency_desc'), 'mail-check', '04', 'theme blue secure email', function () { applyTheme('agency', true, true); });
+      add(t('cmd_loadtheme', { theme: t('themename_soft') }), t('theme_soft_desc'), 'sun', '05', 'theme light soft day bright', function () { applyTheme('soft', true, true); });
+      add(t('cmd_loadtheme', { theme: t('themename_auto') }), t('theme_auto_desc'), 'sun-moon', '06', 'theme system auto light dark', function () { applyTheme('auto', true, true); });
+      add(t('switchto', { look: t('look_lumen') }), t('look_lumen_desc'), 'sparkles', '', 'design lumen glass light theme switch', function () { switchLook('lumen', true); });
+    } else {
+      LOOKS.lumen.forEach(function (th, i) {
+        add(t('cmd_loadtheme', { theme: themeLabels[th] }), t('theme_' + th.replace('-', '_') + '_desc'), ['sun', 'waves', 'moon', 'sun-moon'][i], '0' + (i + 1), 'theme style lumen ' + th.slice(6), function () { applyTheme(th, true, true); });
+      });
+      add(t('switchto', { look: t('look_cyber') }), t('look_cyber_desc'), 'shield', '', 'design cyber dark hud theme switch', function () { switchLook('cyber', true); });
+    }
     add(t('appearance'), t('appearance_desc'), 'palette', '', 'appearance theme animation motion contrast text size density', function () { rc.goto_url('settings/plugin.synapse-appearance'); });
     add(t('aboutsynapsemail'), t('cmd_about_desc'), 'info', '?', 'about version credits developer', function () { about(true); });
     add(t('signout'), t('signout_desc'), 'log-out', 'Q', 'logout sign out exit', function () { rc.command('logout'); });
@@ -676,7 +720,7 @@ var UI = (function () {
             leavePinStage(res.message || t('pin_toomany'), res.locked_until ? 'ERR-LOCK-423' : 'ERR-PIN-401');
           } else {
             keypad.shake(); keypad.reset();
-            msg.textContent = (res.message || t('pin_wrong')).toUpperCase() + (res.left ? ' · ' + t('triesleft', { n: res.left }) : '');
+            msg.textContent = caps(res.message || t('pin_wrong')) + (res.left ? ' · ' + t('triesleft', { n: res.left }) : '');
             byId('pinTries').textContent = t('triesleft', { n: res.left || 0 });
           }
         }, function () { keypad.reset(); msg.textContent = t('connectionerror'); });
@@ -741,7 +785,7 @@ var UI = (function () {
             return gateContinue(res.next, target);
           }
           if (res.signedout) return leavePinStage(res.message || t('otp_toomany'), res.locked_until ? 'ERR-LOCK-423' : 'ERR-2FA-401');
-          msg.textContent = (res.message || t('otp_wrong')).toUpperCase() + (res.left ? ' · ' + t('triesleft', { n: res.left }) : '');
+          msg.textContent = caps(res.message || t('otp_wrong')) + (res.left ? ' · ' + t('triesleft', { n: res.left }) : '');
           byId('pinTries').textContent = t('triesleft', { n: res.left || 0 });
           done(false);
         }, function () { msg.textContent = t('connectionerror'); done(false); });
@@ -770,7 +814,7 @@ var UI = (function () {
       byId('pinSignOut').onclick = function () { location.href = './?_task=logout&_token=' + encodeURIComponent(token); };
       byId('pinPadHost').innerHTML = '';
       api('otp-enroll', { _do: 'start' }, token).then(function (res) {
-        if (!res.ok) { msg.textContent = (res.message || t('setupunavailable')).toUpperCase(); return; }
+        if (!res.ok) { msg.textContent = caps(res.message || t('setupunavailable')); return; }
         hint.hidden = false;
         byId('pinPadHost').before(hint); // scan first, then type: QR above the keypad
         hint.innerHTML = '<b>' + esc(t('scanapp')) + '</b><div class="otp-qr"></div><small>' + esc(t('cantscan')) + ' <code class="otp-secret"></code></small>';
@@ -779,7 +823,7 @@ var UI = (function () {
         keypad = createKeypad(byId('pinPadHost'), { len: 6, label: t('authenticatorcode'), onChange: function () { msg.textContent = ''; }, onComplete: function (code) {
           keypad.setBusy(true);
           api('otp-enroll', { _do: 'confirm', _code: code }, token).then(function (r) {
-            if (!r.ok) { keypad.shake(); keypad.reset(); msg.textContent = (r.message || t('otp_wrong')).toUpperCase(); if (r.restart) showEnrollStage(info, token, target); return; }
+            if (!r.ok) { keypad.shake(); keypad.reset(); msg.textContent = caps(r.message || t('otp_wrong')); if (r.restart) showEnrollStage(info, token, target); return; }
             keypad.destroy(); keypad = null; byId('pinPadHost').innerHTML = '';
             showRecoveryCodes(hint, r.codes, function () { gateContinue(r.next, target); });
           }, function () { keypad.reset(); msg.textContent = t('connectionerror'); });
@@ -1002,7 +1046,7 @@ var UI = (function () {
     // only the mail sidebar has the storage card; this runs from framed pages too, so never throw
     if (!q || !q.total || !byId('quotaState')) return;
     var pct = q.percent || 0, bars = doc.querySelectorAll('#quotaBars i'), lit = Math.max(1, Math.ceil(pct / 20));
-    bars.forEach(function (b, i) { b.style.background = i < lit ? (pct > 90 ? 'var(--red)' : pct > 75 ? 'var(--amber)' : 'var(--green)') : '#30362e'; });
+    bars.forEach(function (b, i) { b.style.background = i < lit ? (pct > 90 ? 'var(--red)' : pct > 75 ? 'var(--amber)' : 'var(--green)') : 'var(--quota-off, #30362e)'; });
     byId('quotaState').textContent = t('quotaused', { pct: pct });
     byId('quotaText').textContent = (q.title || '').replace(/\s*\(.*\)$/, '') || t('accountverified');
   }
@@ -1364,6 +1408,7 @@ var UI = (function () {
     byId('avatarButton').addEventListener('click', function (e) { e.stopPropagation(); toggleMenu('accountPopover'); });
     byId('settingsButton').addEventListener('click', openPalette);
     doc.querySelectorAll('.theme-choice[data-theme]').forEach(function (c) { c.addEventListener('click', function () { applyTheme(c.dataset.theme, true, true); }); });
+    doc.querySelectorAll('[data-switch-look]').forEach(function (c) { c.addEventListener('click', function () { switchLook(c.dataset.switchLook, true); }); });
     byId('scrim').addEventListener('click', function () {
       var c = byId('composeDrawer'), composing = c && c.classList.contains('open') && !c.classList.contains('minimized');
       // the mobile menu sits above everything: a tap outside only closes the menu
@@ -1434,45 +1479,75 @@ var UI = (function () {
     });
   }
 
-  /* ---------- one-time tip: the light themes (sidebar card; floating card on phones) ---------- */
-  // Shown once per account while a dark theme is in effect and the account never picked a theme; the passcode card
-  // comes first. Any theme choice, or "Not now", ends it for good (pref synapse_tip_theme).
-  function themeTipDone() {
-    var card = byId('themeTip');
-    if (rc.env.synapse_theme_tip) {
-      rc.env.synapse_theme_tip = false;
-      try { topRc().save_pref({ name: 'synapse_tip_theme', value: '1', env: 'synapse_tip_theme' }); } catch (e) { }
-    }
-    if (card) { card.classList.add('leaving'); setTimeout(function () { card.remove(); }, 300); }
-  }
-  function initThemeTip() {
-    if (!rc.env.synapse_theme_tip || byId('themeTip') || byId('pinPrompt') || html.dataset.theme == 'soft') return;
-    var anchor = doc.querySelector('.mail-sidebar .clearance-card'); if (!anchor) return;
-    var card = doc.createElement('section');
-    card.id = 'themeTip'; card.className = 'clearance-card pin-prompt theme-tip';
-    card.setAttribute('role', 'region'); card.setAttribute('aria-label', t('themetip_label')); card.setAttribute('aria-live', 'polite');
-    card.innerHTML = '<div class="clearance-top"><span>' + esc(t('themetip_kicker_caps')) + '</span><b>' + esc(t('themetip_new_caps')) + '</b></div>'
-      + '<div class="pin-prompt-body"><i data-lucide="sun-medium"></i><p><strong>' + esc(t('themetip_title')) + '</strong>'
-      + esc(t('themetip_text', { soft: t('themename_soft'), auto: t('themename_auto') })) + '</p></div>'
-      + '<div class="pin-prompt-actions"><button type="button" class="solid-btn" data-tip="soft">' + esc(t('themetip_try_caps')) + '</button>'
-      + '<button type="button" class="ghost-btn" data-tip="menu" aria-haspopup="menu">' + esc(t('themetip_all_caps')) + '</button>'
-      + '<button type="button" class="ghost-btn" data-tip="close">' + esc(t('themetip_close_caps')) + '</button></div>';
-    var small = window.matchMedia('(max-width: 900px)');
-    var place = function () {
-      card.classList.toggle('floating', small.matches);
-      if (small.matches) doc.body.appendChild(card); else anchor.parentNode.insertBefore(card, anchor);
+  /* ---------- designs: Lumen (glass) and Cyber (HUD), each with its own styles ---------- */
+  var LOOK_DEFAULT = { lumen: 'lumen-blush', cyber: 'agency' };
+  function lookStyle(look) { var last = store('synapsemail-last-' + look); return LOOKS[look].indexOf(last) > -1 ? last : LOOK_DEFAULT[look]; }
+  function switchLook(look, save) { if (lookOf(currentTheme) != look) applyTheme(lookStyle(look), !!save, !!save); }
+  // a small picture of each design's mail view (pure CSS, see lumen.css .look-shot)
+  function lookShot(look) { return '<span class="look-shot ' + look + '" aria-hidden="true"><i class="ls-rail"></i><i class="ls-side"></i><i class="ls-list"><b></b><b></b><b></b><b></b></i><i class="ls-read"><b></b><b></b></i></span>'; }
+
+  /* ---------- look chooser: once per account (new accounts, and existing ones after the upgrade) ---------- */
+  // A native modal dialog in two steps: design, then that design's styles. Every choice shows at once behind the
+  // dialog; Skip, Close and Escape put the earlier look back. Finishing or skipping saves synapse_look_seen.
+  function initLookWizard() {
+    if (!rc.env.synapse_look_wizard || framed || rc.env.action || byId('lookWizard') || !window.HTMLDialogElement) return;
+    var start = currentTheme, look = lookOf(start), style = start, step = 1;
+    var dlg = doc.createElement('dialog');
+    dlg.id = 'lookWizard'; dlg.className = 'look-wizard';
+    dlg.setAttribute('aria-labelledby', 'lwTitle'); dlg.setAttribute('aria-describedby', 'lwIntro');
+    var lookCard = function (l) {
+      return '<label class="lw-look"><input type="radio" name="lwlook" value="' + l + '"' + (l == look ? ' checked' : '') + '>' + lookShot(l)
+        + '<span class="lw-text"><b>' + esc(t('look_' + l)) + (l == 'lumen' ? ' <em>' + esc(t('look_new')) + '</em>' : '') + (l == lookOf(start) ? ' <small class="lw-cur">' + esc(t('look_current')) + '</small>' : '') + '</b>'
+        + '<small>' + esc(t('look_' + l + '_desc')) + '</small></span></label>';
     };
-    place();
-    small.addEventListener('change', place);
-    icons();
-    card.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-tip]'); if (!b) return;
-      e.stopPropagation();
-      if (b.dataset.tip == 'soft') applyTheme('soft', true, true);
-      else if (b.dataset.tip == 'menu') { themeTipDone(); toggleMenu('themePopover', null, true); return; }
-      themeTipDone();
+    var styleCard = function (th) {
+      return '<label class="lw-style"><input type="radio" name="lwstyle" value="' + th + '"' + (th == style ? ' checked' : '') + '><span class="ap-preview ' + th + '" aria-hidden="true"><i></i><i></i><i></i></span>'
+        + '<span class="lw-text"><b>' + esc(lookOf(th) == 'lumen' ? t('theme_' + th.replace('-', '_')) : t('themename_' + th)) + '</b><small>' + esc(t('theme_' + th.replace('-', '_') + '_desc')) + '</small></span></label>';
+    };
+    var render = function () {
+      dlg.innerHTML = '<form method="dialog" class="lw-form">'
+        + '<header class="lw-head"><p class="lw-step">' + esc(t('lw_step', { n: step })) + '</p>'
+        + '<h2 id="lwTitle">' + esc(step == 1 ? t('lw_title') : t('lw_style_title', { look: t('look_' + look) })) + '</h2>'
+        + '<p id="lwIntro">' + esc(step == 1 ? t('lw_intro') : t('lw_style_intro')) + '</p>'
+        + '<button type="button" class="lw-x" data-lw="skip" aria-label="' + esc(t('lw_close')) + '" title="' + esc(t('lw_close')) + '"><i data-lucide="x"></i></button></header>'
+        + (step == 1 ? '<fieldset class="lw-looks"><legend class="sr-only">' + esc(t('ap_design')) + '</legend>' + ['lumen', 'cyber'].map(lookCard).join('') + '</fieldset>'
+          : '<fieldset class="lw-styles ' + look + '"><legend class="sr-only">' + esc(t('ap_style')) + '</legend>' + LOOKS[look].map(styleCard).join('') + '</fieldset>')
+        + '<footer class="lw-foot"><p>' + esc(t('lw_later')) + '</p><div>'
+        + (step == 1 ? '<button type="button" class="ghost-btn" data-lw="skip">' + esc(t('lw_skip')) + '</button><button type="button" class="solid-btn" data-lw="next">' + esc(t('lw_next')) + '</button>'
+          : '<button type="button" class="ghost-btn" data-lw="back">' + esc(t('lw_back')) + '</button><button type="button" class="solid-btn" data-lw="done">' + esc(t('lw_done')) + '</button>')
+        + '</div></footer></form>';
+      icons();
+      var first = dlg.querySelector('input:checked') || dlg.querySelector('input');
+      if (first) first.focus();
+    };
+    var seen = function () {
+      rc.env.synapse_look_wizard = false;
+      try { savePref(topRc(), 'synapse_look_seen', '1'); } catch (e) { }
+    };
+    var finish = function (keep) {
+      if (dlg._done) return; dlg._done = true;
+      seen();
+      if (keep) { store('synapsemail-toast', t('lw_saved')); applyTheme(style, false, true); if (!reloadAfterSave) { store('synapsemail-toast', null); toast(t('lw_saved')); } }
+      else applyTheme(start, false, false);
+      dlg.close(); dlg.remove();
+    };
+    dlg.addEventListener('change', function (e) {
+      var el = e.target;
+      if (el.name == 'lwlook') { look = el.value; style = lookOf(start) == look ? start : lookStyle(look); applyTheme(style, false, false); }
+      if (el.name == 'lwstyle') { style = el.value; applyTheme(style, false, false); }
     });
-    card.addEventListener('keydown', function (e) { if (e.key == 'Escape') { e.stopPropagation(); themeTipDone(); } });
+    dlg.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-lw]'); if (!b) return;
+      if (b.dataset.lw == 'next') { step = 2; render(); }
+      else if (b.dataset.lw == 'back') { step = 1; render(); }
+      else finish(b.dataset.lw == 'done');
+    });
+    dlg.addEventListener('cancel', function (e) { e.preventDefault(); finish(false); }); // Escape
+    dlg.addEventListener('keydown', function (e) { if (e.key == 'Escape') e.stopPropagation(); }); // not the page's own Escape handling
+    doc.body.appendChild(dlg);
+    render();
+    dlg.showModal();
+    render(); // focus the checked card once the dialog is open
   }
 
   /* ---------- Settings › Security (passcode + remembered device) ---------- */
@@ -1523,7 +1598,7 @@ var UI = (function () {
         nb.disabled = true;
         api('stepup', { _secret: input.value }, token).then(function (res) {
           nb.disabled = false;
-          if (!res.ok) { input.value = ''; input.focus(); byId('secMessage').textContent = String(res.message || '').toUpperCase(); return; }
+          if (!res.ok) { input.value = ''; input.focus(); byId('secMessage').textContent = caps(res.message); return; }
           st.stepup_until = res.until; then();
         });
       };
@@ -1546,7 +1621,7 @@ var UI = (function () {
         byId('secBack').onclick = function () { if (i) { i--; show(); } else overview(); };
         icons();
       }
-      function say(t) { byId('secMessage').textContent = t ? String(t).toUpperCase() : ''; }
+      function say(t) { byId('secMessage').textContent = t ? caps(t) : ''; }
       function next() { i++; show(); }
       function show() {
         var step = steps[i];
@@ -1628,7 +1703,7 @@ var UI = (function () {
         + '<div class="otp-setup" id="otpSetup"></div><div class="sec-pad" id="secPad"></div><p class="pin-message" id="secMessage" role="alert"></p><div class="pin-hint" id="otpCodes" hidden></div>'
         + '<div class="sec-actions"><button class="ghost-btn" id="secBack">' + esc(t('cancel_caps')) + '</button></div></section>';
       byId('secBack').onclick = overview;
-      var say = function (t) { byId('secMessage').textContent = t ? String(t).toUpperCase() : ''; };
+      var say = function (t) { byId('secMessage').textContent = t ? caps(t) : ''; };
       var finishCodes = function (codes, message) {
         cleanup(); byId('secPad').innerHTML = ''; byId('otpSetup').innerHTML = ''; byId('secBack').hidden = true;
         showRecoveryCodes(byId('otpCodes'), codes, function () { toast(message, 'confirmation'); overview(); });
@@ -1715,7 +1790,7 @@ var UI = (function () {
     var foot = byId('sendasFoot');
     if (foot) {
       foot.innerHTML = '<p class="sec-note">' + esc(t('sa_intro')) + ' ' + esc(t('sa_limit_note', { max: env.max })) + '</p>'
-        + '<label class="sec-field"><span>' + esc(t('sa_reply').toUpperCase()) + '</span><select class="synapse-select" id="sendasReply">'
+        + '<label class="sec-field"><span>' + esc(caps(t('sa_reply'))) + '</span><select class="synapse-select" id="sendasReply">'
         + '<option value="same">' + esc(t('sa_reply_same')) + '</option><option value="default">' + esc(t('sa_reply_default')) + '</option></select></label>';
       var sel = byId('sendasReply'); sel.value = env.reply;
       sel.onchange = function () { api('sendas-reply', { _mode: sel.value }, rc.env.request_token).then(function (r) { if (r.ok) { env.reply = sel.value; toast(t('sa_reply_saved'), 'confirmation'); } }); };
@@ -2047,8 +2122,7 @@ var UI = (function () {
   function initAppearance() {
     var app = byId('appearanceApp'); if (!app) return;
     var p = uiPrefs(rc.env.synapse_ui != null ? rc.env.synapse_ui : uiCookie());
-    var themes = [['warfare', 'theme_warfare', 'theme_warfare_desc'], ['blackops', 'theme_blackops', 'theme_blackops_desc'], ['night', 'theme_night', 'theme_night_desc'],
-      ['agency', 'theme_agency', 'theme_agency_desc'], ['soft', 'theme_soft', 'theme_soft_desc'], ['auto', 'theme_auto', 'theme_auto_desc']];
+    var look = lookOf(currentTheme || 'agency');
     var seg = function (name, label, help, opts) {
       return '<div class="ap-row"><span class="ap-label" id="apL' + name + '"><b>' + esc(label) + '</b>' + (help ? '<small>' + esc(help) + '</small>' : '') + '</span><div class="ap-seg" role="radiogroup" aria-labelledby="apL' + name + '">'
         + opts.map(function (o) { return '<label><input type="radio" name="' + name + '" value="' + o[0] + '"' + (p[name] == o[0] ? ' checked' : '') + '><span>' + esc(t(o[1])) + '</span></label>'; }).join('') + '</div></div>';
@@ -2058,14 +2132,22 @@ var UI = (function () {
         + '<input type="checkbox" class="ap-switch" role="switch" name="' + name + '"' + (on ? ' checked' : '') + '></label>';
     };
     app.innerHTML = '<p class="sec-note ap-intro">' + esc(t('appearance_intro')) + '</p>'
-      + '<section class="ap-section" aria-labelledby="apTheme"><h2 id="apTheme">' + esc(t('ap_theme')) + '</h2><div class="ap-themes" role="radiogroup" aria-labelledby="apTheme">'
-      + themes.map(function (x) {
-        return '<label class="ap-theme" data-theme="' + x[0] + '"><input type="radio" name="theme" value="' + x[0] + '"' + ((currentTheme || 'agency') == x[0] ? ' checked' : '') + '>'
-          + '<span class="ap-preview ' + x[0] + '" aria-hidden="true"><i></i><i></i><i></i></span><span class="ap-theme-text"><b>' + esc(t(x[1])) + '</b><small>' + esc(t(x[2])) + '</small></span></label>';
+      // design first, then only that design's styles
+      + '<section class="ap-section" aria-labelledby="apDesign"><h2 id="apDesign">' + esc(t('ap_design')) + '</h2><p class="ap-help">' + esc(t('ap_design_help')) + '</p>'
+      + '<div class="ap-looks" role="radiogroup" aria-labelledby="apDesign">' + ['lumen', 'cyber'].map(function (l) {
+        return '<label class="ap-look"><input type="radio" name="look" value="' + l + '"' + (l == look ? ' checked' : '') + '>' + lookShot(l)
+          + '<span class="ap-theme-text"><b>' + esc(t('look_' + l)) + '</b><small>' + esc(t('look_' + l + '_desc')) + '</small></span></label>';
+      }).join('') + '</div></section>'
+      + '<section class="ap-section" aria-labelledby="apTheme"><h2 id="apTheme">' + esc(t('ap_style')) + '</h2><p class="ap-help">' + esc(t('ap_style_help', { look: t('look_' + look) })) + '</p>'
+      + '<div class="ap-themes" role="radiogroup" aria-labelledby="apTheme">'
+      + LOOKS[look].map(function (th) {
+        var key = 'theme_' + th.replace('-', '_');
+        return '<label class="ap-theme" data-theme="' + th + '"><input type="radio" name="theme" value="' + th + '"' + ((currentTheme || 'agency') == th ? ' checked' : '') + '>'
+          + '<span class="ap-preview ' + th + '" aria-hidden="true"><i></i><i></i><i></i></span><span class="ap-theme-text"><b>' + esc(t(key)) + '</b><small>' + esc(t(key + '_desc')) + '</small></span></label>';
       }).join('') + '</div></section>'
       + '<section class="ap-section"><h2>' + esc(t('ap_motion')) + '</h2>'
       + seg('motion', t('ap_animations'), t('ap_animations_help'), [['system', 'ap_motion_system'], ['reduce', 'ap_motion_reduce'], ['off', 'ap_motion_off']])
-      + sw('effects', p.effects == 'on', t('ap_effects'), t('ap_effects_help')) + '</section>'
+      + (look == 'cyber' ? sw('effects', p.effects == 'on', t('ap_effects'), t('ap_effects_help')) : '') + '</section>'
       + '<section class="ap-section"><h2>' + esc(t('ap_display')) + '</h2>'
       + seg('density', t('ap_density'), t('ap_density_help'), [['comfortable', 'ap_density_comfortable'], ['compact', 'ap_density_compact']])
       + seg('text', t('ap_text'), t('ap_text_help'), [['small', 'ap_text_small'], ['normal', 'ap_text_normal'], ['large', 'ap_text_large'], ['larger', 'ap_text_larger']]) + '</section>'
@@ -2078,19 +2160,23 @@ var UI = (function () {
     var saved = byId('apSaved'), timer = null;
     var flash = function () { saved.textContent = t('ap_saved'); clearTimeout(timer); timer = setTimeout(function () { saved.textContent = ''; }, 2200); };
     var save = function () { rc.env.synapse_ui = applyUi(p, true); var top = topRc(); if (top && top.env) top.env.synapse_ui = rc.env.synapse_ui; flash(); };
-    app.addEventListener('change', function (e) {
-      var el = e.target;
-      if (el.name == 'theme') { applyTheme(el.value, false, true); flash(); return; }
-      if (el.type == 'radio') p[el.name] = el.value;
-      else if (el.name == 'effects') p.effects = el.checked ? 'on' : 'off';
-      else if (el.name == 'contrast') p.contrast = el.checked ? 'more' : 'normal';
-      else if (el.name == 'links') p.links = el.checked ? 'underline' : 'plain';
-      save();
-    });
     byId('apReset').onclick = function () {
       Object.keys(UI_DEFAULTS).forEach(function (k) { p[k] = UI_DEFAULTS[k]; });
-      applyTheme('agency', false, true); save(); initAppearance();
+      applyTheme(LOOK_DEFAULT[lookOf(currentTheme)], false, true); save(); initAppearance(); // the design stays
     };
+    app._ap = { p: p, flash: flash, save: save }; // this render's state, for the listener below
+    if (app._bound) return; // the page is re-rendered when the design changes; one listener
+    app._bound = true;
+    app.addEventListener('change', function (e) {
+      var el = e.target, A = app._ap;
+      if (el.name == 'look') { switchLook(el.value, true); initAppearance(); var f = app.querySelector('input[name="look"]:checked'); if (f) f.focus(); app._ap.flash(); return; }
+      if (el.name == 'theme') { applyTheme(el.value, false, true); A.flash(); return; }
+      if (el.type == 'radio') A.p[el.name] = el.value;
+      else if (el.name == 'effects') A.p.effects = el.checked ? 'on' : 'off';
+      else if (el.name == 'contrast') A.p.contrast = el.checked ? 'more' : 'normal';
+      else if (el.name == 'links') A.p.links = el.checked ? 'underline' : 'plain';
+      A.save();
+    });
   }
 
   /* ---------- settings: grouped navigation + preference sections in the content frame ---------- */
@@ -2102,7 +2188,7 @@ var UI = (function () {
     var setActive = function (k) {
       nav.querySelectorAll('[data-nav]').forEach(function (a) { a.classList.toggle('active', a.dataset.nav == k); });
       var cur = nav.querySelector('[data-nav="' + k + '"] span');
-      if (cur && byId('settingsTitle') && (action == 'preferences' || action == '')) byId('settingsTitle').textContent = cur.textContent.toUpperCase();
+      if (cur && byId('settingsTitle') && (action == 'preferences' || action == '')) byId('settingsTitle').textContent = rc.env.synapse_labels == 'lumen' ? cur.textContent : cur.textContent.toUpperCase();
     };
     setActive(key);
 
@@ -2394,9 +2480,10 @@ var UI = (function () {
     rc.set_pagetitle = function (title) { return setTitle.call(rc, String(title || '').replace(' :: ', ' - ')); };
 
     // v2 keys: earlier versions stored the theme on every visit, so old values are not a user's choice
+    if (rc.env.synapse_labels) html.dataset.labels = rc.env.synapse_labels; // lumen.css: texts already in sentence case
     var accountTheme = rc.env.synapse_theme || (topRc().env || {}).synapse_theme;
     applyTheme(accountTheme || themeCookie() || store('synapsemail-theme2') || 'agency');
-    if (lightQuery && lightQuery.addEventListener) lightQuery.addEventListener('change', function () { if (currentTheme == 'auto') applyTheme('auto'); });
+    if (lightQuery && lightQuery.addEventListener) lightQuery.addEventListener('change', function () { if (currentTheme == 'auto' || currentTheme == 'lumen-auto') applyTheme(currentTheme); });
     var accountUi = rc.env.synapse_ui != null ? rc.env.synapse_ui : (topRc().env || {}).synapse_ui;
     applyUi(uiPrefs(accountUi != null ? accountUi : uiCookie()), false);
     if (accountTheme) persistTheme(accountTheme); // the login page shows the account's theme next time
@@ -2410,12 +2497,13 @@ var UI = (function () {
     }
     if (byId('appShell')) {
       initChrome();
+      if (store('synapsemail-toast')) { toast(store('synapsemail-toast')); store('synapsemail-toast', null); } // a message from before a design reload
       if (rc.env.task == 'mail' && rc.message_list) { initMailList(); initReaderWindows(); }
       if (rc.env.task == 'mail' && (rc.env.action == 'show' || rc.env.action == 'preview')) initPreview();
       initCompose();
       decorateFolders();
       if (rc.env.task == 'settings') { initSettings(); initSecurity(); initSendAs(); initAppearance(); }
-      if (rc.env.task == 'mail') { initPinPrompt(); initThemeTip(); initInboxes(); }
+      if (rc.env.task == 'mail') { initPinPrompt(); initInboxes(); initLookWizard(); }
       initDetailPane();
       if (rc.env.task == 'addressbook') {
         decorateDirectory();

@@ -43,7 +43,7 @@
 		<div class="corner corner-tl"></div><div class="corner corner-tr"></div><div class="corner corner-bl"></div><div class="corner corner-br"></div>
 		<div class="auth-heading">
 			<div class="clearance-icon"><i data-lucide="fingerprint"></i><span></span></div>
-			<div><span><roundcube:label name="synapse_core.securelogin" /> // <roundcube:label name="synapse_core.mailnode" /> 07</span><h2 id="loginTitle"><roundcube:label name="synapse_core.accountlogin" /></h2></div>
+			<div><span><roundcube:if condition="env:synapse_labels == 'lumen'" /><roundcube:object name="synapseservicename" /><roundcube:else /><roundcube:label name="synapse_core.securelogin" /> // <roundcube:label name="synapse_core.mailnode" /> 07<roundcube:endif /></span><h2 id="loginTitle"><roundcube:label name="synapse_core.accountlogin" /></h2></div>
 			<b>04</b>
 		</div>
 
@@ -83,11 +83,14 @@
 
 <aside class="theme-dock" aria-label="<roundcube:label name="synapse_core.interfacetheme" />">
 	<span><roundcube:label name="synapse_core.colortheme_caps" /></span>
-	<button class="theme-dot warfare active" data-theme="warfare" aria-label="<roundcube:label name="synapse_core.themearia_warfare" />" title="<roundcube:label name="synapse_core.themename_warfare" />"></button>
-	<button class="theme-dot blackops" data-theme="blackops" aria-label="<roundcube:label name="synapse_core.themearia_blackops" />" title="<roundcube:label name="synapse_core.themename_blackops" />"></button>
-	<button class="theme-dot night" data-theme="night" aria-label="<roundcube:label name="synapse_core.themearia_night" />" title="<roundcube:label name="synapse_core.themename_night" />"></button>
-	<button class="theme-dot agency" data-theme="agency" aria-label="<roundcube:label name="synapse_core.themearia_agency" />" title="<roundcube:label name="synapse_core.themename_agency" />"></button>
-	<button class="theme-dot soft" data-theme="soft" aria-label="<roundcube:label name="synapse_core.themearia_soft" />" title="<roundcube:label name="synapse_core.theme_soft" />"></button>
+	<button class="theme-dot warfare active" data-theme="warfare" data-look="cyber" aria-label="<roundcube:label name="synapse_core.themearia_warfare" />" title="<roundcube:label name="synapse_core.themename_warfare" />"></button>
+	<button class="theme-dot blackops" data-theme="blackops" data-look="cyber" aria-label="<roundcube:label name="synapse_core.themearia_blackops" />" title="<roundcube:label name="synapse_core.themename_blackops" />"></button>
+	<button class="theme-dot night" data-theme="night" data-look="cyber" aria-label="<roundcube:label name="synapse_core.themearia_night" />" title="<roundcube:label name="synapse_core.themename_night" />"></button>
+	<button class="theme-dot agency" data-theme="agency" data-look="cyber" aria-label="<roundcube:label name="synapse_core.themearia_agency" />" title="<roundcube:label name="synapse_core.themename_agency" />"></button>
+	<button class="theme-dot lumen-blush" data-theme="lumen-blush" data-look="lumen" aria-label="<roundcube:label name="synapse_core.theme_lumen_blush" />" title="<roundcube:label name="synapse_core.theme_lumen_blush" />"></button>
+	<button class="theme-dot lumen-lagoon" data-theme="lumen-lagoon" data-look="lumen" aria-label="<roundcube:label name="synapse_core.theme_lumen_lagoon" />" title="<roundcube:label name="synapse_core.theme_lumen_lagoon" />"></button>
+	<button class="theme-dot lumen-dusk" data-theme="lumen-dusk" data-look="lumen" aria-label="<roundcube:label name="synapse_core.theme_lumen_dusk" />" title="<roundcube:label name="synapse_core.theme_lumen_dusk" />"></button>
+	<button class="theme-dot soft" data-theme="soft" data-look="cyber" aria-label="<roundcube:label name="synapse_core.themearia_soft" />" title="<roundcube:label name="synapse_core.theme_soft" />"></button>
 </aside>
 
 <footer class="security-footer">

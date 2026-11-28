@@ -179,7 +179,7 @@
   }
 
   function step(now) {
-    if (document.hidden) return requestAnimationFrame(step);
+    if (document.hidden || document.documentElement.dataset.look == 'lumen') return requestAnimationFrame(step); // Lumen has no HUD
     if (now - last < 41) return requestAnimationFrame(step);
     var dt = Math.min(0.1, (now - last) / 1000); last = now;
     var t = (now - t0) / 1000;

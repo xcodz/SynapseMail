@@ -17,9 +17,12 @@
 <head>
 	<roundcube:object name="meta" />
 	<roundcube:object name="links" />
-	<script>try { var h = document.documentElement, m = /(?:^|;\s*)synapsemail_theme2=([a-z]+)/.exec(document.cookie), th = (m && m[1]) || localStorage.getItem('synapsemail-theme2') || 'agency';
-	// "auto": Soft Light by day, the last dark theme by night
-	if (th == 'auto') { h.dataset.themeAuto = '1'; th = matchMedia('(prefers-color-scheme: light)').matches ? 'soft' : (localStorage.getItem('synapsemail-dark') || 'agency'); }
+	<script>try { var h = document.documentElement, m = /(?:^|;\s*)synapsemail_theme2=([a-z-]+)/.exec(document.cookie), th = (m && m[1]) || localStorage.getItem('synapsemail-theme2') || 'agency', day = matchMedia('(prefers-color-scheme: light)').matches;
+	// "auto": Soft Light by day, the last dark theme by night; "lumen-auto": the last light Lumen style by day, Dusk by night
+	if (th == 'auto') { h.dataset.themeAuto = '1'; th = day ? 'soft' : (localStorage.getItem('synapsemail-dark') || 'agency'); }
+	if (th == 'lumen-auto') { h.dataset.themeAuto = '1'; th = day ? (localStorage.getItem('synapsemail-lumen-light') || 'lumen-blush') : 'lumen-dusk'; }
+	// Lumen: data-look and data-lumen carry the design and style; its light styles build on Soft Light's tokens
+	if (/^lumen-(blush|lagoon|dusk)$/.test(th)) { h.dataset.look = 'lumen'; h.dataset.lumen = th.slice(6); th = th == 'lumen-dusk' ? 'lumen' : 'soft'; }
 	h.dataset.theme = th;
 	// appearance settings (Settings > Appearance), whitelisted: motion, effects, text, contrast, links
 	var u = /(?:^|;\s*)synapsemail_ui=([a-z0-9.-]+)/.exec(document.cookie), ok = { motion: /^(reduce|off)$/, effects: /^off$/, text: /^(small|large|larger)$/, contrast: /^more$/, links: /^underline$/ };
@@ -35,5 +38,6 @@
 		<link rel="stylesheet" href="/styles.css">
 	<roundcube:endif />
 	<link rel="stylesheet" href="/synapse.css">
+	<link rel="stylesheet" href="/lumen.css">
 </head>
 <body class="task-<roundcube:exp expression="env:error_task ?: env:task ?: 'error'"> action-<roundcube:exp expression="asciiwords(env:action, true, '-') ?: 'none'"><roundcube:exp expression="env:framed && !env:extwin ? ' framed' : ''"><roundcube:exp expression="env:task == 'login' ? ' booting' : ''">">
