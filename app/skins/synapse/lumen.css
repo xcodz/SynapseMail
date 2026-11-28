@@ -113,11 +113,13 @@
 :root[data-look="lumen"] :is(*) { scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent; }
 
 /* ---------- the glass window ---------- */
+/* the glass is a layer behind the window, never a filter on it: a filter would trap the fixed panels inside
+   (reader on tablets, folder menu on phones) under the page's dimming layer */
+:root[data-look="lumen"] .app-shell::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); pointer-events: none;
+  -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); }
 @media (min-width: 1101px) {
-  :root[data-look="lumen"] .app-shell { height: calc(100dvh - 2 * var(--gap)); margin: var(--gap) max(var(--gap), calc((100vw - 1880px) / 2)); border-radius: var(--r-win); isolation: isolate;
-    box-shadow: var(--shadow-win); }
-  :root[data-look="lumen"] .app-shell::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass); border: 1px solid var(--glass-edge);
-    -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); pointer-events: none; }
+  :root[data-look="lumen"] .app-shell { height: calc(100dvh - 2 * var(--gap)); margin: var(--gap) max(var(--gap), calc((100vw - 1880px) / 2)); border-radius: var(--r-win); box-shadow: var(--shadow-win); }
+  :root[data-look="lumen"] .app-shell::after { border: 1px solid var(--glass-edge); }
   :root[data-look="lumen"] .app-shell > * { min-height: 0; }
 }
 :root[data-look="lumen"] .app-shell { grid-template-columns: var(--rail) var(--sidebar) minmax(0, 1fr);
@@ -127,9 +129,6 @@
   :root[data-look="lumen"] .topbar { grid-template-columns: 46px minmax(0, 1fr) auto; padding: 0 8px 0 4px; gap: 6px; }
   :root[data-look="lumen"] .mail-stage { padding: 0 8px 8px; }
   :root[data-look="lumen"] .mobile-nav-open .mail-sidebar { background: var(--pop); border-radius: 0 22px 22px 0; -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); box-shadow: var(--shadow-pop); }
-}
-@media (max-width: 1100px) {
-  :root[data-look="lumen"] .app-shell { background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3); }
 }
 
 /* top row over the list and reader: search, theme menu, quick actions, account */
@@ -613,3 +612,9 @@
 :root[data-look="lumen"] .hud-toast em { font-size: 11px; font-style: normal; }
 :root[data-look="lumen"] .hud-toast-timer { height: 3px; border-radius: 0 3px 3px 0; }
 :root[data-look="lumen"] .hud-toast:not(.error):not(.warning):not(.loading) { --tc: var(--unread); }
+@media (min-width: 1101px) {
+  :root[data-look="lumen"] .mail-stage.reader-active .reader-pane { border: 1px solid var(--glass-edge); border-radius: var(--r-card); background: var(--glass-2); overflow: hidden; }
+}
+@media (max-width: 1100px) {
+  :root[data-look="lumen"] .reader-pane { background: var(--pop); border-radius: var(--r-card) 0 0 var(--r-card); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
+}
