@@ -126,8 +126,6 @@
   grid-template-rows: var(--topbar) minmax(0, 1fr); grid-template-areas: "rail side top" "rail side main"; }
 @media (max-width: 680px) {
   :root[data-look="lumen"] .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "main"; }
-  :root[data-look="lumen"] .topbar { grid-template-columns: 46px minmax(0, 1fr) auto; padding: 0 8px 0 4px; gap: 6px; }
-  :root[data-look="lumen"] .mail-stage { padding: 0 8px 8px; }
   :root[data-look="lumen"] .mobile-nav-open .mail-sidebar { background: var(--pop); border-radius: 0 22px 22px 0; -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); box-shadow: var(--shadow-pop); }
 }
 
@@ -657,3 +655,11 @@
 :root[data-look="lumen"] .reader-header #closeReader:hover { background: var(--selected); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 :root[data-look="lumen"] .back-label { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-look="lumen"] .back-label:empty { display: none; }
+
+/* phones: the top bar and the stage padding (after the general rules above, so they win) */
+@media (max-width: 680px) {
+  :root[data-look="lumen"] .topbar { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px; padding: 0 10px 0 6px; }
+  :root[data-look="lumen"] .search-command { min-width: 0; }
+  :root[data-look="lumen"] .mail-stage { padding: 0 8px 8px; }
+}
+:root[data-look="lumen"] .header-actions > * { flex: none; }
